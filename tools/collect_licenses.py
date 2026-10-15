@@ -17,7 +17,10 @@ for dist in distributions():
                 target.mkdir(exist_ok=True)
                 shutil.copyfile(source, target / (str(entry).replace("/", "_").replace("\\", "_")))
     if target.exists():
-        (target / "METADATA.txt").write_text(str(dist.metadata), encoding="utf-8")
+        # Preserve raw metadata: serializing legacy email headers rejects some
+        # valid multi-line descriptions on Python 3.14 (for example altgraph).
+        (target / "METADATA.txt").write_text(dist.read_text("METADATA") or
+                                            dist.read_text("PKG-INFO") or name, encoding="utf-8")
 python_license = Path(sys.base_prefix) / "LICENSE.txt"
 if python_license.exists():
     shutil.copyfile(python_license, out / "Python-LICENSE.txt")
