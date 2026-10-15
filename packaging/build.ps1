@@ -41,4 +41,4 @@ $checksums = Get-ChildItem -LiteralPath 'dist/release' -File | Where-Object Name
     "$hash  $($_.Name)"
 }
 $checksums | Set-Content -LiteralPath 'dist/release/SHA256SUMS.txt' -Encoding ascii
-Write-Host "Cloud Island $version: dist/release"
+Write-Host "Cloud Island ${version}: dist/release"
