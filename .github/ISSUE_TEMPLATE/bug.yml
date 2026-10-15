@@ -1,0 +1,27 @@
+name: Ошибка / Bug
+description: Сообщить о проблеме в Cloud Island
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Версия Cloud Island
+      description: Видна в меню по правому щелчку.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows и экран
+      placeholder: Windows 11, масштаб 125%, два экрана
+  - type: textarea
+    id: steps
+    attributes:
+      label: Что произошло и как повторить
+      description: Укажи приложение/плеер и ожидаемое поведение. Не прикладывай личные заметки или приватные файлы.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Скриншот или фрагмент crash.log
+      description: Папка данных открывается через меню. Перед отправкой убери личную информацию.
