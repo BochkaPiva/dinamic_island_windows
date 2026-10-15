@@ -90,7 +90,7 @@ class MediaWorker(QThread):
                         position = max(0, timeline.position.total_seconds()-start)
                         if playing:
                             elapsed = (datetime.now(timezone.utc)-timeline.last_updated_time).total_seconds()
-                            position += max(0, min(3, elapsed))
+                            position += max(0, elapsed)
                         controls = info.controls
                         key = (session.source_app_user_model_id, props.title, props.artist)
                         # Retry missing art: some players publish metadata before the image.

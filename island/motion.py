@@ -383,7 +383,7 @@ class NotchStage:
         timer = bool(hub._timer_end)
         w.art_label.setVisible(session and not notice)
         audio = w._notch_audio_active
-        w.status_mark.setVisible((session or audio) and not notice)
+        w.status_mark.setVisible((session or audio) and not notice and w.settings.get("spectrum"))
         w.art_label.setFixedSize(26, 26)
         w.art_label.move(20, max(2, (ch - 26) // 2 - 1))
         w.status_mark.move(cw - w.status_mark.width() - 20, (ch - w.status_mark.height()) // 2)
