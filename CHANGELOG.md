@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.2
+
+- Fix volume direction for natural touchpad scrolling without reversing ordinary mouse wheels.
+- Respect Qt's inversion flag and identify Windows Precision Touchpad wheel messages before Qt loses their device metadata.
+- Accumulate high-resolution wheel/pixel packets, avoiding a volume key press for every tiny touchpad movement.
+- Add an optional scroll-direction override for older drivers that do not identify their input source.
+- Regression tests cover both devices, Windows scrolling preferences, Qt inversion, fine deltas and Windows volume key dispatch.
+
 ## v0.1.1
 
 First public release of Cloud Island for Windows x64. Includes all v0.1.0 features below.

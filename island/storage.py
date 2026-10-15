@@ -13,7 +13,7 @@ def data_dir():
 
 class Settings:
     DEFAULTS = {"updates": True, "autostart": False, "hide_fullscreen": True,
-                "spectrum": True, "source": "", "monitor": ""}
+                "spectrum": True, "source": "", "monitor": "", "volume_scroll_reverse": False}
 
     def __init__(self, directory=None):
         self.directory = Path(directory) if directory else data_dir()

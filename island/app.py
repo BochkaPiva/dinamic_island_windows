@@ -19,6 +19,7 @@ from .storage import Settings
 from .style import NotchCard, SpectrumMark, rounded_art, app_icon, font
 from .updates import UpdateChecker
 from .instance import InstanceServer, notify_existing, server_name
+from .volume_scroll import NativeWheelSource, VolumeScroll
 
 
 class ArtLabel(QLabel):
@@ -61,6 +62,8 @@ class IslandWindow(QWidget):
         self.setWindowIcon(app_icon())
         self.setMouseTracking(True)
         self.settings = settings or Settings()
+        self._wheel_source = NativeWheelSource(QApplication.instance())
+        self._volume_scroll = VolumeScroll(adjust_volume, self._wheel_source)
         self._services = services
         self._closed = False
         self.snapshot = Snapshot()
@@ -201,8 +204,7 @@ class IslandWindow(QWidget):
             self._set_island_expanded(True)
 
     def wheelEvent(self, event):
-        if event.angleDelta().y():
-            adjust_volume(event.angleDelta().y())
+        self._volume_scroll.handle(event, reverse=self.settings.get("volume_scroll_reverse"))
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -330,6 +332,7 @@ class IslandWindow(QWidget):
         menu.addAction("Открыть остров", self._show_panel)
         menu.addSeparator()
         for key, title in (("autostart", "Запускать с Windows"), ("spectrum", "Живой спектр звука"),
+                           ("volume_scroll_reverse", "Обратить громкость при прокрутке"),
                            ("hide_fullscreen", "Скрывать в полноэкранных приложениях"), ("updates", "Проверять обновления")):
             action = menu.addAction(title)
             action.setCheckable(True)
@@ -395,6 +398,7 @@ class IslandWindow(QWidget):
         if self._closed:
             return
         self._closed = True
+        self._wheel_source.close()
         self.notch_hub.save_notes()
         self._notch_pointer_timer.stop()
         self._system_timer.stop()

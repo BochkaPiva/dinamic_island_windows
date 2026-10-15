@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image
 from PyQt6.QtCore import QBuffer, QIODevice, QPoint, QPointF, Qt
@@ -100,9 +101,26 @@ with tempfile.TemporaryDirectory() as folder:
         assert (w.width(), w.height()) == (620, 266)
         assert len(panel_sizes) == 1
         assert w.x()+w.width()//2 == center
+        # Send wheel messages only to our own test window. Device identification
+        # is supplied by a fixture; real Qt timestamps/routing remain intact.
+        # The output callback is replaced, so no system volume is changed.
+        w._notch_pointer.enabled = False
+        actions = []
+        w._volume_scroll.output = actions.append
+        w._volume_scroll.preference = lambda: False
+        position = w.mapToGlobal(QPoint(300, 5))
+        scale = w.devicePixelRatioF()
+        lparam = (round(position.x()*scale) & 0xffff) | ((round(position.y()*scale) & 0xffff) << 16)
+        user.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+        for device, expected in ((0x10, -1), (0x02, 1)):
+            with patch("island.volume_scroll.current_input_device", return_value=device):
+                assert user.PostMessageW(ctypes.c_void_p(int(w.winId())), 0x020A, 120 << 16, lparam)
+                QTest.qWait(80)
+            assert actions and actions[-1] == expected, (device, actions)
         w.grab().save(str(out/"overview.png"))
         (out/"report.json").write_text(json.dumps({"click_through": True, "tab_click": True,
-               "top_edge_open": True, "fixed_content": True, "centered": True}), encoding="utf-8")
+               "top_edge_open": True, "fixed_content": True, "centered": True,
+               "volume_native_routing": True}), encoding="utf-8")
         print("Native mouse routing, edge activation and fixed composition: PASS")
     finally:
         w.cleanup()
