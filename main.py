@@ -33,9 +33,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", metavar="REPORT")
     parser.add_argument("--audio-self-test", metavar="REPORT")
+    parser.add_argument("--quit", action="store_true", help="Gracefully close the current user's running instance")
     args = parser.parse_args()
     if args.self_test or args.audio_self_test:
         return self_test(args.self_test or args.audio_self_test, bool(args.audio_self_test))
+    if args.quit:
+        from PyQt6.QtCore import QCoreApplication
+        from island.instance import notify_existing
+        app = QCoreApplication([])
+        notify_existing("quit")
+        return 0
     from island.app import run
     from island.storage import data_dir
     import traceback

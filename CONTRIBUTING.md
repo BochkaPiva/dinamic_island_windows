@@ -14,6 +14,7 @@ credentials, settings and build outputs must never be committed.
 - `island/hub.py`: calendar, timer, notes and file-reference shelf.
 - `island/updates.py`: stable releases from this repository, no silent execution.
 - `island/storage.py`: per-user atomic settings persistence.
+- `island/instance.py`: same-user local activation and graceful installer shutdown.
 
 ## Validation
 
@@ -28,6 +29,8 @@ specific browser has been verified. Native tests use only their own fixture.
 Build with `packaging/build.ps1`; it checks that the packaged runtime imports Qt,
 the spectrum dependencies and WinRT. Installer and portable archive must contain
 notices, and the release must include matching source and checksums.
+For lifecycle/installer changes run `python tools/check_instance.py` and test
+installing over a running packaged app; notes and settings must survive.
 
 ## Publish a release
 

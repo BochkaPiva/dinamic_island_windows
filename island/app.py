@@ -18,6 +18,7 @@ from .platform_win import autostart, is_fullscreen, adjust_volume
 from .storage import Settings
 from .style import NotchCard, SpectrumMark, rounded_art, app_icon, font
 from .updates import UpdateChecker
+from .instance import InstanceServer, notify_existing, server_name
 
 
 class ArtLabel(QLabel):
@@ -413,10 +414,16 @@ def run():
     app.setOrganizationName("BochkaPiva")
     app.setFont(font(12))
     app.setQuitOnLastWindowClosed(False)
-    lock = QSharedMemory("BochkaPiva.CloudIsland.Desktop.v1")
+    if notify_existing("show"):
+        return 0
+    lock = QSharedMemory(server_name())
     if not lock.create(1):
         return 0
     window = IslandWindow()
+    server = InstanceServer(window, app)
+    if not server.listen():
+        window.cleanup()
+        return 1
     app.aboutToQuit.connect(window.cleanup)
     window.show()
     return app.exec()

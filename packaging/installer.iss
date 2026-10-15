@@ -51,6 +51,28 @@ Name: "{autodesktop}\Cloud Island"; Filename: "{app}\CloudIsland.exe"; Tasks: de
 Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Cloud Island}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+procedure CloseIsland;
+var
+  ResultCode: Integer;
+begin
+  if FileExists(ExpandConstant('{app}\CloudIsland.exe')) then begin
+    Exec(ExpandConstant('{app}\CloudIsland.exe'), '--quit', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(500);
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  CloseIsland;
+  Result := '';
+end;
+
+function InitializeUninstall: Boolean;
+begin
+  CloseIsland;
+  Result := True;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then

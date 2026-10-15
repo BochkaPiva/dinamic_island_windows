@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.1
+
+First public release of Cloud Island for Windows x64. Includes all v0.1.0 features below.
+
+- Graceful same-user local shutdown before installer upgrades and uninstallation.
+- Opening a second instance activates the existing panel.
+- The v0.1.0 preview build was held back after the live upgrade test exposed a slow Windows Restart Manager shutdown.
+
 ## v0.1.0
 
 First independent Cloud Island release for Windows x64.
