@@ -3,7 +3,7 @@
 import os
 import unittest
 from unittest.mock import Mock, patch
-from island.platform_win import is_desktop_window, is_fullscreen
+from island.platform_win import is_desktop_window, is_fullscreen, exclude_from_peek
 from island.motion import top_application
 
 
@@ -68,6 +68,27 @@ class DesktopTests(unittest.TestCase):
             getattr(user, method).return_value = 0
             with patch("island.platform_win.ctypes.windll.user32", user):
                 self.assertFalse(is_fullscreen(self.owner))
+
+    def test_peek_exclusion_targets_only_our_window_with_win32_bool(self):
+        dwm = Mock()
+        dwm.DwmSetWindowAttribute.return_value = 0
+        with patch("island.platform_win.ctypes.windll.dwmapi", dwm):
+            self.assertTrue(exclude_from_peek(self.owner))
+        handle, attribute, value, size = dwm.DwmSetWindowAttribute.call_args.args
+        self.assertEqual(hwnd(handle), 1000)
+        self.assertEqual(attribute, 12)  # EXCLUDED_FROM_PEEK, not DISALLOW_PEEK
+        self.assertEqual(value._obj.value, 1)
+        self.assertEqual(size, 4)
+
+    def test_peek_api_failure_does_not_crash_the_overlay(self):
+        for failure in (-2147024809, OSError("DWM unavailable")):
+            dwm = Mock()
+            if isinstance(failure, Exception):
+                dwm.DwmSetWindowAttribute.side_effect = failure
+            else:
+                dwm.DwmSetWindowAttribute.return_value = failure
+            with patch("island.platform_win.ctypes.windll.dwmapi", dwm):
+                self.assertFalse(exclude_from_peek(self.owner))
 
 
 if __name__ == "__main__":

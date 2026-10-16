@@ -15,7 +15,7 @@ from .hub import NotchHub, battery_state, fmt
 from .media import MediaWorker, Snapshot
 from .motion import NotchStage, PointerController, SpringGeometry
 from .platform_win import (autostart, is_fullscreen, adjust_volume,
-                           desktop_is_foreground, keep_desktop_visible)
+                           desktop_is_foreground, keep_desktop_visible, exclude_from_peek)
 from .storage import Settings
 from .style import NotchCard, SpectrumMark, rounded_art, app_icon, font
 from .updates import UpdateChecker
@@ -186,6 +186,12 @@ class IslandWindow(QWidget):
             self._island_auto_timer.start(600)
         else:
             self._set_island_expanded(False)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # DWM owns taskbar Peek fading, independently of Qt visibility/z-order.
+        # Apply to the real HWND on every show, including a recreated window.
+        exclude_from_peek(self)
 
     def resizeEvent(self, event):
         self.card.setGeometry(self.rect())

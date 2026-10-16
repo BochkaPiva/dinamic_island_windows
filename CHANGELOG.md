@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.4
+
+- Exclude the island from Windows Peek fading when previewing another application's taskbar thumbnail.
+- Apply the native DWM setting whenever the island is shown, including after restoring or recreating its window.
+- Keep other applications' previews enabled and preserve intentional tray/full-screen hiding.
+- Verify Windows accepts the DWM exclusion on a real overlay and after HWND recreation, alongside desktop recovery and focus preservation.
+
 ## v0.1.3
 
 - Keep the island visible after activating the desktop or using Show Desktop.

@@ -60,6 +60,24 @@ def desktop_is_foreground():
     return is_desktop_window(user.GetForegroundWindow(), user)
 
 
+def exclude_from_peek(owner):
+    """Keep our overlay composed during another window's taskbar Peek.
+
+    Topmost alone does not prevent DWM from fading a window during Peek.
+    This per-HWND attribute leaves other applications' previews enabled.
+    Reapply after showing a newly created native window.
+    """
+    try:
+        setter = ctypes.windll.dwmapi.DwmSetWindowAttribute
+        setter.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint)
+        setter.restype = ctypes.c_long  # HRESULT
+        enabled = ctypes.c_int(1)  # Win32 BOOL, not a one-byte C bool
+        return setter(ctypes.c_void_p(int(owner.winId())), 12,  # DWMWA_EXCLUDED_FROM_PEEK
+                      ctypes.byref(enabled), ctypes.sizeof(enabled)) >= 0
+    except (AttributeError, OSError):
+        return False
+
+
 def keep_desktop_visible(owner):
     """Restore only our overlay, without activating it or changing its bounds."""
     user = ctypes.windll.user32

@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
 from island.app import IslandWindow
 from island.media import Snapshot
 from island.storage import Settings
-from island.platform_win import keep_desktop_visible
+from island.platform_win import keep_desktop_visible, exclude_from_peek
 
 out = Path(sys.argv[1] if len(sys.argv) > 1 else "build/native-check")
 out.mkdir(parents=True, exist_ok=True)
@@ -69,6 +69,21 @@ with tempfile.TemporaryDirectory() as folder:
         canvas.save(data, "PNG")
         frames.append(Image.open(io.BytesIO(bytes(data.data()))).convert("RGB"))
     try:
+        # This DWM attribute is set-only: DwmGetWindowAttribute returns
+        # E_INVALIDARG. Require success from the real setter on each new HWND.
+        peek_results = []
+        def apply_peek(widget):
+            result = exclude_from_peek(widget)
+            peek_results.append((widget is w, result))
+            return result
+        with patch("island.app.exclude_from_peek", side_effect=apply_peek):
+            w.hide()
+            w.show()
+            w.hide()
+            w.destroy()
+            w.show()
+        assert peek_results == [(True, True), (True, True)], peek_results
+        QTest.qWait(50)
         pointer.tick()
         assert pointer.passthrough
         class Point(ctypes.Structure):
@@ -144,8 +159,9 @@ with tempfile.TemporaryDirectory() as folder:
         (out/"report.json").write_text(json.dumps({"click_through": True, "tab_click": True,
                "top_edge_open": True, "fixed_content": True, "centered": True,
                "volume_native_routing": True, "desktop_recovery": True,
-               "focus_preserved": True}), encoding="utf-8")
-        print("Native mouse routing, edge activation and fixed composition: PASS")
+               "focus_preserved": True, "peek_api_accepted": True,
+               "peek_reapplied_after_recreation": True}), encoding="utf-8")
+        print("Native routing, edge activation, desktop recovery and DWM Peek exclusion: PASS")
     finally:
         w.cleanup()
         w.hide()

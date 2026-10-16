@@ -145,6 +145,17 @@ class WindowTests(unittest.TestCase):
             self.assertFalse(w.isVisible())
             restore.assert_not_called()
 
+    def test_peek_exclusion_is_reapplied_on_show_and_native_window_recreation(self):
+        w = self.w
+        with patch("island.app.exclude_from_peek") as exclude:
+            w.hide()
+            w.show()
+            exclude.assert_called_once_with(w)
+            w.hide()
+            w.destroy()
+            w.show()
+            self.assertEqual(exclude.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
