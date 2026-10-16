@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.1
+
+- Fix the apparent frozen equalizer on battery: Auto/Battery now retain real loopback capture in the compact island. Process at 20 Hz instead of 40 Hz while compact on battery; expose complete suspension as an explicit opt-in setting.
+- Make the timer numbers directly editable and wheel-adjustable in the overview, Focus tab and control center. Accumulate precision-wheel deltas, validate 1–1440 minutes, preserve edits during ticks and support Enter/Escape.
+- Add an original local timer chime, bounded repetition (3–30 seconds), a visible completion state, automatic Focus reveal and a Stop action. Respect hidden/fullscreen/Game contexts and stop audio on dismissal, reset or exit.
+- Redesign search with a compact empty state, adaptive height, translucent rounded chrome, subtle highlights and custom high-contrast result painting. Elide long titles/paths and hide scrollbars while retaining scrolling and keyboard navigation.
+- Request the documented Windows 11 transient backdrop where supported; retain a painted fallback and an appearance toggle. No background screen capture or shell injection.
+- Add on-demand same-user runtime diagnostics (`--diagnostics REPORT`) without track titles, file paths or audio samples, plus regressions and a real loopback/alarm integration check.
+
 ## v0.3.0
 
 - Rebuild Cloud Hub around ten separate settings pages, a module catalog and explicit start/stop lifecycles for native modules.

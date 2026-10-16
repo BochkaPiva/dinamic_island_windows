@@ -33,10 +33,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", metavar="REPORT")
     parser.add_argument("--audio-self-test", metavar="REPORT")
+    parser.add_argument("--diagnostics", metavar="REPORT", help="Read runtime state from the current same-user instance")
     parser.add_argument("--quit", action="store_true", help="Gracefully close the current user's running instance")
     parser.add_argument("--background", action="store_true", help="Start tray and enabled modules without opening Cloud Hub")
     parser.add_argument("--island", action="store_true", help="Open the island instead of Cloud Hub")
     args = parser.parse_args()
+    if args.diagnostics:
+        from PyQt6.QtCore import QCoreApplication
+        from island.instance import query_status
+        app=QCoreApplication([])
+        result=query_status()
+        Path(args.diagnostics).write_text(json.dumps(result,indent=2),encoding="utf-8")
+        return 0 if result.get("running") else 1
     if args.self_test or args.audio_self_test:
         return self_test(args.self_test or args.audio_self_test, bool(args.audio_self_test))
     if args.quit:

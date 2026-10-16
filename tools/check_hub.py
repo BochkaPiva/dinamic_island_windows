@@ -24,6 +24,10 @@ with tempfile.TemporaryDirectory() as directory:
     settings.set("profile", "work")
     # Alt+Space may belong to a user's other launcher; don't reconfigure it.
     settings.set("hotkey_search", "Ctrl+Alt+Space")
+    # Keep a running installed instance's bindings intact during source checks.
+    settings.set("hotkey_hub","Ctrl+Alt+F10")
+    settings.set("hotkey_search","Ctrl+Alt+F11")
+    settings.set("hotkey_island","Ctrl+Alt+F12")
     with patch("island.app.is_fullscreen", return_value=False), patch("island.app.desktop_is_foreground", return_value=False):
         w = IslandWindow(settings, services=True)
         w._notch_pointer.enabled = False  # Fixture controls expansion, not the user's real cursor.
@@ -35,11 +39,16 @@ with tempfile.TemporaryDirectory() as directory:
             assert w.audio.capture_active.is_set(), "WASAPI did not start"
             w._toggle_setting("profile", "battery")
             QTest.qWait(200)
-            assert not w.audio.capture_active.is_set(), "Battery profile kept WASAPI open"
+            assert w.audio.capture_active.is_set(), "Battery profile unexpectedly disabled spectrum"
+            assert w.audio.economy.is_set()
+            w._toggle_setting("spectrum_battery_save",True)
+            QTest.qWait(200)
+            assert not w.audio.capture_active.is_set(), "Explicit battery saving kept WASAPI open"
             assert w.worker.enabled.is_set()
             w._set_island_expanded(True)
             QTest.qWait(900)
             assert w.audio.capture_active.is_set(), "Expanded battery panel did not resume spectrum"
+            w._toggle_setting("spectrum_battery_save",False)
             w._toggle_setting("profile", "game")
             QTest.qWait(1200)
             assert not w.isVisible()
@@ -72,7 +81,7 @@ with tempfile.TemporaryDirectory() as directory:
             w._set_island_expanded(False)
             QTest.qWait(1200)
             assert w.isVisible() and w.worker.poll_active.is_set()
-            assert not w.audio.capture_active.is_set()
+            assert w.audio.capture_active.is_set()
             usage = ProcessUsage()
             usage.sample()
             QTest.qWait(6000)
@@ -83,7 +92,7 @@ with tempfile.TemporaryDirectory() as directory:
             QTest.qWait(100)
             hub.grab().save(str(out/"overview.png"))
             (out/"report.json").write_text(json.dumps({"native_profile_switching": True,
-                "battery_capture_suspended": True, "expanded_capture_resumed": True,
+                "battery_capture_continues": True, "explicit_battery_saving": True, "expanded_capture_resumed": True,
                 "game_all_services_suspended": True, "work_restored": True,
                 "hub_refresh_stops_when_hidden": True, "native_hub_hotkey": True,
                 "native_search_hotkey": True,

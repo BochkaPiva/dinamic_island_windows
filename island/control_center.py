@@ -306,7 +306,7 @@ class ControlCenter(QWidget, SettingsPages):
         self.policy_label.setText(f"Сейчас: {PROFILES[w._policy.profile]}. " +
             ("Модули на паузе." if w.settings.get("paused") else
              "Чёлка и медиаслужбы остановлены." if not w._policy.island else
-             "Спектр включается при раскрытии чёлки." if w._policy.profile == "battery" else "Все выбранные модули доступны."))
+             "Спектр в свёрнутой чёлке отключён настройкой экономии." if w._policy.profile == "battery" and w.settings.get("spectrum_battery_save") else "Все выбранные модули доступны."))
         bridge = w.powertoys
         bridge.root = powertoys_root()
         self.integration_status.setText(bridge.status if w.settings.get("manage_powertoys") or bridge.busy else "Не подключён · изменения PowerToys не применяются")

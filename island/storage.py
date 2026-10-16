@@ -13,7 +13,9 @@ def data_dir():
 
 class Settings:
     DEFAULTS = {"updates": True, "autostart": False, "hide_fullscreen": True,
-                "spectrum": True, "source": "", "monitor": "", "volume_scroll_reverse": False,
+                "spectrum": True, "spectrum_battery_save": False,
+                "timer_sound": True, "timer_alarm_seconds": 12,
+                "source": "", "monitor": "", "volume_scroll_reverse": False,
                 "profile": "auto", "paused": False, "island_enabled": True,
                 "search_enabled": True, "layouts_enabled": True, "workspaces_enabled": True,
                 "manage_powertoys": False,
@@ -22,7 +24,7 @@ class Settings:
                 "island_files": False,
                 "overview_calendar": True, "overview_focus": True,
                 "hover_delay": 180, "collapse_delay": 600, "cursor_retreat": True,
-                "timer_minutes": 25, "search_apps": True, "search_files": True,
+                "timer_minutes": 25, "search_apps": True, "search_files": True, "search_glass": True,
                 "desktop_enabled": True, "group_width": 300, "group_columns": 3,
                 "group_opacity": 90, "group_hover_delay": 220, "group_collapse_delay": 650,
                 "groups_locked": False, "hotkey_hub": "Ctrl+Alt+H",
@@ -32,6 +34,7 @@ class Settings:
               "expanded_width": (520, 1000), "expanded_height": (160, 460),
               "island_opacity": (55, 100), "hover_delay": (80, 1500),
               "collapse_delay": (200, 3000), "timer_minutes": (1, 1440),
+              "timer_alarm_seconds": (3, 30),
               "group_width": (240, 480), "group_columns": (2, 5),
               "group_opacity": (40, 100), "group_hover_delay": (80, 1500),
               "group_collapse_delay": (200, 3000)}

@@ -10,6 +10,7 @@ from .modules import MODULES
 from .policy import PROFILES
 from .hub import FileShelf, fmt
 from .notebook import Notebook
+from .timer import TimerReadout
 
 
 PAGES = (("hub","Обзор","overview_page"),
@@ -118,7 +119,7 @@ class SettingsPages:
             inside.addWidget(self.action("Настроить →",lambda _,k=target:self.navigate(k)))
             grid.addWidget(frame,index//2,index%2)
         layout.addLayout(grid)
-        layout.addWidget(text("Авто: от сети — «Работа», без зарядки — «Батарея». В «Батарее» спектр включается только при раскрытии чёлки. «Игра» и пауза останавливают модули; запущенный таймер продолжает отсчёт.",True))
+        layout.addWidget(text("Авто: от сети — «Работа», без зарядки — «Батарея». От батареи спектр обновляется реже, но продолжает работать. «Игра» и пауза останавливают модули; запущенный таймер продолжает отсчёт.",True))
         layout.addStretch()
 
     def island_page(self):
@@ -142,6 +143,7 @@ class SettingsPages:
         self.number(inside,"collapse_delay","Сворачивание после ухода"," мс")
         self._module(inside,"cursor_retreat","Уворачиваться от курсора","Освобождает вкладки браузера; верхний край экрана раскрывает чёлку")
         self._module(inside,"spectrum","Реальный спектр звука","Анализ воспроизводимого звука; микрофон не используется")
+        self._module(inside,"spectrum_battery_save","Отключать спектр в свёрнутой чёлке от батареи","Дополнительная экономия. По умолчанию выключена: спектр реагирует на звук и без зарядки")
         self._module(inside,"hide_fullscreen","Скрывать в полноэкранных приложениях","В обычных и развёрнутых окнах чёлка остаётся доступна")
         self._module(inside,"volume_scroll_reverse","Обратить прокрутку громкости","Для нестандартного направления драйвера тачпада")
         self._module(inside,"island_files","Дополнительная вкладка «Полка»","Промежуточные ссылки: перетаскивание из Проводника в полку и дальше в другое приложение")
@@ -167,6 +169,7 @@ class SettingsPages:
         layout = self._page()
         self.heading(layout,"Быстрый поиск","Одна строка для приложений, файлов и команд Cloud Hub. Управление: ↑ ↓, Enter и Esc.")
         self._module(layout,"search_enabled","Включить поиск Cloud Hub","Собственный модуль; PowerToys Command Palette для него не нужен")
+        self._module(layout,"search_glass","Стеклянное оформление","Мягкое тонирование и блики; системный фон Windows 11 там, где он доступен")
         self._module(layout,"search_apps","Приложения и ярлыки","Меню «Пуск» и рабочий стол; каталог обновляется по запросу")
         self._module(layout,"search_files","Файлы из индекса Windows","По имени файла. Только индексированные Windows папки, без своего фонового обхода диска")
         layout.addWidget(self.action("Открыть поиск",self.owner.show_search))
@@ -322,9 +325,7 @@ class SettingsPages:
         layout = self._page()
         self.heading(layout,"Фокус и таймер","От 1 минуты до 24 часов. Пауза сохраняет оставшееся время; изменение длительности начинает новый отсчёт.")
         frame,inside = self.card("Твой интервал")
-        self.timer_label = QLabel()
-        self.timer_label.setObjectName("timer")
-        self.timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.timer_label = TimerReadout(self.owner.notch_hub,48)
         inside.addWidget(self.timer_label)
         self.number(inside,"timer_minutes","Длительность"," мин")
         row = QHBoxLayout()
@@ -338,7 +339,12 @@ class SettingsPages:
             quick.addWidget(self.action(str(minutes)+" мин",lambda _,n=minutes:self._setting("timer_minutes",n)))
         inside.addLayout(quick)
         layout.addWidget(frame)
-        layout.addWidget(text("По завершении — уведомление Windows и сообщение в чёлке. Отсчёт продолжается при закрытом окне настроек. При полном выходе из Cloud Hub таймер останавливается.",True))
+        frame,inside = self.card("Завершение таймера","Звуковой сигнал, раскрытие вкладки «Фокус» и уведомление. Кнопка «Остановить» прекращает сигнал; новый отсчёт или сброс тоже убирает его.")
+        self._module(inside,"timer_sound","Звуковой сигнал","Повторяется ограниченное время; громкость определяется обычной громкостью Windows")
+        self.number(inside,"timer_alarm_seconds","Длительность сигнала"," сек")
+        inside.addWidget(self.action("Прослушать сигнал",self.preview_timer_sound))
+        layout.addWidget(frame)
+        layout.addWidget(text("Меняй минуты колесом прямо на цифрах или щёлкни по ним и введи число. Enter применяет, Esc отменяет. Отсчёт продолжается при скрытом окне; полный выход останавливает таймер. В профиле «Игра» сигнал звучит без раскрытия чёлки поверх игры.",True))
         layout.addStretch()
         self.focus_tick = QTimer(self)
         self.focus_tick.setInterval(1000)
@@ -358,8 +364,17 @@ class SettingsPages:
 
     def refresh_timer_display(self):
         hub = self.owner.notch_hub
-        self.timer_label.setText(fmt(hub.timer_seconds()))
-        self.focus_start.setText("Пауза" if hub._timer_end else "Продолжить" if hub.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
+        self.timer_label.refresh()
+        self.focus_start.setText("Остановить сигнал" if hub.alarm.active else "Пауза" if hub._timer_end else "Продолжить" if 0 < hub.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
+
+    def preview_timer_sound(self):
+        import winsound
+        if self.owner.notch_hub.alarm.active:
+            self.owner.notch_hub.alarm.dismiss()
+        try:
+            winsound.PlaySound(str(Path(__file__).parent/"assets/timer-chime.wav"),winsound.SND_FILENAME|winsound.SND_ASYNC|winsound.SND_NODEFAULT)
+        except (RuntimeError,OSError):
+            self._message("Звук недоступен — проверь устройство вывода и громкость Windows")
 
     def shortcuts_page(self):
         from .control_center import text

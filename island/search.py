@@ -12,6 +12,7 @@ import time
 from PyQt6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, pyqtSignal, QProcess
 from PyQt6.QtGui import QDesktopServices, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QLabel, QStyle
+from .search_ui import SearchPresentation
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,7 @@ class Signals(QObject):
     completed = pyqtSignal(int, object, str)
 
 
-class SearchPalette(QWidget):
+class SearchPalette(SearchPresentation, QWidget):
     def __init__(self, owner):
         super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.owner, self.enabled = owner, True
@@ -111,24 +112,7 @@ class SearchPalette(QWidget):
         self.catalog_loading = False
         self.pending = None
         self.setWindowTitle("Cloud Hub — Поиск")
-        self.resize(720, 500)
-        self.setStyleSheet("""QWidget {background:#171c24;color:#edf0f6;font:14px 'Segoe UI';}
-            QLineEdit {background:#232b37;border:1px solid #526d94;border-radius:12px;padding:15px;font-size:20px;}
-            QListWidget {border:0;background:#171c24;outline:0;} QListWidget::item {padding:13px;border-radius:8px;}
-            QListWidget::item:selected {background:#344f73;} QLabel {color:#aebbd0;padding:5px;}""")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 14)
-        self.input = QLineEdit()
-        self.input.setPlaceholderText("Приложение, файл или команда…")
-        self.input.setClearButtonEnabled(True)
-        self.input.installEventFilter(self)
-        layout.addWidget(self.input)
-        self.results = QListWidget()
-        self.results.itemActivated.connect(lambda _: self.activate())
-        layout.addWidget(self.results, 1)
-        self.status = QLabel("↑ ↓ выбрать · Enter открыть · Esc закрыть")
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        self.build_presentation()
         self.debounce = QTimer(self)
         self.debounce.setSingleShot(True)
         self.debounce.timeout.connect(self._indexed)
@@ -144,6 +128,7 @@ class SearchPalette(QWidget):
             self.hide()
         elif self.enabled:
             screen = self.owner.screen().availableGeometry()
+            self.resize(min(640,screen.width()-40),self.height())
             self.move(screen.center().x()-self.width()//2, screen.top()+max(60, screen.height()//6))
             self.show()
             self.raise_()
@@ -187,15 +172,16 @@ class SearchPalette(QWidget):
         if self.pending is not None:
             self.pending.cancel()
         terms = query.casefold().split()
-        rows = [r for r in self._commands() if all(t in r.title.casefold() for t in terms)]
-        if self.owner.settings.get("search_apps"):
+        rows = [r for r in self._commands() if all(t in r.title.casefold() for t in terms)] if terms else []
+        if terms and self.owner.settings.get("search_apps"):
             rows += [r for r in self.catalog if all(t in r.title.casefold() for t in terms)][:40]
         direct = Path(os.path.expandvars(query.strip(' "'))) if query.strip() else None
         if direct and direct.is_absolute() and direct.exists():
             rows.insert(0, Result(direct.name, str(direct), str(direct)))
         self._set_rows(rows)
-        self.status.setText("↑ ↓ выбрать · Enter открыть · Esc закрыть" +
-                            (" · ищу в индексе…" if len(query.strip()) >= 2 and self.owner.settings.get("search_files") else ""))
+        self.status.setText("Приложения · файлы · команды" if not terms else
+                            "Ищу в индексе Windows…" if self.owner.settings.get("search_files") and len(query.strip())>=2 else
+                            "Ничего не найдено" if not rows else "Найдено: "+str(len(rows)))
         if len(query.strip()) >= 2 and self.owner.settings.get("search_files") and self.isVisible():
             self.debounce.start(350)
 
@@ -207,15 +193,13 @@ class SearchPalette(QWidget):
             if result.target in existing:
                 continue
             item = QListWidgetItem(result.title+"\n"+result.detail)
-            icon = (QStyle.StandardPixmap.SP_ComputerIcon if result.kind in {"app","store"} else
-                    QStyle.StandardPixmap.SP_FileDialogDetailedView if result.kind == "command" else QStyle.StandardPixmap.SP_FileIcon)
-            item.setIcon(self.style().standardIcon(icon))
             item.setToolTip(result.detail)
             item.setData(Qt.ItemDataRole.UserRole, result)
             self.results.addItem(item)
             existing.add(result.target)
         if self.results.currentRow() < 0 and self.results.count():
             self.results.setCurrentRow(0)
+        self.update_presentation()
 
     def _indexed(self):
         self.pending = self._submit(self.generation, indexed_files, self.input.text())
@@ -228,7 +212,7 @@ class SearchPalette(QWidget):
                 self._query(self.input.text())
         elif generation == self.generation and self.isVisible():
             self._set_rows(rows, append=True)
-            self.status.setText(status+" · ↑ ↓ выбрать · Enter открыть · Esc закрыть")
+            self.status.setText(status if not self.results.count() else "Найдено: "+str(self.results.count())+" · "+status)
 
     def activate(self):
         item = self.results.currentItem()
@@ -269,6 +253,7 @@ class SearchPalette(QWidget):
 
     def hideEvent(self, event):
         self.debounce.stop()
+        self.height_animation.stop()
         if self.pending is not None:
             self.pending.cancel()
         self.generation += 1

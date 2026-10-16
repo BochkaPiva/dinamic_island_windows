@@ -23,7 +23,8 @@ def runtime_policy(settings, plugged=None, expanded=False):
     active = not settings.get("paused") and effective != "game"
     island = active and settings.get("island_enabled")
     return Policy(effective, island,
-                  island and settings.get("spectrum") and (effective == "work" or expanded),
+                  island and settings.get("spectrum") and
+                  (not settings.get("spectrum_battery_save") or effective == "work" or expanded),
                   active and settings.get("search_enabled"),
                   active and settings.get("layouts_enabled"),
                   active and settings.get("workspaces_enabled"))

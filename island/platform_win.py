@@ -78,6 +78,26 @@ def exclude_from_peek(owner):
         return False
 
 
+def apply_search_backdrop(owner):
+    """Request Windows 11's transient backdrop on our HWND; older Windows falls back."""
+    if sys.getwindowsversion().build < 22621:
+        return False
+    try:
+        setter=ctypes.windll.dwmapi.DwmSetWindowAttribute
+        setter.argtypes=(ctypes.c_void_p,ctypes.c_uint,ctypes.c_void_p,ctypes.c_uint)
+        setter.restype=ctypes.c_long
+        hwnd=ctypes.c_void_p(int(owner.winId()))
+        enabled=owner.owner.settings.get("search_glass")
+        for attribute,value in ((20,1),(33,2),(38,3 if enabled else 1)):
+            native=ctypes.c_int(value)
+            result=setter(hwnd,attribute,ctypes.byref(native),ctypes.sizeof(native))
+            if attribute==38:
+                return enabled and result>=0
+    except (AttributeError,OSError):
+        pass
+    return False
+
+
 def keep_desktop_visible(owner):
     """Restore only our overlay, without activating it or changing its bounds."""
     user = ctypes.windll.user32

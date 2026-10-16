@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Same-user local IPC for activation and graceful installer shutdown."""
 import hashlib
+import json
 from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from .storage import data_dir
@@ -23,6 +24,23 @@ def notify_existing(command):
     reply = bytes(socket.readAll()).strip()
     socket.disconnectFromServer()
     return reply == b"ok"
+
+
+def query_status():
+    socket=QLocalSocket()
+    socket.connectToServer(server_name())
+    if not socket.waitForConnected(500):
+        return {"running":False}
+    socket.write(b"status\n")
+    socket.waitForBytesWritten(1000)
+    if not socket.bytesAvailable():
+        socket.waitForReadyRead(2000)
+    try:
+        return json.loads(bytes(socket.readAll()))
+    except ValueError:
+        return {"running":False}
+    finally:
+        socket.disconnectFromServer()
 
 
 class InstanceServer(QObject):
@@ -56,6 +74,21 @@ class InstanceServer(QObject):
                 connection.disconnectFromServer()
             return
         command = bytes(connection.readLine(64)).strip()
+        if command == b"status":
+            w=self.window
+            from . import __version__
+            report={"running":True,"version":__version__,"profile":w._policy.profile,
+                    "spectrum_policy":w._policy.spectrum,"audio_enabled":w.audio.enabled.is_set(),
+                    "audio_capture":w.audio.capture_active.is_set(),"spectrum_levels":list(w.status_mark.levels),
+                    "island_visible":w.isVisible(),"island_expanded":w._island_expanded,
+                    "spectrum_battery_save":w.settings.get("spectrum_battery_save"),
+                    "audio_economy":w.audio.economy.is_set(),"timer_alarm":w.notch_hub.alarm.active,
+                    "timer_sounding":w.notch_hub.alarm.sounding,
+                    "search_glass_requested":w.modules.search.backdrop_applied}
+            connection.write(json.dumps(report).encode("utf-8"))
+            connection.flush()
+            connection.disconnectFromServer()
+            return
         if command == b"quit":
             self.window.cleanup()
         elif command == b"show":

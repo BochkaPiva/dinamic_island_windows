@@ -102,6 +102,10 @@ with tempfile.TemporaryDirectory() as folder:
         assert not groups.timer.isActive() and not w.modules.search.enabled
         w._toggle_setting("paused",False)
         center.close()
+        # Public screenshots contain only our fixture command, never user files/apps.
+        w.settings.set("search_files",False)
+        w.modules.search.catalog=[]
+        w.modules.search.catalog_loading=True
         w.modules.search.toggle()
         w.modules.search.input.setText("Таймер")
         QTest.qWait(2200)

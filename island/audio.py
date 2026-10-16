@@ -100,6 +100,13 @@ class AudioSpectrum(QThread):
         self.enabled.set()
         self.wakeup = threading.Event()
         self.capture_active = threading.Event()
+        self.economy = threading.Event()
+
+    def set_economy(self, enabled):
+        if enabled:
+            self.economy.set()
+        else:
+            self.economy.clear()
 
     def set_enabled(self, enabled):
         if enabled:
@@ -144,7 +151,7 @@ class AudioSpectrum(QThread):
                             self.capture_active.set()
                             previous_time, check_at = time.monotonic(), time.monotonic()
                             last_packet = previous_time
-                            while not self.stopped.wait(0.025):
+                            while not self.stopped.wait(0.05 if self.economy.is_set() else 0.025):
                                 if not self.enabled.is_set():
                                     break
                                 now = time.monotonic()

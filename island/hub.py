@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QList
     QListWidgetItem, QPlainTextEdit, QPushButton, QSlider, QStackedWidget, QVBoxLayout, QWidget, QGraphicsOpacityEffect,
     QSpinBox, QFileDialog, QFileIconProvider, QMenu)
 from . import style as gs
+from .timer import TimerReadout, TimerAlarm
 
 
 def battery_state():
@@ -327,6 +328,7 @@ class NotchHub(QWidget):
         self._position_at = time.monotonic()
         self._timer_end = None
         self._timer_remaining = owner.settings.get("timer_minutes")*60
+        self.alarm = TimerAlarm(owner.settings,self)
         self._fade_effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(self._fade_effect)
         self._fade = QVariantAnimation(self)
@@ -454,7 +456,7 @@ class NotchHub(QWidget):
         self.focus_caption.setStyleSheet("color:#666673")
         self.focus_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
         focus_preview.addWidget(self.focus_caption)
-        self.mini_time = QLabel(fmt(self._timer_remaining))
+        self.mini_time = TimerReadout(self,18)
         self.mini_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.mini_time.setFont(gs.font(18,500))
         focus_preview.addWidget(self.mini_time)
@@ -470,7 +472,7 @@ class NotchHub(QWidget):
         focus = QWidget()
         focus_layout = QVBoxLayout(focus)
         focus_layout.setContentsMargins(0,0,0,0)
-        self.timer_display = QLabel("25:00")
+        self.timer_display = TimerReadout(self,30)
         self.timer_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.timer_display.setFont(gs.font(30,500))
         focus_layout.addWidget(self.timer_display,1)
@@ -491,6 +493,11 @@ class NotchHub(QWidget):
         timer_bar.addWidget(self.reset_button)
         timer_bar.addStretch()
         focus_layout.addLayout(timer_bar)
+        self.timer_notice = QLabel("Колесо на цифрах — минуты · щелчок — ввести число")
+        self.timer_notice.setFont(gs.font(9,400))
+        self.timer_notice.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.timer_notice.setStyleSheet("color:#747484")
+        focus_layout.addWidget(self.timer_notice)
         self.stack.addWidget(focus)
 
         notes_page = QWidget()
@@ -541,6 +548,7 @@ class NotchHub(QWidget):
         self.clock = QTimer(self)
         self.clock.timeout.connect(self.tick)
         self.clock.start(1000)
+        self.alarm.changed.connect(self.tick)
 
     def choose_source(self):
         menu = QMenu(self)
@@ -652,6 +660,9 @@ class NotchHub(QWidget):
         return max(0, math.ceil(self._timer_end - time.monotonic())) if self._timer_end else self._timer_remaining
 
     def toggle_timer(self):
+        if self.alarm.active:
+            self.alarm.dismiss()
+            return
         if self._timer_end:
             self._timer_remaining = self.timer_seconds()
             self._timer_end = None
@@ -672,6 +683,7 @@ class NotchHub(QWidget):
     def reset_timer(self, *args):
         self._timer_end = None
         self._timer_remaining = self.owner.settings.get("timer_minutes") * 60
+        self.alarm.dismiss()
         self.tick()
 
     def tick(self):
@@ -680,11 +692,17 @@ class NotchHub(QWidget):
         if self._timer_end and self.timer_seconds() <= 0:
             self._timer_end = None
             self._timer_remaining = 0
+            self.alarm.start()
             self.timer_finished.emit()
-        self.timer_button.setText("Пауза" if self._timer_end else "Продолжить" if self.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
-        self.timer_display.setText(fmt(self.timer_seconds()))
-        self.mini_time.setText(fmt(self.timer_seconds()))
-        self.mini_start.setText("Пауза" if self._timer_end else "Начать")
+        self.timer_button.setText("Остановить" if self.alarm.active else "Пауза" if self._timer_end else "Продолжить" if 0 < self.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
+        self.timer_display.refresh()
+        self.mini_time.refresh()
+        self.mini_start.setText("Стоп" if self.alarm.active else "Пауза" if self._timer_end else "Начать")
+        self.focus_caption.setText("ГОТОВО" if self.alarm.active else "ФОКУС")
+        self.timer_notice.setText(("Время вышло · нажми «Остановить»" if not self.alarm.sound_error else
+                                  "Время вышло · звук недоступен") if self.alarm.active else
+                                 "Колесо на цифрах — минуты · щелчок — ввести число")
+        self.timer_notice.setStyleSheet("color:#94b7ff" if self.alarm.active else "color:#747484")
         if self.snap and self.isVisible():
             snap = self.snap
             playing = "play" in snap.status.lower() and "pause" not in snap.status.lower()
@@ -698,4 +716,6 @@ class NotchHub(QWidget):
 
 
     def busy(self):
-        return self.seek.isSliderDown() or self.notes.hasFocus() or self.calendar.drag_at is not None or self.shelf.state() == self.shelf.State.DraggingState
+        return (self.seek.isSliderDown() or self.notes.hasFocus() or self.calendar.drag_at is not None or
+                self.timer_display.hasFocus() or self.mini_time.hasFocus() or self.preset.hasFocus() or
+                self.shelf.state() == self.shelf.State.DraggingState)

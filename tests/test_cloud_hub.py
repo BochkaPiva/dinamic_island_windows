@@ -25,10 +25,14 @@ class PolicyTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_auto_battery_only_captures_when_panel_is_open(self):
+    def test_auto_battery_keeps_spectrum_unless_saving_is_explicit(self):
         self.assertTrue(runtime_policy(self.settings, True).spectrum)
-        self.assertFalse(runtime_policy(self.settings, False).spectrum)
+        self.assertTrue(runtime_policy(self.settings, False).spectrum)
         self.assertTrue(runtime_policy(self.settings, False, expanded=True).spectrum)
+        self.settings.set("spectrum_battery_save",True)
+        self.assertFalse(runtime_policy(self.settings,False).spectrum)
+        self.assertTrue(runtime_policy(self.settings,False,expanded=True).spectrum)
+        self.assertTrue(runtime_policy(self.settings,True).spectrum)
         self.assertEqual(runtime_policy(self.settings, None).profile, "work")
 
     def test_pause_game_and_module_switches_preserve_preferences(self):

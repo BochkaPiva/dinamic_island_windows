@@ -9,7 +9,7 @@ import time
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root))
 from PyQt6.QtCore import QCoreApplication
-from island.instance import notify_existing
+from island.instance import notify_existing, query_status
 app = QCoreApplication([])
 with tempfile.TemporaryDirectory() as folder:
     os.environ["CLOUD_ISLAND_DATA_DIR"] = folder
@@ -29,6 +29,9 @@ with tempfile.TemporaryDirectory() as folder:
                 raise RuntimeError("App exited before creating its local command server")
             time.sleep(.1)
         assert ready, "Local command server did not appear"
+        status=query_status()
+        assert status["running"] and "spectrum_levels" in status
+        assert "title" not in status and "path" not in status
         second = subprocess.run([sys.executable, str(root/"main.py")], cwd=root,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         assert second.returncode == 0 and process.poll() is None

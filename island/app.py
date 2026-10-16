@@ -206,6 +206,9 @@ class IslandWindow(QWidget):
         self._update_services()
 
     def _close_if_allowed(self):
+        if self.notch_hub.alarm.active and time.monotonic() < self.notch_hub.alarm.hold_until:
+            self._island_auto_timer.start(1000)
+            return
         if QApplication.activePopupWidget() or (self.notch_hub.busy() and self.isActiveWindow()):
             self._island_auto_timer.start(600)
         else:
@@ -317,7 +320,12 @@ class IslandWindow(QWidget):
 
     def _audio_available(self, available):
         self.status_mark.available = available
-        self.status_mark.setToolTip("Спектр системного звука" if available else "Выходное аудиоустройство недоступно")
+        reason = ("Спектр системного звука" if available else
+                  "Спектр выключен в настройках" if not self.settings.get("spectrum") else
+                  "Спектр приостановлен для экономии батареи" if not self._policy.spectrum else
+                  "Выходное аудиоустройство недоступно")
+        self.status_mark.setToolTip(reason)
+        self.setToolTip(reason)
         self.status_mark.update()
         if self.isVisible():
             self._notch_stage.surface.update()
@@ -336,6 +344,9 @@ class IslandWindow(QWidget):
         self.notice("Таймер завершён")
         if self._services:
             self.tray.showMessage(APP_NAME, "Время таймера истекло")
+            if self._policy.island and not self._hidden_by_user and not self._fs_hidden:
+                self._show_panel()
+                self.notch_hub.select_tab(1)
 
     def _system_tick(self):
         self._notch_audio_active = time.monotonic()-self._last_audio < .8
@@ -368,6 +379,7 @@ class IslandWindow(QWidget):
             return
         active = self._policy.island and not self._hidden_by_user and not self._fs_hidden and self.isVisible()
         spectrum = active and self._policy.spectrum
+        self.audio.set_economy(self._economy and not self._island_expanded)
         if self.worker.enabled.is_set() != active:
             self.worker.set_enabled(active)
         if self.audio.enabled.is_set() != spectrum:
@@ -589,6 +601,8 @@ class IslandWindow(QWidget):
             self.control_center.close()
         self.powertoys.close(restore=self._services and self.settings.get("manage_powertoys"))
         self.notch_hub.save_notes()
+        self.notch_hub._timer_end = None
+        self.notch_hub.alarm.dismiss()
         self.notch_hub.clock.stop()
         self.notch_hub._note_save.stop()
         self._notch_pointer_timer.stop()
