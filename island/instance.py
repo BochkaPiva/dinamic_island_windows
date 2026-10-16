@@ -84,7 +84,13 @@ class InstanceServer(QObject):
                     "spectrum_battery_save":w.settings.get("spectrum_battery_save"),
                     "audio_economy":w.audio.economy.is_set(),"timer_alarm":w.notch_hub.alarm.active,
                     "timer_sounding":w.notch_hub.alarm.sounding,
-                    "search_glass_requested":w.modules.search.backdrop_applied}
+                    "search_glass_requested":w.modules.search.backdrop_applied,
+                    "desktop_enabled":w.modules.desktop.enabled,
+                    "desktop_groups":len(w.modules.desktop.panels),
+                    "desktop_visible":sum(p.isVisible() for p in w.modules.desktop.panels.values()),
+                    "desktop_animating":sum(p.animation.isActive() for p in w.modules.desktop.panels.values()),
+                    "island_animating":w._geometry.timer.isActive(),
+                    "hub_visible":bool(w.control_center and w.control_center.isVisible())}
             connection.write(json.dumps(report).encode("utf-8"))
             connection.flush()
             connection.disconnectFromServer()
@@ -95,6 +101,8 @@ class InstanceServer(QObject):
             self.window._show_panel()
         elif command == b"hub":
             self.window.show_hub()
+        elif command == b"ping":
+            pass  # An overlapping background/login launch must not open settings.
         else:
             connection.disconnectFromServer()
             return

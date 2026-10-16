@@ -8,8 +8,8 @@ import os
 import time
 from dataclasses import dataclass
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
-from PyQt6.QtGui import QCursor, QPainter
-from PyQt6.QtWidgets import QWidget, QGraphicsOpacityEffect
+from PyQt6.QtGui import QCursor, QPainter, QPixmap, QRegion
+from PyQt6.QtWidgets import QWidget
 from .platform_win import is_desktop_window
 
 
@@ -307,6 +307,7 @@ class CompactSurface(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         p.setClipPath(card.notch_path().translated(-self.x(), -self.y()))
+        p.setOpacity(stage.compact_alpha)
         if card._retreat <= 0.0005:
             p.drawPixmap(0, 0, image)
         else:
@@ -320,6 +321,43 @@ class CompactSurface(QWidget):
         p.end()
 
 
+class RevealSurface(QWidget):
+    """One cached texture transformed by the very same geometry as its shell.
+
+    Live controls retain their final layout. Only the short transition uses a
+    snapshot, so text never reflows or escapes the changing silhouette.
+    """
+    def __init__(self, stage):
+        super().__init__(stage.owner.card)
+        self.stage = stage
+        self.image = QPixmap()
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.hide()
+
+    def capture(self):
+        hub = self.stage.owner.notch_hub
+        hub.ensurePolished()
+        hub.layout().activate()
+        hub.stack.currentWidget().layout().activate()
+        hub.refresh_position()
+        self.image = hub.grab()
+
+    def paintEvent(self, event):
+        if self.image.isNull():
+            return
+        w = self.stage.owner
+        pw, ph = w._scale_window_size(100)
+        scale = min(self.width()/pw, self.height()/ph)
+        p = QPainter(self)
+        p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+        p.setClipPath(w.card.notch_path())
+        p.setOpacity(smoothstep(self.stage.progress / .65))
+        p.translate((self.width()-pw*scale)/2, 0)
+        p.scale(scale, scale)
+        p.drawPixmap(0, 0, self.image)
+
+
 class NotchStage:
     """Two persistent content layers; neither is resized during a morph."""
     def __init__(self, owner):
@@ -327,15 +365,27 @@ class NotchStage:
         self.active = False
         self.panel_was_visible = False
         self.retreat = 0.0
+        self.progress = 0.0
+        self.compact_alpha = 1.0
         self.compact = QWidget(owner.card)
         self.compact.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.compact.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.surface = CompactSurface(self)
-        self.effect = QGraphicsOpacityEffect(self.surface)
-        self.surface.setGraphicsEffect(self.effect)
+        self.reveal = RevealSurface(self)
         self.compact.hide()
         self.surface.hide()
         owner.art_label._anim.valueChanged.connect(lambda _: self.surface.update())
+
+    def prepare(self):
+        if not self.reveal.isVisible() or self.reveal.image.isNull():
+            self.reveal.capture()
+        self.owner.notch_hub.hide()
+        self._signature = None
+
+    def refresh(self):
+        if self.reveal.isVisible():
+            self.reveal.capture()
+            self.reveal.update()
 
     def enter(self):
         w = self.owner
@@ -354,6 +404,7 @@ class NotchStage:
         self.panel_was_visible = False
         self.compact.hide()
         self.surface.hide()
+        self.reveal.hide()
         self.owner.notch_hub.hide()
 
     def sync(self):
@@ -364,7 +415,7 @@ class NotchStage:
         # directly instead of repeatedly relaying out every child at 40 Hz.
         signature = (w.width(), w.height(), w._island_expanded, w._notch_notice,
                      w.snapshot.has_session, w._notch_audio_active, bool(w.notch_hub._timer_end),
-                     w.notch_idle.text(), w.settings.get("spectrum"))
+                     w.notch_idle.text(), w.settings.get("spectrum"), w._geometry.timer.isActive())
         if signature == getattr(self, "_signature", None):
             return
         self._signature = signature
@@ -376,18 +427,24 @@ class NotchStage:
         if (hub.width(), hub.height()) != (pw, ph):
             hub.resize(pw, ph)
         progress = max(0.0, min(1.0, (w.height() - ch) / max(1, ph - ch)))
+        self.progress = progress
         self.panel_was_visible = self.panel_was_visible or w._island_expanded
         if progress <= 0.001 and not w._island_expanded:
             self.panel_was_visible = False
-        hub.move((w.width() - pw) // 2, round(10 * (1 - progress)))
-        hub.setVisible(self.panel_was_visible and progress > 0.001)
-        hub._fade.stop()
-        hub._fade_effect.setOpacity(smoothstep((progress - 0.72) / 0.28))
+        hub.move((w.width() - pw) // 2, 0)
+        moving = w._geometry.timer.isActive()
+        live = w._island_expanded and not moving and progress >= 1
+        hub.setVisible(live)
+        if live:
+            hub.setMask(QRegion(w.card.notch_path().toFillPolygon().toPolygon()))
+        self.reveal.setGeometry(w.card.rect())
+        self.reveal.setVisible(self.panel_was_visible and not live and progress > .001)
+        self.reveal.update()
         self.compact.hide()
         self.surface.show()
         self.surface.raise_()
         compact_alpha = 1 - smoothstep(progress / 0.32) if self.panel_was_visible else 1.0
-        self.effect.setOpacity(compact_alpha)
+        self.compact_alpha = compact_alpha
         notice = bool(w._notch_notice)
         session = w.snapshot.has_session
         timer = bool(hub._timer_end)

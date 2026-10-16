@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.2
+
+- Synchronize island content with the expanding black silhouette: scale a cached content layer from actual window geometry, clip it to the same bezel path, then hand back live controls. Preserve spring velocity on rapid reversals; remove the separate late content fade.
+- Rebuild desktop group reveal around a stable final layout and one critically damped height clock. Avoid reflowing icons every frame, retain velocity when reversing and stop animation clocks at rest. Keep empty groups compact.
+- Fix menus appearing behind their group: use ordinary desktop tools instead of topmost panels, recognize popup ancestry and explicitly retain groups during native file/folder dialogs. Repair desktop z-order only when needed, without activation; retain Peek exclusion.
+- Repair coincident group headers on load and creation, preserving IDs, titles and original file references with a before-arrange backup. Add an explicit Arrange action and refresh live grids when settings change their references.
+- Refine group styling, spacing, controls and scrollbars. Keep ordinary foreground applications unobstructed and preserve normalized positions across display changes.
+- Make repeated background/login launches idempotent: acknowledge the existing process without opening settings. Retain the per-user Windows startup entry and add group/animation state to local runtime diagnostics.
+- Add pixel-level clipping, reversal, overlap, popup/dialog and persistence regressions plus native checks for menu z-order, Show Desktop recovery without focus, Peek API acceptance and idle clocks.
+
 ## v0.3.1
 
 - Fix the apparent frozen equalizer on battery: Auto/Battery now retain real loopback capture in the compact island. Process at 20 Hz instead of 40 Hz while compact on battery; expose complete suspension as an explicit opt-in setting.

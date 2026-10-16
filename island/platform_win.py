@@ -111,6 +111,34 @@ def keep_desktop_visible(owner):
     return bool(user.SetWindowPos(hwnd, ctypes.c_void_p(-1), 0, 0, 0, 0, 0x0213))
 
 
+def restore_desktop_panel(owner):
+    """Recover Show Desktop without topmost windows or raising over our menus.
+
+    Ordinary apps naturally cover these tools. Repair z-order only when the
+    Explorer desktop surface actually covers them, never on every poll.
+    """
+    user = ctypes.windll.user32
+    hwnd = ctypes.c_void_p(int(owner.winId()))
+    restored = bool(user.IsIconic(hwnd))
+    if restored:
+        user.ShowWindow(hwnd, 4)
+    user.GetWindow.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+    user.GetWindow.restype = ctypes.c_void_p
+    candidate = user.GetWindow(hwnd, 3)  # GW_HWNDPREV: windows above this one
+    for _ in range(256):
+        if not candidate:
+            break
+        if user.IsWindowVisible(ctypes.c_void_p(candidate)) and _window_class(user,candidate) in {"Progman","WorkerW"}:
+            restored = True
+            break
+        candidate = user.GetWindow(ctypes.c_void_p(candidate),3)
+    if restored:
+        exclude_from_peek(owner)
+        user.SetWindowPos.argtypes = (ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_uint)
+        user.SetWindowPos(hwnd, None, 0,0,0,0,0x0213)  # HWND_TOP; NOACTIVATE
+    return restored
+
+
 def is_fullscreen(owner):
     user = ctypes.windll.user32
     user.GetForegroundWindow.restype = ctypes.c_void_p

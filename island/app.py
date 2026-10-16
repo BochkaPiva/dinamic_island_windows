@@ -195,6 +195,7 @@ class IslandWindow(QWidget):
     def _set_island_expanded(self, expanded):
         if expanded == self._island_expanded or self._closed:
             return
+        self._notch_stage.prepare()
         self._island_expanded = expanded
         if expanded:
             self._notch_pointer.opened_at = time.monotonic()
@@ -623,7 +624,7 @@ def run(background=False, island=False):
     app.setOrganizationName("BochkaPiva")
     app.setFont(font(12))
     app.setQuitOnLastWindowClosed(False)
-    if notify_existing("show" if island else "hub"):
+    if notify_existing("ping" if background else "show" if island else "hub"):
         return 0
     lock = QSharedMemory(server_name())
     if not lock.create(1):

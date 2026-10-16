@@ -3,15 +3,17 @@
 import ctypes
 import json
 import math
+import time
+from contextlib import contextmanager
 from pathlib import Path
 import uuid
-from PyQt6.QtCore import (Qt, QObject, QTimer, QEvent, QPoint, QSize, QFileInfo,
-                          QVariantAnimation, QEasingCurve, pyqtSignal)
-from PyQt6.QtGui import QCursor, QColor, QPainter
+from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QListWidget, QFileIconProvider, QFileDialog, QMenu)
+    QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu)
 from .hub import FileShelf
-from .platform_win import desktop_is_foreground, keep_desktop_visible
+from .platform_win import desktop_is_foreground, restore_desktop_panel, exclude_from_peek
+from .motion import DampedValue, smoothstep
 
 
 class GroupStore(QObject):
@@ -55,11 +57,12 @@ class GroupStore(QObject):
             self.error.emit("Не удалось сохранить группы на диск")
             return False
 
-    def add(self, title="Новая группа", x=.03):
+    def add(self, title="Новая группа", x=None):
         if len(self.groups) >= 30:
             return None
         group = {"id": str(uuid.uuid4()), "title": title[:60] or "Новая группа", "items": [],
-                 "x": x, "y": .12+min(.5, len(self.groups)//3*.12), "screen": ""}
+                 "x": x if x is not None else .03+(len(self.groups)%3)*.32,
+                 "y": .12+min(.7, len(self.groups)//3*.27), "screen": ""}
         self.groups.append(group)
         self.save()
         return group
@@ -87,12 +90,16 @@ class GroupShelf(FileShelf):
         self.setWordWrap(True)
         self.setIconSize(QSize(38, 38))
         self.setSpacing(2)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.reload()
 
     def reload(self):
         self.clear()
         self.add_paths(self.panel.group["items"], save=False, keep_missing=True)
         self.filter(self.panel.search.text())
+        if hasattr(self.panel,"animation") and self.panel.expanded:
+            self.panel.animate(True, refresh=True)
 
     def persist(self):
         self.panel.group["items"] = self.paths()
@@ -106,29 +113,37 @@ class GroupShelf(FileShelf):
 
 class GroupPanel(QWidget):
     def __init__(self, manager, group):
-        super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.manager, self.group = manager, group
         self.expanded = False
         self.drag_origin = None
+        self.interactions = 0
+        self.extent = DampedValue()
+        self.extent.value = 44
+        self.target_height = 44
+        self.texture = QPixmap()
         self.setWindowTitle("Cloud Hub — группа «"+group["title"]+"»")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
-        self.setStyleSheet("""QWidget {color:#f3f6fc;font:12px 'Segoe UI';background:transparent;}
-            QPushButton {border:0;padding:3px;background:transparent;border-radius:6px;}
-            QPushButton:hover {background:#46526a;} QLabel {font-weight:600;font-size:14px;}
-            QLineEdit {background:#202a3b;border:0;padding:6px;border-radius:7px;}
+        self.setStyleSheet("""QWidget {color:#eef0f5;font:12px 'Segoe UI';background:transparent;}
+            QPushButton {border:0;padding:5px;background:transparent;border-radius:7px;}
+            QPushButton:hover {background:rgba(255,255,255,22);} QLabel {font-weight:600;font-size:13px;}
+            QLineEdit {background:rgba(0,0,0,35);border:0;padding:7px;border-radius:8px;selection-background-color:#53647a;}
             QListWidget {border:0;background:transparent;outline:0;padding:2px;}
             QListWidget::item {padding:3px;border-radius:7px;}
-            QListWidget::item:selected {background:#50698d;}
-            QScrollBar:vertical {width:7px;background:transparent;}""")
-        root = QVBoxLayout(self)
-        root.setContentsMargins(8, 0, 8, 0)
-        root.setSpacing(7)
-        header = QHBoxLayout()
+            QListWidget::item:selected {background:rgba(255,255,255,24);}
+            QScrollBar:vertical {width:4px;background:transparent;}
+            QScrollBar::handle:vertical {background:#657080;border-radius:2px;min-height:24px;}
+            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
+            QMenu {background:#20242c;border:1px solid #414550;border-radius:10px;padding:6px;}
+            QMenu::item {padding:9px 15px;border-radius:5px;}
+            QMenu::item:selected {background:#3c4350;}""")
+        self.header = QWidget(self)
+        header = QHBoxLayout(self.header)
+        header.setContentsMargins(14, 0, 8, 0)
         header.setSpacing(3)
         self.name = QLabel(group["title"])
-        self.name.setMinimumHeight(43)
         self.name.installEventFilter(self)
         self.name.setToolTip("Наведи для раскрытия. Перетащи заголовок, чтобы переместить группу.")
         header.addWidget(self.name, 1)
@@ -137,26 +152,27 @@ class GroupPanel(QWidget):
         self.chevron.clicked.connect(lambda: self.animate(not self.expanded))
         header.addWidget(self.chevron)
         menu = QPushButton("⋯")
+        self.menu_button = menu
         menu.setFixedSize(25, 30)
         menu.clicked.connect(self.menu)
         header.addWidget(menu)
-        root.addLayout(header)
-        self.body = QWidget()
+        self.body = QWidget(self)
         body = QVBoxLayout(self.body)
-        body.setContentsMargins(0, 0, 0, 9)
-        body.setSpacing(6)
+        body.setContentsMargins(10, 4, 10, 10)
+        body.setSpacing(8)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Найти в группе…")
         self.search.setClearButtonEnabled(True)
+        self.search.setFixedHeight(30)
         body.addWidget(self.search)
         self.shelf = GroupShelf(self)
-        self.shelf.setMinimumHeight(80)
+        self.shelf.setMinimumHeight(0)
         self.search.textChanged.connect(self.shelf.filter)
         body.addWidget(self.shelf, 1)
-        self.empty = QPushButton("＋ Добавить файлы или программы")
+        self.empty = QPushButton("＋  Добавить файлы или программы")
+        self.empty.setFixedHeight(30)
         self.empty.clicked.connect(self.add_files)
         body.addWidget(self.empty)
-        root.addWidget(self.body, 1)
         self.body.hide()
         self.hover = QTimer(self)
         self.hover.setSingleShot(True)
@@ -164,21 +180,24 @@ class GroupPanel(QWidget):
         self.collapse = QTimer(self)
         self.collapse.setSingleShot(True)
         self.collapse.timeout.connect(self._collapse)
-        self.animation = QVariantAnimation(self)
-        self.animation.setDuration(320)
-        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.animation.valueChanged.connect(lambda value: self.setFixedHeight(round(value)))
-        self.animation.finished.connect(lambda: self.body.setVisible(self.expanded))
+        self.animation = QTimer(self)
+        self.animation.setTimerType(Qt.TimerType.PreciseTimer)
+        self.animation.timeout.connect(self._frame)
         self.configure()
         self.setFixedHeight(44)
         self.place()
 
     def configure(self):
         s = self.manager.owner.settings
+        old_width, old_grid = self.width(), self.shelf.gridSize()
         self.setFixedWidth(s.get("group_width"))
         self.shelf.setGridSize(QSize((self.width()-30)//s.get("group_columns"), 88))
+        self.header.setGeometry(0, 0, self.width(), 44)
         self.name.setText(self.group["title"])
         self.setWindowTitle("Cloud Hub — группа «"+self.group["title"]+"»")
+        changed = old_width != self.width() or old_grid != self.shelf.gridSize()
+        if self.expanded or self.animation.isActive():
+            self.animate(self.expanded,refresh=changed)
         self.update()
 
     def place(self):
@@ -187,17 +206,42 @@ class GroupPanel(QWidget):
         self.move(r.left()+round(self.group["x"]*max(0,r.width()-self.width())),
                   r.top()+round(self.group["y"]*max(0,r.height()-44)))
 
-    def animate(self, expanded):
+    def animate(self, expanded, refresh=False):
+        rows = math.ceil(self.shelf.count()/self.manager.owner.settings.get("group_columns"))
+        available = self.screen().availableGeometry().bottom()-self.y()+1
+        full = max(44, min(44 + (min(4, rows)*92 + 90 if rows else 68), available))
+        height = full if expanded else 44
+        if expanded == self.expanded and height == self.target_height and not refresh:
+            return
+        was_moving = self.animation.isActive()
+        if not was_moving or self.texture.isNull() or refresh:
+            self.search.setVisible(bool(rows))
+            self.shelf.setVisible(bool(rows))
+            self.body.setGeometry(0, 44, self.width(), max(1, full-44))
+            self.body.ensurePolished()
+            self.body.layout().activate()
+            self.texture = self.body.grab()
         self.expanded = expanded
         self.chevron.setText("⌃" if expanded else "⌄")
-        self.animation.stop()
-        self.body.show()
-        rows = max(1, math.ceil(self.shelf.count()/self.manager.owner.settings.get("group_columns")))
-        available = self.screen().availableGeometry().bottom()-self.y()+1
-        height = max(44, min(44+48+min(4,rows)*92+40, available)) if expanded else 44
-        self.animation.setStartValue(float(self.height()))
-        self.animation.setEndValue(float(height))
-        self.animation.start()
+        self.target_height = height
+        self.body.hide()
+        if not was_moving:
+            self.extent.value, self.extent.velocity = float(self.height()), 0.
+        self.last_frame = time.monotonic()
+        self.animation.start(8 if self.screen().refreshRate() >= 90 else 16)
+
+    def _frame(self):
+        now = time.monotonic()
+        height = self.extent.step(self.target_height, now-self.last_frame, 23)
+        self.last_frame = now
+        self.setFixedHeight(max(44, round(height)))
+        if abs(height-self.target_height) < .04 and abs(self.extent.velocity) < .8:
+            self.animation.stop()
+            self.extent.value, self.extent.velocity = float(self.target_height), 0.
+            self.setFixedHeight(self.target_height)
+            self.body.setVisible(self.expanded)
+            self.texture = QPixmap()
+        self.update()
 
     def enterEvent(self, event):
         self.collapse.stop()
@@ -209,7 +253,7 @@ class GroupPanel(QWidget):
         self.collapse.start(self.manager.owner.settings.get("group_collapse_delay"))
 
     def _collapse(self):
-        if self.underMouse() or QApplication.activePopupWidget() or self.search.hasFocus():
+        if self.underMouse() or QApplication.activePopupWidget() or self.interactions or self.search.hasFocus():
             self.collapse.start(500)
         else:
             self.animate(False)
@@ -234,7 +278,8 @@ class GroupPanel(QWidget):
         return super().eventFilter(obj,event)
 
     def add_files(self):
-        paths, _ = QFileDialog.getOpenFileNames(self,"Добавить ссылки на файлы и программы")
+        with self.interacting():
+            paths, _ = QFileDialog.getOpenFileNames(self,"Добавить ссылки на файлы и программы")
         self.manager.store.add_paths(self.group, paths)
         self.shelf.reload()
         self.animate(True)
@@ -242,17 +287,35 @@ class GroupPanel(QWidget):
     def menu(self):
         self.collapse.stop()
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         menu.addAction("Добавить файлы / ярлыки…",self.add_files)
         menu.addAction("Добавить папку…",self.add_folder)
         menu.addAction("Настроить группы…",self.manager.open_settings)
-        menu.exec(QCursor.pos())
+        menu.addSeparator()
+        menu.addAction("Выровнять группы", self.manager.arrange)
+        with self.interacting():
+            menu.exec(self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft()))
+        menu.deleteLater()
         self.collapse.start(800)
 
+    @contextmanager
+    def interacting(self):
+        self.interactions += 1
+        self.hover.stop()
+        self.collapse.stop()
+        try:
+            yield
+        finally:
+            self.interactions -= 1
+            self.collapse.start(self.manager.owner.settings.get("group_collapse_delay"))
+
     def add_folder(self):
-        path = QFileDialog.getExistingDirectory(self,"Добавить ссылку на папку")
+        with self.interacting():
+            path = QFileDialog.getExistingDirectory(self,"Добавить ссылку на папку")
         if path:
             self.manager.store.add_paths(self.group,[path])
             self.shelf.reload()
+            self.animate(True)
 
     def dragEnterEvent(self,event):
         if event.mimeData().hasUrls():
@@ -272,6 +335,7 @@ class GroupPanel(QWidget):
     def dropEvent(self,event):
         self.manager.store.add_paths(self.group,[u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()])
         self.shelf.reload()
+        self.animate(True)
         event.setDropAction(Qt.DropAction.CopyAction)
         event.accept()
 
@@ -282,11 +346,29 @@ class GroupPanel(QWidget):
     def paintEvent(self,event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor("#283244")
+        color = QColor("#242832")
         color.setAlpha(round(255*self.manager.owner.settings.get("group_opacity")/100))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
-        p.drawRoundedRect(self.rect(),12,12)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),14,14)
+        p.fillPath(path,color)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(255,255,255,22),1))
+        p.drawPath(path)
+        if self.animation.isActive() and not self.texture.isNull():
+            p.setClipPath(path)
+            full = self.texture.height()/self.texture.devicePixelRatioF()
+            progress = min(1., max(0., (self.height()-44)/max(1,full)))
+            p.setOpacity(smoothstep(progress/.7))
+            p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            p.translate(self.width()*.02*(1-progress), 44-10*(1-progress))
+            p.scale(.96+.04*progress,.96+.04*progress)
+            p.drawPixmap(0,0,self.texture)
+
+    def showEvent(self,event):
+        super().showEvent(event)
+        exclude_from_peek(self)
 
     def hideEvent(self,event):
         self.hover.stop()
@@ -295,6 +377,9 @@ class GroupPanel(QWidget):
         self.expanded = False
         self.body.hide()
         self.setFixedHeight(44)
+        self.target_height = 44
+        self.extent.value, self.extent.velocity = 44., 0.
+        self.texture = QPixmap()
         super().hideEvent(event)
 
 
@@ -326,11 +411,62 @@ class DesktopGroups(QObject):
             if group["id"] not in self.panels:
                 self.panels[group["id"]] = GroupPanel(self,group)
             else:
-                self.panels[group["id"]].configure()
+                panel = self.panels[group["id"]]
+                if panel.shelf.paths() != group["items"]:
+                    panel.shelf.reload()
+                panel.configure()
+        self.repair_overlaps()
+
+    def repair_overlaps(self, force=False):
+        """Move colliding headers only; keep identities, references and a backup."""
+        occupied = {}
+        moved = False
+        for panel in self.panels.values():
+            panel.place()
+            screen = panel.screen()
+            bounds = screen.availableGeometry()
+            used = occupied.setdefault(screen.name(), [])
+            rect = QRect(panel.x(), panel.y(), panel.width(), 44)
+            if force or any(rect.adjusted(-6,-6,6,6).intersects(old) for old in used):
+                step = panel.width()+20
+                candidates = [QRect(bounds.x()+20+x, bounds.y()+70+y, panel.width(),44)
+                    for y in range(0,max(1,bounds.height()-114),280)
+                    for x in range(0,max(1,bounds.width()-panel.width()-20),step)]
+                # Dense fallback for many groups/small screens, still no coincident headers.
+                candidates += [QRect(bounds.x()+12+x,bounds.y()+12+y,panel.width(),44)
+                    for y in range(0,max(1,bounds.height()-56),60)
+                    for x in range(0,max(1,bounds.width()-panel.width()-12),step)]
+                rect = next((r for r in candidates if not any(r.adjusted(-6,-6,6,6).intersects(old) for old in used)),rect)
+                if rect.topLeft() != panel.pos():
+                    if not moved and self.store.path.exists():
+                        import shutil
+                        backup = self.store.path.with_suffix(".before-arrange.json")
+                        if not backup.exists():
+                            try:
+                                shutil.copy2(self.store.path,backup)
+                            except OSError:
+                                self.store.error.emit("Не удалось сохранить резервную копию расположения групп")
+                                return
+                    panel.group.update(x=(rect.x()-bounds.x())/max(1,bounds.width()-panel.width()),
+                        y=(rect.y()-bounds.y())/max(1,bounds.height()-44), screen=screen.name())
+                    panel.place()
+                    moved = True
+            used.append(rect)
+        if moved:
+            # Avoid a recursive changed/reconcile pass while migrating positions.
+            self.store.blockSignals(True)
+            try:
+                self.store.save()
+            finally:
+                self.store.blockSignals(False)
+
+    def arrange(self):
+        self.repair_overlaps(force=True)
 
     def reposition(self):
         for panel in self.panels.values():
             panel.place()
+        self.repair_overlaps()
 
     def set_enabled(self,enabled):
         enabled = enabled and self.owner._services
@@ -350,15 +486,21 @@ class DesktopGroups(QObject):
         foreground = ctypes.windll.user32.GetForegroundWindow()
         own_group = any(int(p.winId()) == foreground for p in self.panels.values())
         popup = QApplication.activePopupWidget() or QApplication.activeModalWidget()
-        group_popup = popup and any(p.isAncestorOf(popup) for p in self.panels.values())
-        visible = self.enabled and (desktop_is_foreground() or own_group or group_popup)
+        related = popup
+        while related is not None and related not in self.panels.values():
+            related = related.parentWidget()
+        group_popup = related is not None or any(p.interactions for p in self.panels.values())
+        desktop = desktop_is_foreground()
+        visible = self.enabled and (desktop or own_group or group_popup or
+            (not foreground and getattr(self,"_visible",False)))
+        self._visible = visible
         for panel in self.panels.values():
             if visible and not panel.isVisible():
                 panel.show()
             elif not visible and panel.isVisible():
                 panel.hide()
-            if visible:
-                keep_desktop_visible(panel)
+            if visible and desktop and not popup and not group_popup:
+                restore_desktop_panel(panel)
 
     def open_settings(self):
         self.owner.show_hub()

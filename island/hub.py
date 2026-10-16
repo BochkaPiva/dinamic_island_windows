@@ -12,7 +12,7 @@ import time
 from PyQt6.QtCore import Qt, QDate, QLocale, QMimeData, QPoint, QRectF, QTimer, QUrl, QVariantAnimation, pyqtSignal, QFileInfo
 from PyQt6.QtGui import QColor, QDesktopServices, QDrag, QPainter, QPixmap
 from PyQt6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QListWidget,
-    QListWidgetItem, QPlainTextEdit, QPushButton, QSlider, QStackedWidget, QVBoxLayout, QWidget, QGraphicsOpacityEffect,
+    QListWidgetItem, QPlainTextEdit, QPushButton, QSlider, QStackedWidget, QVBoxLayout, QWidget,
     QSpinBox, QFileDialog, QFileIconProvider, QMenu)
 from . import style as gs
 from .timer import TimerReadout, TimerAlarm
@@ -329,12 +329,6 @@ class NotchHub(QWidget):
         self._timer_end = None
         self._timer_remaining = owner.settings.get("timer_minutes")*60
         self.alarm = TimerAlarm(owner.settings,self)
-        self._fade_effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(self._fade_effect)
-        self._fade = QVariantAnimation(self)
-        self._fade.setDuration(240)
-        self._fade.setEasingCurve(gs.ease_out())
-        self._fade.valueChanged.connect(self._fade_effect.setOpacity)
         self.setObjectName("notchHub")
         self.setStyleSheet("""
             QWidget#notchHub {background:transparent;}
@@ -571,6 +565,9 @@ class NotchHub(QWidget):
         for i, button in enumerate(self.tabs):
             button.setChecked(i == index)
         self.owner._island_auto_timer.stop()
+        stage = getattr(self.owner, "_notch_stage", None)
+        if stage is not None:
+            stage.refresh()
 
     def save_notes(self):
         try:
@@ -592,16 +589,6 @@ class NotchHub(QWidget):
                 self.note_status.setText("Экспортировано")
             except OSError:
                 self.note_status.setText("Не удалось экспортировать заметку")
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        stage = getattr(self.owner, "_notch_stage", None)
-        if stage is not None and stage.active:
-            return
-        self._fade.stop()
-        self._fade.setStartValue(0.0)
-        self._fade.setEndValue(1.0)
-        self._fade.start()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -704,6 +691,10 @@ class NotchHub(QWidget):
                                  "Колесо на цифрах — минуты · щелчок — ввести число")
         self.timer_notice.setStyleSheet("color:#94b7ff" if self.alarm.active else "color:#747484")
         if self.snap and self.isVisible():
+            self.refresh_position()
+
+    def refresh_position(self):
+        if self.snap:
             snap = self.snap
             playing = "play" in snap.status.lower() and "pause" not in snap.status.lower()
             pos = max(0, snap.pos_sec + (time.monotonic() - self._position_at if playing else 0))

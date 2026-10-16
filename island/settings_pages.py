@@ -217,6 +217,7 @@ class SettingsPages:
         self.number(inside,"group_hover_delay","Раскрытие при наведении"," мс")
         self.number(inside,"group_collapse_delay","Сворачивание после ухода"," мс")
         self._module(inside,"groups_locked","Закрепить расположение","Запретить случайное перемещение за заголовок")
+        inside.addWidget(self.action("Выровнять группы на рабочем столе",self.owner.modules.desktop.arrange))
         layout.addWidget(frame)
         layout.addStretch()
         store = self.owner.modules.desktop.store
