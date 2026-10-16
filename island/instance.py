@@ -60,6 +60,8 @@ class InstanceServer(QObject):
             self.window.cleanup()
         elif command == b"show":
             self.window._show_panel()
+        elif command == b"hub":
+            self.window.show_hub()
         else:
             connection.disconnectFromServer()
             return

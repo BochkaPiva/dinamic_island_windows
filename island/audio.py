@@ -96,15 +96,34 @@ class AudioSpectrum(QThread):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.stopped = threading.Event()
+        self.enabled = threading.Event()
+        self.enabled.set()
+        self.wakeup = threading.Event()
+        self.capture_active = threading.Event()
+
+    def set_enabled(self, enabled):
+        if enabled:
+            self.enabled.set()
+            self.wakeup.set()
+        else:
+            self.enabled.clear()
 
     def stop(self):
         self.stopped.set()
+        self.wakeup.set()
 
     def run(self):
         ctypes.windll.ole32.CoInitializeEx(None, 0)
         previous = None
         try:
             while not self.stopped.is_set():
+                if not self.enabled.is_set():
+                    self.wakeup.clear()
+                    if not self.enabled.is_set() and not self.stopped.is_set():
+                        self.availability_changed.emit(False)
+                        self.wakeup.wait()
+                    previous = None
+                    continue
                 try:
                     endpoint = default_output_id()
                     with pa.PyAudio() as engine:
@@ -117,14 +136,17 @@ class AudioSpectrum(QThread):
                         pending = deque(maxlen=2)
                         def callback(data, count, timing, status):
                             pending.append((data, time.monotonic()))
-                            return (None, pa.paComplete if self.stopped.is_set() else pa.paContinue)
+                            return (None, pa.paComplete if self.stopped.is_set() or not self.enabled.is_set() else pa.paContinue)
                         with engine.open(format=pa.paInt16, channels=channels, rate=rate,
                                          input=True, input_device_index=info["index"],
                                          frames_per_buffer=1024, stream_callback=callback) as stream:
                             self.availability_changed.emit(True)
+                            self.capture_active.set()
                             previous_time, check_at = time.monotonic(), time.monotonic()
                             last_packet = previous_time
                             while not self.stopped.wait(0.025):
+                                if not self.enabled.is_set():
+                                    break
                                 now = time.monotonic()
                                 dt, previous_time = now - previous_time, now
                                 if pending:
@@ -148,5 +170,8 @@ class AudioSpectrum(QThread):
                     self.availability_changed.emit(False)
                     self.levels_changed.emit((0.0,) * 5)
                     self.stopped.wait(1.5)
+                finally:
+                    self.capture_active.clear()
         finally:
+            self.capture_active.clear()
             ctypes.windll.ole32.CoUninitialize()

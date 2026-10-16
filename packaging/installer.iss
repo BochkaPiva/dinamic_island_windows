@@ -1,7 +1,7 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
-#define AppName "Cloud Island"
+#define AppName "Cloud Hub"
 #define AppUrl "https://github.com/BochkaPiva/dinamic_island_windows"
 
 [Setup]
@@ -44,11 +44,15 @@ Source: "..\THIRD_PARTY.md"; DestDir: "{app}"
 Source: "..\build\licenses\*"; DestDir: "{app}\licenses"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Cloud Island"; Filename: "{app}\CloudIsland.exe"
-Name: "{autodesktop}\Cloud Island"; Filename: "{app}\CloudIsland.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Cloud Hub"; Filename: "{app}\CloudIsland.exe"
+Name: "{autodesktop}\Cloud Hub"; Filename: "{app}\CloudIsland.exe"; Tasks: desktopicon
+
+[InstallDelete]
+Type: files; Name: "{autoprograms}\Cloud Island.lnk"
+Type: files; Name: "{autodesktop}\Cloud Island.lnk"
 
 [Run]
-Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Cloud Island}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Cloud Hub}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CloseIsland;

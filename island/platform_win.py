@@ -8,10 +8,10 @@ import winreg
 
 
 def autostart(enabled):
-    command = f'"{sys.executable}"'
+    command = f'"{sys.executable}" --background'
     if not getattr(sys, "frozen", False):
         interpreter = Path(sys.executable).with_name("pythonw.exe")
-        command = f'"{interpreter}" "{Path(__file__).resolve().parents[1] / "main.py"}"'
+        command = f'"{interpreter}" "{Path(__file__).resolve().parents[1] / "main.py"}" --background'
     try:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
             if enabled:

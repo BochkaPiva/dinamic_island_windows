@@ -21,6 +21,8 @@ from .style import NotchCard, SpectrumMark, rounded_art, app_icon, font
 from .updates import UpdateChecker
 from .instance import InstanceServer, notify_existing, server_name
 from .volume_scroll import NativeWheelSource, VolumeScroll
+from .policy import runtime_policy, PROFILES
+from .integrations import PowerToysBridge
 
 
 class ArtLabel(QLabel):
@@ -77,6 +79,12 @@ class IslandWindow(QWidget):
         self._hidden_by_user = False
         self._last_thumb = None
         self._last_battery = battery_state()
+        self._policy = runtime_policy(self.settings, self._last_battery[1] if self._last_battery else None)
+        self._economy = self._policy.profile == "battery"
+        self._external_policy = None
+        self.control_center = None
+        self._hub_hotkey = None
+        self.powertoys = PowerToysBridge(self.settings.directory, self)
         self._update_info = None
         self._manual_update = False
         self.resize(180, 38)
@@ -123,7 +131,7 @@ class IslandWindow(QWidget):
         self._update_timer.timeout.connect(self._scheduled_update)
         self._update_timer.start(24*60*60*1000)
         self.tray = QSystemTrayIcon(app_icon(), self)
-        self.tray.setToolTip(f"{APP_NAME} {__version__}")
+        self.tray.setToolTip(f"Cloud Hub · Cloud Island {__version__}")
         self.tray.activated.connect(self._tray_activate)
         self._build_menu()
         if services:
@@ -135,6 +143,8 @@ class IslandWindow(QWidget):
         if services:
             self.worker.start()
             self.audio.start()
+            from .hotkey import HubHotkey
+            self._hub_hotkey = HubHotkey(QApplication.instance(), self.show_hub)
             if self.settings.get("autostart"):
                 autostart(True)
             QTimer.singleShot(5000, self._scheduled_update)
@@ -180,6 +190,8 @@ class IslandWindow(QWidget):
         width, height = self._scale_window_size(100 if expanded else 50)
         screen = self.screen().geometry()
         self._geometry.start(QRect(screen.x()+(screen.width()-width)//2, screen.top(), width, height))
+        self._apply_policy()
+        self._update_services()
 
     def _close_if_allowed(self):
         if QApplication.activePopupWidget() or (self.notch_hub.busy() and self.isActiveWindow()):
@@ -238,6 +250,7 @@ class IslandWindow(QWidget):
             self.art_label.set_image(self._notch_art(b"", 26, 7))
         self.notch_hub.update_snapshot(snap)
         self._notch_stage.sync()
+        self._notch_stage.surface.update()
 
     def _notch_art(self, data, size, radius):
         return rounded_art(data, size, radius, self.devicePixelRatioF())
@@ -279,18 +292,22 @@ class IslandWindow(QWidget):
                 user.SetForegroundWindow(ctypes.c_void_p(candidates[0]))
 
     def _audio_levels(self, levels):
-        if not self.settings.get("spectrum"):
+        if not self._policy.spectrum:
             levels = (0.,)*5
         if max(levels) > .025:
             self._last_audio = time.monotonic()
         self._notch_audio_active = time.monotonic()-self._last_audio < .8
         self.status_mark.set_spectrum(levels)
         self._notch_stage.sync()
+        if self.isVisible():
+            self._notch_stage.surface.update()
 
     def _audio_available(self, available):
         self.status_mark.available = available
         self.status_mark.setToolTip("Спектр системного звука" if available else "Выходное аудиоустройство недоступно")
         self.status_mark.update()
+        if self.isVisible():
+            self._notch_stage.surface.update()
 
     def _media_error(self, message):
         self.notch_hub.title.setToolTip("Медиасессии Windows временно недоступны")
@@ -315,12 +332,57 @@ class IslandWindow(QWidget):
         if state and self._last_battery and state[1] != self._last_battery[1]:
             self.notice(("Зарядка · " if state[1] else "Батарея · ")+f"{state[0]}%")
         self._last_battery = state
+        self._apply_policy()
         if self._services:
             self._sync_visibility()
+            self._update_services()
         self._notch_stage.sync()
 
+    def _apply_policy(self):
+        plugged = self._last_battery[1] if self._last_battery else None
+        self._policy = runtime_policy(self.settings, plugged, self._island_expanded)
+        self._economy = self._policy.profile == "battery"
+        external = (self._policy.search, self._policy.layouts, self._policy.workspaces)
+        if self._services and self.settings.get("manage_powertoys") and external != self._external_policy:
+            self._external_policy = external
+            self.powertoys.configure(dict(zip(("CmdPal", "FancyZones", "Workspaces"), external)))
+
+    def _update_services(self):
+        if not self._services:
+            return
+        active = self._policy.island and not self._hidden_by_user and not self._fs_hidden and self.isVisible()
+        spectrum = active and self._policy.spectrum
+        if self.worker.enabled.is_set() != active:
+            self.worker.set_enabled(active)
+        if self.audio.enabled.is_set() != spectrum:
+            self.audio.set_enabled(spectrum)
+            if not spectrum:
+                self._audio_levels((0.,)*5)
+        if active and not self._notch_pointer_timer.isActive():
+            self._notch_pointer.last_time = time.monotonic()
+            self._notch_pointer_timer.start(16)
+        elif not active:
+            self._notch_pointer_timer.stop()
+            self._notch_pointer.route_input(False)
+            self._geometry.stop()
+            self._notch_hover_timer.stop()
+            self._island_auto_timer.stop()
+            if self._island_expanded or (self.width(), self.height()) != self._scale_window_size(50):
+                self._island_expanded = False
+                self._place()
+        self._system_timer.setInterval(500 if active else 2000)
+        clock = self.notch_hub.clock
+        if (active and self._island_expanded) or self.notch_hub._timer_end:
+            if not clock.isActive():
+                clock.start(1000)
+        else:
+            clock.stop()
+
     def _sync_visibility(self):
-        if self._closed or self._hidden_by_user:
+        if self._closed:
+            return
+        if self._hidden_by_user or not self._policy.island:
+            self.hide()
             return
         fullscreen = self.settings.get("hide_fullscreen") and is_fullscreen(self)
         if fullscreen:
@@ -340,17 +402,40 @@ class IslandWindow(QWidget):
             self.tray.showMessage(APP_NAME, "Не удалось изменить автозапуск")
             return
         self.settings.set(key, enabled)
-        if key == "spectrum":
-            self._audio_levels(self.status_mark.levels)
+        if key == "manage_powertoys":
+            self._external_policy = None
+        self._apply_policy()
         if key == "hide_fullscreen" and not enabled and self._fs_hidden:
             self._fs_hidden = False
             self.show()
+        if self._services:
+            self._sync_visibility()
+            # A module can be enabled while a previously hidden window has no
+            # desktop foreground: explicitly restore it, then check full-screen.
+            if self._policy.island and not self._hidden_by_user and not self._fs_hidden:
+                self.show()
+            self._update_services()
+        self._notch_stage.sync()
+        if self.control_center:
+            self.control_center.refresh()
+        self._build_menu()
 
     def _build_menu(self):
         menu = QMenu(self)
         menu.setStyleSheet("QMenu { background: #17171c; color: #eeeeef; padding: 6px; border: 1px solid #35353d; } QMenu::item { padding: 7px 18px; } QMenu::item:selected { background: #33333e; }")
-        menu.addAction(f"{APP_NAME} {__version__}").setEnabled(False)
+        menu.addAction(f"Cloud Hub {__version__}").setEnabled(False)
+        menu.addAction("Центр управления", self.show_hub)
         menu.addAction("Открыть остров", self._show_panel)
+        profiles = menu.addMenu("Профиль")
+        for value, title in PROFILES.items():
+            action = profiles.addAction(title)
+            action.setCheckable(True)
+            action.setChecked(self.settings.get("profile") == value)
+            action.triggered.connect(lambda checked=False, p=value: self._toggle_setting("profile", p))
+        action = menu.addAction("Приостановить модули")
+        action.setCheckable(True)
+        action.setChecked(self.settings.get("paused"))
+        action.triggered.connect(lambda value: self._toggle_setting("paused", value))
         menu.addSeparator()
         for key, title in (("autostart", "Запускать с Windows"), ("spectrum", "Живой спектр звука"),
                            ("volume_scroll_reverse", "Обратить громкость при прокрутке"),
@@ -387,16 +472,30 @@ class IslandWindow(QWidget):
     def _hide_user(self):
         self._hidden_by_user = True
         self.hide()
+        self._update_services()
 
     def _show_panel(self):
+        if not self._policy.island:
+            self.show_hub()
+            self.control_center._message("Включи чёлку и выбери рабочий профиль или сними паузу.")
+            return
         self._hidden_by_user = self._fs_hidden = False
         self.show()
         self._set_island_expanded(True)
         self.raise_()
+        self._update_services()
+
+    def show_hub(self):
+        if self.control_center is None:
+            from .control_center import ControlCenter
+            self.control_center = ControlCenter(self)
+        self.control_center.showNormal()
+        self.control_center.raise_()
+        self.control_center.activateWindow()
 
     def _tray_activate(self, reason):
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
-            self._show_panel()
+            self.show_hub()
 
     def _scheduled_update(self):
         if self.settings.get("updates"):
@@ -420,6 +519,11 @@ class IslandWindow(QWidget):
             return
         self._closed = True
         self._wheel_source.close()
+        if self._hub_hotkey:
+            self._hub_hotkey.close()
+        if self.control_center:
+            self.control_center.close()
+        self.powertoys.close(restore=self._services and self.settings.get("manage_powertoys"))
         self.notch_hub.save_notes()
         self._notch_pointer_timer.stop()
         self._system_timer.stop()
@@ -433,13 +537,13 @@ class IslandWindow(QWidget):
         self.tray.hide()
 
 
-def run():
+def run(background=False, island=False):
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("BochkaPiva")
     app.setFont(font(12))
     app.setQuitOnLastWindowClosed(False)
-    if notify_existing("show"):
+    if notify_existing("show" if island else "hub"):
         return 0
     lock = QSharedMemory(server_name())
     if not lock.create(1):
@@ -450,5 +554,10 @@ def run():
         window.cleanup()
         return 1
     app.aboutToQuit.connect(window.cleanup)
-    window.show()
+    window._sync_visibility()
+    if window._policy.island and not window._hidden_by_user and not window._fs_hidden:
+        window.show()
+    window._update_services()
+    if not background:
+        window._show_panel() if island else window.show_hub()
     return app.exec()

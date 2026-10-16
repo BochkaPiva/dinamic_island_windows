@@ -20,10 +20,10 @@ from island.updates import release_info
 class DomainTests(unittest.TestCase):
     def test_updates_only_offer_new_stable_releases_from_this_repo(self):
         valid = {"tag_name": "v0.2.0", "html_url": "https://github.com/BochkaPiva/dinamic_island_windows/releases/tag/v0.2.0"}
-        self.assertEqual(release_info(valid)["version"], "0.2.0")
+        self.assertEqual(release_info(valid, current="0.1.4")["version"], "0.2.0")
         for patch in ({"prerelease": True}, {"draft": True}, {"tag_name": "v0.0.9"},
                       {"tag_name": "v0.2.0-rc1"}, {"html_url": "https://example.com/file.exe"}):
-            self.assertIsNone(release_info({**valid, **patch}))
+            self.assertIsNone(release_info({**valid, **patch}, current="0.1.4"))
 
     def test_wave_has_a_wake_then_settles(self):
         cloud = CloudMotion()

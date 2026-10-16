@@ -73,4 +73,4 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           python tools/release_notes.py "$TAG" > release-notes.md
-          gh release create "$TAG" release/* --repo "$REPO" --verify-tag --latest --title "Cloud Island $TAG" --notes-file release-notes.md
+          gh release create "$TAG" release/* --repo "$REPO" --verify-tag --latest --title "Cloud Hub $TAG" --notes-file release-notes.md

@@ -229,7 +229,10 @@ class PointerController:
         screen = w.screen().geometry()
         point = self.cursor_provider()
         near = abs(point.x() - (screen.x() + screen.width() / 2)) < w.width() / 2 + 150 and screen.top() <= point.y() < screen.top() + max(180, w.height() + 20)
-        interval = (8 if w.screen().refreshRate() >= 90 else 16) if near else 48
+        relaxing = any(abs(axis.velocity) > .01 for axis in
+                       (self.cloud.amount, self.cloud.center, self.cloud.wake, self.cloud.spread))
+        fast = 16 if getattr(w, "_economy", False) else (8 if w.screen().refreshRate() >= 90 else 16)
+        interval = fast if near or relaxing else 80
         if w._notch_pointer_timer.interval() != interval:
             w._notch_pointer_timer.setInterval(interval)
         if now - self.context_at >= 0.12:
@@ -357,6 +360,14 @@ class NotchStage:
         if not self.active:
             return
         w = self.owner
+        # Layout only when its inputs change. FFT packets repaint the texture
+        # directly instead of repeatedly relaying out every child at 40 Hz.
+        signature = (w.width(), w.height(), w._island_expanded, w._notch_notice,
+                     w.snapshot.has_session, w._notch_audio_active, bool(w.notch_hub._timer_end),
+                     w.notch_idle.text(), w.settings.get("spectrum"))
+        if signature == getattr(self, "_signature", None):
+            return
+        self._signature = signature
         cw, ch = w._scale_window_size(50)
         pw, ph = w._scale_window_size(100)
         self.compact.setGeometry((w.width() - cw) // 2, 0, cw, ch)

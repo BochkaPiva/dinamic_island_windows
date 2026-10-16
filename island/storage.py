@@ -13,7 +13,10 @@ def data_dir():
 
 class Settings:
     DEFAULTS = {"updates": True, "autostart": False, "hide_fullscreen": True,
-                "spectrum": True, "source": "", "monitor": "", "volume_scroll_reverse": False}
+                "spectrum": True, "source": "", "monitor": "", "volume_scroll_reverse": False,
+                "profile": "auto", "paused": False, "island_enabled": True,
+                "search_enabled": True, "layouts_enabled": True, "workspaces_enabled": True,
+                "manage_powertoys": False}
 
     def __init__(self, directory=None):
         self.directory = Path(directory) if directory else data_dir()
@@ -27,11 +30,19 @@ class Settings:
                     self.values[key] = saved[key]
         except (OSError, ValueError, TypeError):
             pass
+        if self.values["profile"] not in {"auto", "work", "battery", "game"}:
+            self.values["profile"] = "auto"
 
     def get(self, key):
         return self.values[key]
 
     def set(self, key, value):
+        if key not in self.DEFAULTS or type(value) is not type(self.DEFAULTS[key]):
+            raise ValueError("Invalid setting")
+        if key == "profile" and value not in {"auto", "work", "battery", "game"}:
+            raise ValueError("Unknown profile")
+        if self.values.get(key) == value:
+            return
         self.values[key] = value
         temp = self.path.with_suffix(".tmp")
         temp.write_text(json.dumps(self.values, ensure_ascii=False, indent=2), encoding="utf-8")

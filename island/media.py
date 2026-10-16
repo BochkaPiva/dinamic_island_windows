@@ -36,6 +36,10 @@ class MediaWorker(QThread):
         super().__init__(parent)
         self.preferred_source = source
         self.stopped = threading.Event()
+        self.enabled = threading.Event()
+        self.enabled.set()
+        self.wakeup = threading.Event()
+        self.poll_active = threading.Event()
         self.commands = queue.SimpleQueue()
         self._cover_key = None
         self._cover = b""
@@ -45,21 +49,44 @@ class MediaWorker(QThread):
 
     def stop(self):
         self.stopped.set()
+        self.wakeup.set()
+
+    def set_enabled(self, enabled):
+        if enabled:
+            self.enabled.set()
+            self.wakeup.set()
+        else:
+            self.enabled.clear()
+            while not self.commands.empty():
+                try:
+                    self.commands.get_nowait()
+                except queue.Empty:
+                    break
 
     def run(self):
         try:
             asyncio.run(self._run())
         except Exception as error:
             self.failure.emit(str(error))
+        finally:
+            self.poll_active.clear()
 
     async def _run(self):
         from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
         from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionPlaybackStatus as Status
         from winrt.windows.storage.streams import DataReader
+        previous = None
         while not self.stopped.is_set():
+            self.poll_active.clear()
+            if not self.enabled.is_set():
+                self.wakeup.clear()
+                if not self.enabled.is_set() and not self.stopped.is_set():
+                    self.wakeup.wait()
+                continue
             try:
                 manager = await GlobalSystemMediaTransportControlsSessionManager.request_async()
-                while not self.stopped.is_set():
+                while not self.stopped.is_set() and self.enabled.is_set():
+                    self.poll_active.set()
                     sessions = {s.source_app_user_model_id: s for s in manager.get_sessions()}
                     while not self.commands.empty():
                         source, action, value = self.commands.get()
@@ -122,8 +149,10 @@ class MediaWorker(QThread):
                                         can_play=controls.is_play_enabled, can_pause=controls.is_pause_enabled,
                                         can_prev=controls.is_previous_enabled, can_next=controls.is_next_enabled,
                                         can_seek=controls.is_playback_position_enabled)
-                    self.snapshot_updated.emit(snap)
-                    await asyncio.sleep(.28)
+                    if snap != previous:
+                        self.snapshot_updated.emit(snap)
+                        previous = snap
+                    await asyncio.sleep(.35 if snap.has_session else 1.0)
             except Exception as error:
                 self.failure.emit(str(error))
                 for _ in range(20):

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.0
+
+- Introduce Cloud Hub: a native control center for Cloud Island, profiles, module switches and Windows/HONOR shortcuts.
+- Add Auto, Work, Battery and Game profiles plus a global pause. Individual module preferences survive profile changes.
+- Auto selects Work on AC and Battery when unplugged. Battery opens WASAPI only while the island is expanded; Game/pause/disabled island stop capture and media polling.
+- Add optional PowerToys integration for Command Palette, FancyZones and Workspaces through its DSC/CLI interfaces. Round-trip complete settings, preserve unrelated utilities, back up and restore the original three enable flags.
+- Gracefully restart the verified PowerToys host when its module states change; 0.101 does not reload DSC enable flags live. Restore the original connection when Cloud Hub exits.
+- Discover saved PowerToys workspaces and launch a selected local workspace; open the official editors to create layouts and application sets.
+- Open Cloud Hub through the tray, desktop shortcut or Ctrl+Alt+H. Keep the existing installer identity, executable and local data location for upgrades.
+- Stop hidden control-center refresh, suspend unused media/pointer clocks and avoid relaying out compact content for each FFT packet.
+- Preserve natural scrolling, click-through wave, centered geometry, desktop recovery and Windows Peek exclusion.
+
 ## v0.1.4
 
 - Exclude the island from Windows Peek fading when previewing another application's taskbar thumbnail.

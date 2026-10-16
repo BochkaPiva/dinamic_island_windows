@@ -1,5 +1,5 @@
 """Cloud Island for Windows."""
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 APP_NAME = "Cloud Island"
 REPOSITORY = "BochkaPiva/dinamic_island_windows"
 REPO_URL = f"https://github.com/{REPOSITORY}"

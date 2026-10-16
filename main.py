@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--self-test", metavar="REPORT")
     parser.add_argument("--audio-self-test", metavar="REPORT")
     parser.add_argument("--quit", action="store_true", help="Gracefully close the current user's running instance")
+    parser.add_argument("--background", action="store_true", help="Start tray and enabled modules without opening Cloud Hub")
+    parser.add_argument("--island", action="store_true", help="Open the island instead of Cloud Hub")
     args = parser.parse_args()
     if args.self_test or args.audio_self_test:
         return self_test(args.self_test or args.audio_self_test, bool(args.audio_self_test))
@@ -51,7 +53,7 @@ def main():
             traceback.print_exception(kind, value, trace, file=stream)
         sys.__excepthook__(kind, value, trace)
     sys.excepthook = failure
-    return run()
+    return run(background=args.background, island=args.island)
 
 
 if __name__ == "__main__":
