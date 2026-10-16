@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
 from PyQt6.QtGui import QCursor, QPainter
 from PyQt6.QtWidgets import QWidget, QGraphicsOpacityEffect
+from .platform_win import is_desktop_window
 
 
 @dataclass(frozen=True)
@@ -171,9 +172,7 @@ def top_application(owner):
             return False
     if user.IsIconic(ctypes.c_void_p(fg)):
         return False
-    name = ctypes.create_unicode_buffer(128)
-    user.GetClassNameW(ctypes.c_void_p(fg), name, 128)
-    if name.value in {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}:
+    if is_desktop_window(fg, user):
         return False
     class Rect(ctypes.Structure):
         _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),

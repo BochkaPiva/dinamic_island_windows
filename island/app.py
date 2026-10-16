@@ -14,7 +14,8 @@ from .audio import AudioSpectrum
 from .hub import NotchHub, battery_state, fmt
 from .media import MediaWorker, Snapshot
 from .motion import NotchStage, PointerController, SpringGeometry
-from .platform_win import autostart, is_fullscreen, adjust_volume
+from .platform_win import (autostart, is_fullscreen, adjust_volume,
+                           desktop_is_foreground, keep_desktop_visible)
 from .storage import Settings
 from .style import NotchCard, SpectrumMark, rounded_art, app_icon, font
 from .updates import UpdateChecker
@@ -58,6 +59,7 @@ class IslandWindow(QWidget):
         super().__init__(flags=Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool |
                          Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(app_icon())
         self.setMouseTracking(True)
@@ -307,12 +309,25 @@ class IslandWindow(QWidget):
         if state and self._last_battery and state[1] != self._last_battery[1]:
             self.notice(("Зарядка · " if state[1] else "Батарея · ")+f"{state[0]}%")
         self._last_battery = state
-        if self._services and self.settings.get("hide_fullscreen") and not self._hidden_by_user:
-            fullscreen = is_fullscreen(self)
-            if fullscreen != self._fs_hidden:
-                self._fs_hidden = fullscreen
-                self.setVisible(not fullscreen)
+        if self._services:
+            self._sync_visibility()
         self._notch_stage.sync()
+
+    def _sync_visibility(self):
+        if self._closed or self._hidden_by_user:
+            return
+        fullscreen = self.settings.get("hide_fullscreen") and is_fullscreen(self)
+        if fullscreen:
+            self._fs_hidden = True
+            self.hide()
+            return
+        if self._fs_hidden:
+            self._fs_hidden = False
+            self.show()
+        if desktop_is_foreground():
+            if not self.isVisible():
+                self.show()
+            keep_desktop_visible(self)
 
     def _toggle_setting(self, key, enabled):
         if key == "autostart" and not autostart(enabled):

@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
 from island.app import IslandWindow
 from island.media import Snapshot
 from island.storage import Settings
+from island.platform_win import keep_desktop_visible
 
 out = Path(sys.argv[1] if len(sys.argv) > 1 else "build/native-check")
 out.mkdir(parents=True, exist_ok=True)
@@ -117,10 +118,33 @@ with tempfile.TemporaryDirectory() as folder:
                 assert user.PostMessageW(ctypes.c_void_p(int(w.winId())), 0x020A, 120 << 16, lparam)
                 QTest.qWait(80)
             assert actions and actions[-1] == expected, (device, actions)
+        # Simulate only our overlay being minimized/lowered, as can happen on
+        # Show Desktop. Restore it above the fixture without stealing focus.
+        under.activateWindow()
+        button.setFocus()
+        QTest.qWait(80)
+        user.GetForegroundWindow.restype = ctypes.c_void_p
+        foreground = user.GetForegroundWindow()
+        geometry = w.geometry()
+        user.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int,
+                                      ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+        user.SetWindowPos(ctypes.c_void_p(int(w.winId())), ctypes.c_void_p(-2), 0, 0, 0, 0, 0x213)
+        w.showMinimized()
+        QTest.qWait(50)
+        assert user.IsIconic(ctypes.c_void_p(int(w.winId())))
+        assert keep_desktop_visible(w)
+        QTest.qWait(80)
+        assert not user.IsIconic(ctypes.c_void_p(int(w.winId())))
+        assert user.GetForegroundWindow() == foreground, "Desktop recovery stole keyboard focus"
+        assert w.geometry() == geometry, "Desktop recovery changed the island bounds"
+        user.GetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        user.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+        assert user.GetWindowLongPtrW(ctypes.c_void_p(int(w.winId())), -20) & 0x8
         w.grab().save(str(out/"overview.png"))
         (out/"report.json").write_text(json.dumps({"click_through": True, "tab_click": True,
                "top_edge_open": True, "fixed_content": True, "centered": True,
-               "volume_native_routing": True}), encoding="utf-8")
+               "volume_native_routing": True, "desktop_recovery": True,
+               "focus_preserved": True}), encoding="utf-8")
         print("Native mouse routing, edge activation and fixed composition: PASS")
     finally:
         w.cleanup()

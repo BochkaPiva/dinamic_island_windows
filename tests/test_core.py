@@ -4,6 +4,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import tempfile
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 import numpy as np
 from PyQt6.QtCore import QPointF
 from PyQt6.QtTest import QTest
@@ -123,6 +124,26 @@ class WindowTests(unittest.TestCase):
         w.notch_hub.shelf.clear()
         w.notch_hub.shelf.persist()
         self.assertTrue(original.exists())
+
+    def test_desktop_restores_overlay_but_respects_fullscreen_and_user_hide(self):
+        w = self.w
+        with patch("island.app.is_fullscreen", return_value=True) as fullscreen, \
+             patch("island.app.desktop_is_foreground", return_value=True), \
+             patch("island.app.keep_desktop_visible") as restore:
+            w._sync_visibility()
+            self.assertFalse(w.isVisible())
+            self.assertTrue(w._fs_hidden)
+            restore.assert_not_called()
+            fullscreen.return_value = False
+            w._sync_visibility()
+            self.assertTrue(w.isVisible())
+            self.assertFalse(w._fs_hidden)
+            restore.assert_called_once_with(w)
+            restore.reset_mock()
+            w._hide_user()
+            w._sync_visibility()
+            self.assertFalse(w.isVisible())
+            restore.assert_not_called()
 
 
 if __name__ == "__main__":

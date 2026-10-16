@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3
+
+- Keep the island visible after activating the desktop or using Show Desktop.
+- Recognize custom desktop child/owned windows through their shell ancestry; do not mistake desktop organizer surfaces for full-screen apps or browser tabs.
+- Recover a lowered/minimized island above the desktop without activating it or changing its bounds.
+- Preserve intentional tray hiding and hiding over real full-screen applications.
+- Add desktop ancestry/visibility regression tests and a native restore/focus-preservation check.
+
 ## v0.1.2
 
 - Fix volume direction for natural touchpad scrolling without reversing ordinary mouse wheels.
