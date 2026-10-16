@@ -83,6 +83,7 @@ class IntegrationTests(unittest.TestCase):
         with patch("island.integrations.powertoys_root", return_value=Path(self.temp.name)), \
              patch("island.integrations.close_powertoys_runner", return_value=None):
             bridge = PowerToysBridge(self.temp.name)
+            bridge.native_path = Path(self.temp.name)/"native.json"
             bridge.process = Mock()
             calls = []
             bridge._start = lambda args: calls.append(args)
@@ -126,6 +127,7 @@ class IntegrationTests(unittest.TestCase):
              patch("island.integrations.close_powertoys_runner", return_value=123), \
              patch("island.integrations.ctypes.windll.kernel32", kernel):
             bridge = PowerToysBridge(self.temp.name)
+            bridge.native_path = Path(self.temp.name)/"native.json"
             bridge.process = Mock()
             calls = []
             bridge._start = lambda args: calls.append(args)
@@ -144,6 +146,33 @@ class IntegrationTests(unittest.TestCase):
             self.assertIsNone(bridge._runner_handle)
             self.assertFalse(bridge.runner_poll.isActive())
             bridge.timeout.stop()
+
+    def test_dsc_serializer_cannot_enable_unmanaged_file_explorer_or_drop_unknown_settings(self):
+        with patch("island.integrations.powertoys_root", return_value=Path(self.temp.name)), \
+             patch("island.integrations.close_powertoys_runner", return_value=None):
+            bridge = PowerToysBridge(self.temp.name)
+            bridge.native_path = Path(self.temp.name)/"native.json"
+            before = {"startup": False, "future": {"preserve": 42}, "enabled":
+                {"CmdPal": True, "FancyZones": True, "Workspaces": True, "File Explorer": False}}
+            bridge.native_path.write_text(json.dumps(before), encoding="utf-8")
+            bridge.process = Mock()
+            calls = []
+            bridge._start = lambda args: calls.append(args)
+            vendor = {"settings": {"startup": False, "enabled":
+                {"CmdPal": True, "FancyZones": True, "Workspaces": True, "File Explorer Preview": True}}}
+            bridge.process.readAllStandardOutput.return_value = json.dumps(vendor).encode()
+            bridge.configure(dict.fromkeys(("CmdPal", "FancyZones", "Workspaces"), False))
+            bridge._finished(0, QProcess.ExitStatus.NormalExit)
+            sent = json.loads(calls[-1][-1])
+            bridge.native_path.write_text(json.dumps(sent["settings"]), encoding="utf-8")
+            bridge.process.readAllStandardOutput.return_value = json.dumps(sent).encode()
+            bridge._finished(0, QProcess.ExitStatus.NormalExit)
+            after = json.loads(bridge.native_path.read_text(encoding="utf-8"))
+            self.assertEqual(after["future"], before["future"])
+            self.assertFalse(after["enabled"]["File Explorer"])
+            self.assertNotIn("File Explorer Preview", after["enabled"])
+            self.assertFalse(bridge._any_enabled)
+            self.assertFalse(bridge.busy)
 
     def test_control_center_applies_preferences_and_stops_refresh_when_closed(self):
         w = IslandWindow(Settings(self.temp.name), services=False)

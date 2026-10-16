@@ -2,7 +2,9 @@
 """Optional PowerToys adapter. Public CLI, read-only workspace discovery.
 
 DSC replaces omitted settings with defaults: always GET and round-trip the full
-object before changing only the three owned enable flags. Never patch its JSON.
+object. Its 0.101 managed serializer also renames File Explorer, so retain the
+native JSON snapshot and repair any unrelated serialization changes atomically,
+only after the verified host has exited. Workspace files remain read-only.
 """
 import json
 import ctypes
@@ -94,6 +96,8 @@ class PowerToysBridge(QObject):
         self._runner_handle = None
         self._any_enabled = False
         self._closing_at = 0
+        self.native_path = Path(os.environ.get("LOCALAPPDATA", ""))/"Microsoft/PowerToys/settings.json"
+        self._native_before = None
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
         self.process.finished.connect(self._finished)
@@ -142,6 +146,13 @@ class PowerToysBridge(QObject):
         self.status = "Применяю настройки…"
         self.changed.emit()
         self._stage = "get"
+        try:
+            self._native_before = json.loads(self.native_path.read_text(encoding="utf-8-sig")) if self.native_path.is_file() else None
+            if self._native_before is not None and not all(type(self._native_before.get("enabled", {}).get(key)) is bool for key in MODULES):
+                raise ValueError("Unknown native PowerToys settings format")
+        except (OSError, ValueError, TypeError, AttributeError):
+            self._fail("Не удалось сохранить исходные параметры PowerToys. Подключение не изменено.")
+            return
         self._start(["get", "--resource", "settings", "--module", "App"])
 
     def _start(self, arguments):
@@ -163,12 +174,13 @@ class PowerToysBridge(QObject):
             if not all(type(enabled.get(key)) is bool for key in MODULES):
                 raise ValueError("Unsupported PowerToys settings format")
             self.actual = {key: enabled[key] for key in MODULES}
-            self._any_enabled = any(value is True for value in enabled.values())
+            native_enabled = self._native_before["enabled"] if self._native_before is not None else enabled
+            self._any_enabled = any(value is True for value in native_enabled.values())
             if self._stage == "get":
                 if not self._restore and not self.backup.exists():
                     temporary = self.backup.with_suffix(".tmp")
                     temporary.write_text(json.dumps({"managed_enabled": self.actual,
-                        "settings": settings}, ensure_ascii=False, indent=2), encoding="utf-8")
+                        "settings": settings, "native_settings": self._native_before}, ensure_ascii=False, indent=2), encoding="utf-8")
                     temporary.replace(self.backup)
                 requested = dict(self.desired)
                 reload = self._fresh or self.actual != requested
@@ -190,6 +202,7 @@ class PowerToysBridge(QObject):
             else:
                 if self.actual != self._sent:
                     raise ValueError("PowerToys did not accept the requested flags")
+                self._retain_native_settings()
                 if self.desired != self._sent:
                     self._get()  # A profile changed while the previous request was pending.
                 else:
@@ -210,6 +223,17 @@ class PowerToysBridge(QObject):
         self._stage = "set"
         self._start(["set", "--resource", "settings", "--module", "App", "--input",
                      json.dumps({"settings": settings}, ensure_ascii=False)])
+
+    def _retain_native_settings(self):
+        if self._native_before is None:
+            return
+        expected = {**self._native_before, "enabled": {**self._native_before["enabled"], **self._sent}}
+        current = json.loads(self.native_path.read_text(encoding="utf-8-sig"))
+        if current != expected:
+            temporary = self.native_path.with_suffix(".cloud-hub.tmp")
+            temporary.write_text(json.dumps(expected, ensure_ascii=False, indent=2), encoding="utf-8")
+            temporary.replace(self.native_path)
+        self._any_enabled = any(value is True for value in expected["enabled"].values())
 
     def _runner_closed(self):
         kernel = ctypes.windll.kernel32

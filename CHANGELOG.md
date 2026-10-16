@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.1
+
+- Preserve the exact native PowerToys configuration across DSC serialization and host restart. PowerToys 0.101's managed serializer renames the File Explorer enable key and can otherwise enable that unrelated module again.
+- Back up the native configuration and atomically retain all unrelated fields while the verified PowerToys host is closed; change only the three connected module flags.
+- Add a regression covering the File Explorer key mismatch and unknown future settings.
+
 ## v0.2.0
 
 - Introduce Cloud Hub: a native control center for Cloud Island, profiles, module switches and Windows/HONOR shortcuts.
