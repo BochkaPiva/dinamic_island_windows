@@ -66,6 +66,7 @@ class IslandWindow(QWidget):
         self.setWindowIcon(app_icon())
         self.setMouseTracking(True)
         self.settings = settings or Settings()
+        self.setWindowOpacity(self.settings.get("island_opacity")/100)
         self._wheel_source = NativeWheelSource(QApplication.instance())
         self._volume_scroll = VolumeScroll(adjust_volume, self._wheel_source)
         self._services = services
@@ -84,6 +85,7 @@ class IslandWindow(QWidget):
         self._external_policy = None
         self.control_center = None
         self._hub_hotkey = None
+        self.hotkeys = {}
         self.powertoys = PowerToysBridge(self.settings.directory, self)
         self._update_info = None
         self._manual_update = False
@@ -134,6 +136,8 @@ class IslandWindow(QWidget):
         self.tray.setToolTip(f"Cloud Hub · Cloud Island {__version__}")
         self.tray.activated.connect(self._tray_activate)
         self._build_menu()
+        from .modules import ModuleRuntime
+        self.modules = ModuleRuntime(self)
         if services:
             self.tray.show()
         self._notch_stage.enter()
@@ -144,7 +148,11 @@ class IslandWindow(QWidget):
             self.worker.start()
             self.audio.start()
             from .hotkey import HubHotkey
-            self._hub_hotkey = HubHotkey(QApplication.instance(), self.show_hub)
+            for index, (key, callback) in enumerate((("hotkey_hub", self.show_hub),
+                    ("hotkey_search", self.show_search), ("hotkey_island", self._show_panel))):
+                self.hotkeys[key] = HubHotkey(QApplication.instance(), callback,
+                    self.settings.get(key), 0x4348+index)
+            self._hub_hotkey = self.hotkeys["hotkey_hub"]
             if self.settings.get("autostart"):
                 autostart(True)
             QTimer.singleShot(5000, self._scheduled_update)
@@ -155,7 +163,11 @@ class IslandWindow(QWidget):
             screen.geometryChanged.connect(lambda _: self._place())
 
     def _scale_window_size(self, scale):
-        return (620, 266) if scale == 100 else (180, 38)
+        prefix = "expanded" if scale == 100 else "compact"
+        screen = next((s for s in QApplication.screens() if s.name() == self.settings.get("monitor")),
+                      QApplication.primaryScreen()).geometry()
+        return (min(self.settings.get(prefix+"_width"),screen.width()),
+                min(self.settings.get(prefix+"_height"),screen.height()))
 
     def _place(self):
         app = QApplication.instance()
@@ -212,12 +224,12 @@ class IslandWindow(QWidget):
 
     def enterEvent(self, event):
         if not self._notch_pointer.covered and not self._island_expanded:
-            self._notch_hover_timer.start(180)
+            self._notch_hover_timer.start(self.settings.get("hover_delay"))
 
     def leaveEvent(self, event):
         self._notch_hover_timer.stop()
         if self._island_expanded:
-            self._island_auto_timer.start(420)
+            self._island_auto_timer.start(self.settings.get("collapse_delay"))
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and not self._island_expanded:
@@ -243,11 +255,12 @@ class IslandWindow(QWidget):
 
     def _handle_snapshot(self, snap):
         self.snapshot = snap
+        art_size = min(40,self.settings.get("compact_height")-12)
         if snap.thumb != self._last_thumb:
             self._last_thumb = snap.thumb
-            self.art_label.set_image(self._notch_art(snap.thumb, 26, 7))
+            self.art_label.set_image(self._notch_art(snap.thumb, art_size, 7))
         elif self.art_label.image is None:
-            self.art_label.set_image(self._notch_art(b"", 26, 7))
+            self.art_label.set_image(self._notch_art(b"", art_size, 7))
         self.notch_hub.update_snapshot(snap)
         self._notch_stage.sync()
         self._notch_stage.surface.update()
@@ -342,7 +355,10 @@ class IslandWindow(QWidget):
         plugged = self._last_battery[1] if self._last_battery else None
         self._policy = runtime_policy(self.settings, plugged, self._island_expanded)
         self._economy = self._policy.profile == "battery"
-        external = (self._policy.search, self._policy.layouts, self._policy.workspaces)
+        # Search is native now. Keep Command Palette off while we own this connection.
+        external = (False, self._policy.layouts, self._policy.workspaces)
+        if hasattr(self, "modules"):
+            self.modules.sync()
         if self._services and self.settings.get("manage_powertoys") and external != self._external_policy:
             self._external_policy = external
             self.powertoys.configure(dict(zip(("CmdPal", "FancyZones", "Workspaces"), external)))
@@ -398,10 +414,53 @@ class IslandWindow(QWidget):
             keep_desktop_visible(self)
 
     def _toggle_setting(self, key, enabled):
+        if key.startswith("hotkey_"):
+            from .hotkey import parse_shortcut
+            try:
+                parsed = parse_shortcut(enabled)
+                duplicate = parsed and any(k != key and parse_shortcut(v) == parsed
+                    for k,v in self.settings.values.items() if k.startswith("hotkey_"))
+                if duplicate:
+                    raise ValueError("Это сочетание уже назначено другому действию Cloud Hub")
+                binding = self.hotkeys.get(key)
+                if binding and not binding.rebind(enabled):
+                    raise ValueError(binding.error)
+            except ValueError as error:
+                if self.control_center:
+                    self.control_center._message(str(error))
+                return False
         if key == "autostart" and not autostart(enabled):
             self.tray.showMessage(APP_NAME, "Не удалось изменить автозапуск")
             return
-        self.settings.set(key, enabled)
+        try:
+            self.settings.set(key, enabled)
+        except OSError:
+            if key in self.hotkeys:
+                self.hotkeys[key].rebind(self.settings.get(key))
+            if self.control_center:
+                self.control_center._message("Не удалось записать настройки на диск. Изменение не сохранено.")
+            return False
+        if key.endswith(("_width", "_height")) and key.startswith(("compact", "expanded")):
+            self.art_label.set_image(self._notch_art(self.snapshot.thumb, min(40,self.settings.get("compact_height")-12),7))
+            self._notch_stage._signature = None
+            self._place()
+        if key == "island_opacity":
+            self.setWindowOpacity(enabled/100)
+        if key == "timer_minutes":
+            self.notch_hub.set_timer_minutes(enabled)
+        if key == "monitor":
+            self._place()
+        if key == "overview_calendar":
+            self.notch_hub.calendar.setVisible(enabled)
+        if key == "overview_focus":
+            self.notch_hub.focus_preview.setVisible(enabled)
+        if key == "island_files":
+            self.notch_hub.tabs[3].setVisible(enabled)
+            if not enabled and self.notch_hub.stack.currentIndex() == 3:
+                self.notch_hub.select_tab(0)
+        if key.startswith("group"):
+            self.modules.desktop.reconcile()
+            self.modules.desktop.reposition()
         if key == "manage_powertoys":
             self._external_policy = None
         self._apply_policy()
@@ -419,6 +478,10 @@ class IslandWindow(QWidget):
         if self.control_center:
             self.control_center.refresh()
         self._build_menu()
+        return True
+
+    def show_search(self):
+        self.modules.search.toggle()
 
     def _build_menu(self):
         menu = QMenu(self)
@@ -519,12 +582,15 @@ class IslandWindow(QWidget):
             return
         self._closed = True
         self._wheel_source.close()
-        if self._hub_hotkey:
-            self._hub_hotkey.close()
+        for binding in self.hotkeys.values():
+            binding.close()
+        self.modules.close()
         if self.control_center:
             self.control_center.close()
         self.powertoys.close(restore=self._services and self.settings.get("manage_powertoys"))
         self.notch_hub.save_notes()
+        self.notch_hub.clock.stop()
+        self.notch_hub._note_save.stop()
         self._notch_pointer_timer.stop()
         self._system_timer.stop()
         self._geometry.stop()

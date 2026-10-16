@@ -238,7 +238,7 @@ class PointerController:
         if now - self.context_at >= 0.12:
             self.covered, self.context_at = self.context_provider(), now
         width = w._scale_window_size(50)[0]
-        intent = pointer_intent(screen, width, point, self.covered)
+        intent = pointer_intent(screen, width, point, self.covered and w.settings.get("cursor_retreat"))
         expanded = w._island_expanded
         if intent.edge and not self.edge_blocked:
             self.edge_since = self.edge_since or now
@@ -261,11 +261,11 @@ class PointerController:
             if inside or now - self.opened_at < 0.35:
                 w._island_auto_timer.stop()
             elif not w._island_auto_timer.isActive():
-                w._island_auto_timer.start(420)
+                w._island_auto_timer.start(w.settings.get("collapse_delay"))
             target = 0.0
         else:
             target = intent.retreat
-            if self.covered:
+            if self.covered and w.settings.get("cursor_retreat"):
                 w._notch_hover_timer.stop()
             # Restore hit testing only after retreat is visually over. Edge
             # activation is global and works even while fully transparent.
@@ -394,8 +394,9 @@ class NotchStage:
         w.art_label.setVisible(session and not notice)
         audio = w._notch_audio_active
         w.status_mark.setVisible((session or audio) and not notice and w.settings.get("spectrum"))
-        w.art_label.setFixedSize(26, 26)
-        w.art_label.move(20, max(2, (ch - 26) // 2 - 1))
+        art_size = min(40,ch-12)
+        w.art_label.setFixedSize(art_size, art_size)
+        w.art_label.move(20, max(2, (ch - art_size) // 2 - 1))
         w.status_mark.move(cw - w.status_mark.width() - 20, (ch - w.status_mark.height()) // 2)
         w.notch_notice.setVisible(notice)
         w.notch_notice.setGeometry(20, 0, cw - 40, ch - 2)
@@ -403,7 +404,7 @@ class NotchStage:
             w.notch_notice.setText(w.notch_notice.fontMetrics().elidedText(w._notch_notice, Qt.TextElideMode.ElideRight, cw - 40))
             w.notch_notice.setToolTip(w._notch_notice)
         w.notch_idle.setVisible(not notice and (not session or timer))
-        left = 51 if session else 16
+        left = 25+art_size if session else 16
         right = cw - 52 if session or audio else cw - 16
         w.notch_idle.setGeometry(left, 0, right - left, ch - 2)
         self.surface.update()

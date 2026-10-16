@@ -114,7 +114,7 @@ with tempfile.TemporaryDirectory() as folder:
             QTest.qWait(20)
             panel_sizes.add((w.notch_hub.width(), w.notch_hub.height()))
         assert w._island_expanded and not pointer.passthrough
-        assert (w.width(), w.height()) == (620, 266)
+        assert (w.width(), w.height()) == w._scale_window_size(100)
         assert len(panel_sizes) == 1
         assert w.x()+w.width()//2 == center
         # Send wheel messages only to our own test window. Device identification
@@ -147,6 +147,9 @@ with tempfile.TemporaryDirectory() as folder:
         w.showMinimized()
         QTest.qWait(50)
         assert user.IsIconic(ctypes.c_void_p(int(w.winId())))
+        # Minimization can itself activate another window. Measure the recovery,
+        # not that preceding OS activation, for the no-focus-stealing assertion.
+        foreground = user.GetForegroundWindow()
         assert keep_desktop_visible(w)
         QTest.qWait(80)
         assert not user.IsIconic(ctypes.c_void_p(int(w.winId())))

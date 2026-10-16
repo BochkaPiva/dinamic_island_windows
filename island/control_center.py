@@ -13,6 +13,8 @@ from . import __version__, REPO_URL
 from .integrations import load_workspaces, powertoys_root
 from .policy import PROFILES
 from .style import app_icon
+from .settings_pages import SettingsPages, PAGES
+from .modules import MODULES
 
 
 def text(value, secondary=False):
@@ -71,14 +73,14 @@ class ProcessUsage:
         return f"{memory.working/1024**2:.0f} МБ RAM · " + (f"{percent:.2f}% CPU" if percent is not None else "измеряю CPU…")
 
 
-class ControlCenter(QWidget):
+class ControlCenter(QWidget, SettingsPages):
     def __init__(self, owner):
         super().__init__()
         self.owner = owner
         self.setWindowTitle("Cloud Hub")
         self.setWindowIcon(app_icon())
-        self.setMinimumSize(760, 540)
-        self.resize(980, 660)
+        self.setMinimumSize(900, 600)
+        self.resize(1100, 740)
         self.usage = ProcessUsage()
         self._workspace_ids = []
         self._apply_theme()
@@ -89,7 +91,10 @@ class ControlCenter(QWidget):
         title = text("Cloud Hub")
         title.setObjectName("title")
         header.addWidget(title)
-        header.addWidget(text("Твоё рабочее окружение", True))
+        subtitle = text("Рабочее пространство Windows", True)
+        subtitle.setMinimumWidth(260)
+        subtitle.setWordWrap(False)
+        header.addWidget(subtitle)
         header.addStretch()
         self.pause_button = button("Приостановить", self._pause)
         header.addWidget(self.pause_button)
@@ -97,8 +102,8 @@ class ControlCenter(QWidget):
         body = QHBoxLayout()
         body.setSpacing(24)
         self.navigation = QListWidget()
-        self.navigation.addItems(["Модули и профили", "Рабочие наборы", "Windows и HONOR"])
-        self.navigation.setFixedWidth(190)
+        self.navigation.addItems([title for _,title,_ in PAGES])
+        self.navigation.setFixedWidth(202)
         self.navigation.setObjectName("navigation")
         self.pages = QStackedWidget()
         self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
@@ -106,14 +111,17 @@ class ControlCenter(QWidget):
         body.addWidget(self.pages, 1)
         layout.addLayout(body, 1)
         self.checks = {}
-        self._modules_page()
-        self._workspaces_page()
-        self._windows_page()
-        self.navigation.setCurrentRow(0)
+        self.values = {}
+        self.sliders = {}
+        self.page_indices = {key:i for i,(key,_,_) in enumerate(PAGES)}
         self.feedback = text("", True)
+        for _,_,factory in PAGES:
+            getattr(self,factory)()
+        self.navigation.setCurrentRow(0)
         layout.addWidget(self.feedback)
         footer = QHBoxLayout()
         self.resource_label = text("", True)
+        self.resource_label.setWordWrap(False)
         footer.addWidget(self.resource_label)
         footer.addStretch()
         self.shortcut_label = text("Ctrl + Alt + H", True)
@@ -125,6 +133,10 @@ class ControlCenter(QWidget):
         self.refresh_timer.timeout.connect(self.refresh)
         owner.powertoys.changed.connect(self.refresh)
         owner.powertoys.message.connect(self._message)
+
+    def navigate(self,key):
+        self.navigation.setCurrentRow(self.page_indices.get(key,0))
+
 
     def _page(self):
         page = QWidget()
@@ -154,47 +166,6 @@ class ControlCenter(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         layout.addWidget(line)
-
-    def _modules_page(self):
-        layout = self._page()
-        section(layout, "Профиль", "Автоматически: от сети — «Работа», без зарядки — «Батарея». «Игра» включается вручную.")
-        self.profile_buttons = {}
-        row = QHBoxLayout()
-        for key, title in PROFILES.items():
-            widget = button(title, lambda checked=False, value=key: self._setting("profile", value))
-            widget.setCheckable(True)
-            self.profile_buttons[key] = widget
-            row.addWidget(widget)
-        layout.addLayout(row)
-        self.policy_label = text("", True)
-        layout.addWidget(self.policy_label)
-        section(layout, "Cloud Island")
-        self._module(layout, "island_enabled", "Чёлка у верхней рамки", "Музыка, календарь, таймер, заметки и полка файлов")
-        self._module(layout, "spectrum", "Настоящий спектр звука", "В профиле «Батарея» захват включается только при раскрытии чёлки")
-        row = QHBoxLayout()
-        row.addWidget(button("Открыть чёлку", self.owner._show_panel))
-        row.addWidget(button("Папка заметок и настроек", lambda: self._url(QUrl.fromLocalFile(str(self.owner.settings.directory)))))
-        layout.addLayout(row)
-        section(layout, "PowerToys", "Подключение управляет тремя модулями. Их переключение перезапускает PowerToys и закрывает его окно настроек. При выходе из Cloud Hub исходное подключение восстанавливается.")
-        self.integration_status = text("", True)
-        layout.addWidget(self.integration_status)
-        self._module(layout, "search_enabled", "Быстрый поиск", "Command Palette · Win + Alt + Space")
-        self._module(layout, "layouts_enabled", "Раскладки окон", "FancyZones · Shift при перетаскивании окна")
-        self._module(layout, "workspaces_enabled", "Рабочие наборы", "Workspaces · сохранить приложения и расположение окон")
-        row = QHBoxLayout()
-        self.connect_button = button("Подключить PowerToys", self._connect)
-        row.addWidget(self.connect_button)
-        self.restore_button = button("Восстановить исходное подключение", self._restore)
-        row.addWidget(self.restore_button)
-        layout.addLayout(row)
-        layout.addWidget(button("Открыть параметры PowerToys", lambda: self.owner.powertoys.launch("PowerToys.exe", ["--open-settings"])))
-        section(layout, "Приложение")
-        self._module(layout, "autostart", "Запускать Cloud Hub с Windows", "При входе в систему окно настроек остаётся закрытым")
-        self._module(layout, "hide_fullscreen", "Скрывать чёлку в полноэкранном режиме", "После выхода из приложения чёлка возвращается")
-        self._module(layout, "volume_scroll_reverse", "Обратить направление громкости", "Дополнительная настройка для нестандартных драйверов тачпада")
-        self._module(layout, "updates", "Проверять обновления", "Раз в день; установка запускается тобой")
-        layout.addWidget(button("Проверить обновления сейчас", self.owner._check_update))
-        layout.addStretch()
 
     def _workspaces_page(self):
         layout = self._page()
@@ -229,7 +200,7 @@ class ControlCenter(QWidget):
             layout.addWidget(button(name, lambda checked=False, url=target: self._url(QUrl(url))))
             layout.addWidget(text(detail, True))
         layout.addWidget(button("Открыть HONOR PC Manager", self._honor))
-        section(layout, "Оформление панели задач", "TranslucentTB можно оставить установленным. Cloud Hub 0.2 не меняет его параметры. Не включай одновременно TranslucentTB и Windhawk Taskbar Styler: они используют один механизм оформления.")
+        section(layout, "Оформление панели задач", "Настройки прозрачности панели задач остаются в TranslucentTB. Cloud Hub не заменяет оболочку Windows и не меняет параметры стороннего оформления.")
         layout.addWidget(button("Страница проекта и обновления ↗", lambda: self._url(QUrl(REPO_URL))))
         layout.addStretch()
 
@@ -246,7 +217,8 @@ class ControlCenter(QWidget):
         self._message("HONOR PC Manager не найден в стандартной папке установки")
 
     def _setting(self, key, value):
-        self.owner._toggle_setting(key, value)
+        if self.owner._toggle_setting(key, value):
+            self._message("Сохранено")
         self.refresh()
 
     def _pause(self):
@@ -316,7 +288,18 @@ class ControlCenter(QWidget):
             checkbox.blockSignals(True)
             checkbox.setChecked(w.settings.get(key))
             checkbox.blockSignals(False)
-            checkbox.setEnabled(key not in {"search_enabled", "layouts_enabled", "workspaces_enabled"} or w.settings.get("manage_powertoys"))
+            checkbox.setEnabled(key not in {"layouts_enabled", "workspaces_enabled"} or w.settings.get("manage_powertoys"))
+        for key,widget in self.values.items():
+            widget.blockSignals(True)
+            widget.setValue(w.settings.get(key))
+            widget.blockSignals(False)
+        for key,widget in self.sliders.items():
+            widget.blockSignals(True)
+            widget.setValue(w.settings.get(key))
+            widget.blockSignals(False)
+        self.screen_picker.blockSignals(True)
+        self.screen_picker.setCurrentIndex(max(0,self.screen_picker.findData(w.settings.get("monitor"))))
+        self.screen_picker.blockSignals(False)
         for key, widget in self.profile_buttons.items():
             widget.setChecked(w.settings.get("profile") == key)
         self.pause_button.setText("Возобновить" if w.settings.get("paused") else "Приостановить")
@@ -330,19 +313,36 @@ class ControlCenter(QWidget):
         self.connect_button.setText("Обновить подключение" if w.settings.get("manage_powertoys") else "Подключить PowerToys" if bridge.root else "Установить PowerToys ↗")
         self.connect_button.setEnabled(not bridge.busy)
         self.restore_button.setEnabled(w.settings.get("manage_powertoys") and not bridge.busy and bridge.backup.exists())
+        active = not w.settings.get("paused") and w._policy.profile != "game"
+        for module in MODULES:
+            enabled = w.settings.get(module.setting)
+            external = module.key in {"layouts","workspaces"}
+            self.module_status[module.key].setText("Выключен" if not enabled else "На паузе" if not active else
+                "Требуется подключение PowerToys" if external and not w.settings.get("manage_powertoys") else "Включён")
+        for key,status in self.key_status.items():
+            binding = w.hotkeys.get(key)
+            value = w.settings.get(key)
+            status.setText("Отключена" if not value else (value+" · работает") if binding and binding.registered else
+                           ((binding.error or "Редактирование сочетания…") if binding else value+" · доступна при запуске приложения"))
+        self.refresh_timer_display()
         if self.isVisible():
             self.resource_label.setText(self.usage.sample()+" · процесс Cloud Hub")
             hotkey = getattr(w, "_hub_hotkey", None)
-            self.shortcut_label.setText("Ctrl + Alt + H" if hotkey and hotkey.registered else "Открытие через трей · горячая клавиша занята")
+            self.shortcut_label.setText(w.settings.get("hotkey_hub") if hotkey and hotkey.registered else "Открытие через трей")
         self._refresh_workspaces()
 
     def showEvent(self, event):
         super().showEvent(event)
         self.refresh()
         self.refresh_timer.start()
+        self.sync_focus_timer()
 
     def hideEvent(self, event):
         self.refresh_timer.stop()
+        if hasattr(self,"focus_tick"):
+            self.focus_tick.stop()
+        if hasattr(self,"notebook"):
+            self.notebook.flush()
         super().hideEvent(event)
 
     def _apply_theme(self):
@@ -358,6 +358,11 @@ class ControlCenter(QWidget):
             QWidget {{ background: {bg}; color: {fg}; font-family: 'Segoe UI'; font-size: 13px; }}
             QLabel#title {{ font-size: 25px; font-weight: 600; }}
             QLabel#heading {{ font-size: 17px; font-weight: 600; margin-top: 8px; }}
+            QLabel#cardTitle {{ font-size: 15px; font-weight: 600; background: transparent; }}
+            QLabel#timer {{ font-size: 56px; font-weight: 500; padding: 22px; }}
+            QFrame#card {{ background: {surface}; border: 1px solid {line}; border-radius: 12px; }}
+            QFrame#card QLabel {{ background: transparent; }}
+            QFrame#card QWidget {{ background: transparent; }}
             QLabel#secondary {{ color: {muted}; font-size: 12px; }}
             QPushButton {{ background: {surface}; border: 1px solid {line}; border-radius: 8px; padding: 9px 13px; }}
             QPushButton:hover, QPushButton:checked {{ background: {selected}; }}
@@ -371,4 +376,16 @@ class ControlCenter(QWidget):
             QCheckBox::indicator {{ width: 18px; height: 18px; }}
             QFrame[frameShape="4"] {{ color: {line}; }}
             QScrollArea {{ border: none; }}
+            QSpinBox, QLineEdit, QComboBox, QKeySequenceEdit {{ background:{surface}; border:1px solid {line}; border-radius:7px; padding:7px; selection-background-color:{selected}; }}
+            QPlainTextEdit {{ background:{surface}; border:1px solid {line}; border-radius:9px; padding:10px; selection-background-color:{selected}; }}
+            QTabWidget::pane {{ border:0; }}
+            QTabBar::tab {{ background:{surface}; padding:10px 18px; border-radius:6px; margin:0 5px 8px 0; }}
+            QTabBar::tab:selected {{ background:{selected}; }}
+            QSlider::groove:horizontal {{ height:4px;background:{line};border-radius:2px; }}
+            QSlider::sub-page:horizontal {{ background:#729de1;border-radius:2px; }}
+            QSlider::handle:horizontal {{ width:14px;margin:-5px 0;background:#9fbeef;border-radius:7px; }}
+            QScrollBar:vertical {{ width:8px;background:transparent;margin:0; }}
+            QScrollBar::handle:vertical {{ background:{line};border-radius:4px;min-height:28px; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background:transparent; }}
         """)

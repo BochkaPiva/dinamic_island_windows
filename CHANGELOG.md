@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.0
+
+- Rebuild Cloud Hub around ten separate settings pages, a module catalog and explicit start/stop lifecycles for native modules.
+- Redesign the expanded island as a compact three-part overview: mini player and album cover on the left, seven-day calendar centered on today, focus timer on the right. Default expanded size is 560×170 logical pixels.
+- Animate calendar wheel/touchpad navigation, horizontal dragging and return-to-today; keep it free of scrollbars. Animate tab changes without nesting Qt graphics effects.
+- Add live compact/expanded dimensions, opacity, monitor selection, hover/collapse delays and optional overview blocks. Preserve centered geometry, cursor avoidance, real spectrum and Windows Peek recovery.
+- Replace the PowerToys search dependency with a native keyboard launcher for Start Menu/Store applications, local commands, explicit paths and Windows-indexed filenames. Query only on demand off the UI thread; discard stale results and cancel pending obsolete requests.
+- Make search, island and Hub hotkeys configurable. Reserve replacements before releasing working bindings; reject conflicts and duplicates. Defaults: Alt+Space, Ctrl+Alt+I and Ctrl+Alt+H.
+- Add independent hover-expanding desktop groups with animated height, shortcut/file/folder links, filtering, icons, drag/drop, repositioning, locking and configurable appearance. Groups hide when ordinary applications have focus; originals remain untouched.
+- Support any timer duration from 1 to 1440 minutes, pause/resume, reset and completion notification. Share the timer between Hub and island.
+- Add named searchable notes alongside the existing shared quick note, automatic local saves, clipboard copy and text export. Improve the file shelf with explicit add/open/location/remove actions; retain unavailable links.
+- Keep the island file shelf optional and off by default. Existing quick notes, file links, profiles and installation identity survive upgrades.
+- Continue optional FancyZones/Workspaces integration; keep Command Palette disabled while Cloud Hub manages the connection and restore original module preferences on exit.
+- Add regression tests and an isolated native workspace check for calendar gestures, custom timer, notes, groups and Windows Search.
+
 ## v0.2.1
 
 - Preserve the exact native PowerToys configuration across DSC serialization and host restart. PowerToys 0.101's managed serializer renames the File Explorer enable key and can otherwise enable that unrelated module again.

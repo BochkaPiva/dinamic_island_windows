@@ -22,6 +22,8 @@ with tempfile.TemporaryDirectory() as directory:
     settings = Settings(directory)
     settings.set("updates", False)
     settings.set("profile", "work")
+    # Alt+Space may belong to a user's other launcher; don't reconfigure it.
+    settings.set("hotkey_search", "Ctrl+Alt+Space")
     with patch("island.app.is_fullscreen", return_value=False), patch("island.app.desktop_is_foreground", return_value=False):
         w = IslandWindow(settings, services=True)
         w._notch_pointer.enabled = False  # Fixture controls expansion, not the user's real cursor.
@@ -48,7 +50,7 @@ with tempfile.TemporaryDirectory() as directory:
             QTest.qWait(200)
             hub = w.control_center
             hub.grab().save(str(out/"modules.png"))
-            hub.navigation.setCurrentRow(1)
+            hub.navigate("workspaces")
             QTest.qWait(50)
             hub.grab().save(str(out/"workspaces.png"))
             hub.close()
@@ -59,6 +61,13 @@ with tempfile.TemporaryDirectory() as directory:
             QTest.qWait(80)
             assert hub.isVisible(), "Native global hotkey did not open Cloud Hub"
             hub.close()
+            w._toggle_setting("profile","work")
+            search_key = w.hotkeys["hotkey_search"]
+            assert search_key.registered, "Search hotkey was not registered"
+            assert ctypes.windll.user32.PostThreadMessageW(thread,0x0312,search_key.identifier,0)
+            QTest.qWait(100)
+            assert w.modules.search.isVisible(), "Search hotkey did not open the palette"
+            w.modules.search.hide()
             w._toggle_setting("profile", "battery")
             w._set_island_expanded(False)
             QTest.qWait(1200)
@@ -77,6 +86,7 @@ with tempfile.TemporaryDirectory() as directory:
                 "battery_capture_suspended": True, "expanded_capture_resumed": True,
                 "game_all_services_suspended": True, "work_restored": True,
                 "hub_refresh_stops_when_hidden": True, "native_hub_hotkey": True,
+                "native_search_hotkey": True,
                 "battery_short_sample": measured},
                 ensure_ascii=False, indent=2), encoding="utf-8")
             print((out/"report.json").read_text(encoding="utf-8"))
