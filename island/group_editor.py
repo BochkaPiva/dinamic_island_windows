@@ -1,0 +1,270 @@
+# SPDX-License-Identifier: GPL-3.0-only
+"""Visible group collection and one ID-bound editor shared with desktop actions."""
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
+    QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
+from .hub import FileShelf
+
+
+class GroupFiles(FileShelf):
+    def __init__(self,editor):
+        self.editor=editor
+        super().__init__(None)
+        self.setMinimumHeight(80)
+        self.setAccessibleName("Файлы выбранной группы")
+        self.empty=QLabel("Пока нет файлов\nПеретащи их сюда или нажми «Добавить файлы»",self.viewport())
+        self.empty.setObjectName("hint")
+        self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty.setWordWrap(True)
+        self.empty.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.itemSelectionChanged.connect(editor.update_actions)
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        if hasattr(self,"empty"):
+            self.empty.setGeometry(self.viewport().rect().adjusted(8,8,-8,-8))
+
+    def load(self,group):
+        self.clear()
+        if group:
+            self.add_paths(group["items"],save=False,keep_missing=True)
+        self.empty.setText("Пока нет файлов\nПеретащи их сюда или нажми «Добавить файлы»" if group else
+                           "Выбери группу в списке слева\nили создай новую")
+        self.empty.setVisible(not self.count())
+        self.empty.setGeometry(self.viewport().rect().adjusted(8,8,-8,-8))
+
+    def persist(self):
+        if not self.editor.manager.store.set_paths(self.editor.selected_id,self.paths()):
+            self.load(self.editor.selected_group())
+
+    def add_files(self):
+        identifier=self.editor.selected_id
+        paths,_=QFileDialog.getOpenFileNames(self,"Добавить ссылки на файлы и программы")
+        self.add_to_group(identifier,paths)
+
+    def add_folder(self):
+        identifier=self.editor.selected_id
+        path=QFileDialog.getExistingDirectory(self,"Добавить ссылку на папку")
+        self.add_to_group(identifier,[path] if path else [])
+
+    def add_to_group(self,identifier,paths):
+        # A modal dialog runs a nested event loop: never retarget its result
+        # if another surface changed the editor selection in the meantime.
+        group=self.editor.manager.store.find(identifier)
+        if group and paths:
+            self.editor.manager.store.add_paths(group,paths)
+
+
+class GroupEditor(QWidget):
+    def __init__(self,manager,notify,parent=None):
+        super().__init__(parent)
+        self.manager,self.notify=manager,notify
+        self.selected_id=None
+        self.dirty=False
+        self.loading=False
+        self.setMinimumHeight(280)
+        self.setStyleSheet("""
+            QWidget {background:transparent;}
+            QFrame#groupPane {background:#202227;border:1px solid #34373e;border-radius:10px;}
+            QLabel#paneTitle {font-size:15px;font-weight:600;color:#f4f4f6;}
+            QLabel#hint {color:#a2a6b0;font-size:11px;background:transparent;}
+            QLineEdit {background:#292c33;border:1px solid #41454e;border-radius:7px;padding:8px;color:#f4f4f6;}
+            QPushButton {background:#2b2e36;border:1px solid #41454e;border-radius:7px;padding:8px;color:#f4f4f6;}
+            QPushButton:hover {background:#373c46;}
+            QPushButton:disabled {color:#737985;border-color:#333740;}
+            QPushButton#deleteGroup {color:#efb2b6;}
+            QListWidget {background:transparent;border:0;outline:0;color:#f4f4f6;}
+            QListWidget::item {padding:8px;border-radius:7px;}
+            QListWidget::item:selected {color:#ffffff;background:#3a414e;}
+        """)
+        root=QHBoxLayout(self)
+        root.setContentsMargins(0,0,0,0)
+        root.setSpacing(12)
+        left,left_layout=self.pane()
+        left.setMinimumWidth(180)
+        left.setMaximumWidth(240)
+        self.count=QLabel()
+        self.count.setObjectName("paneTitle")
+        left_layout.addWidget(self.count)
+        self.create=self.button("＋ Создать группу",self.create_group)
+        left_layout.addWidget(self.create)
+        self.groups=QListWidget()
+        self.groups.setAccessibleName("Все созданные группы рабочего стола")
+        self.groups.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.groups.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.groups.currentItemChanged.connect(self.selection_changed)
+        left_layout.addWidget(self.groups,1)
+        self.list_empty=QLabel("Групп пока нет")
+        self.list_empty.setObjectName("hint")
+        left_layout.addWidget(self.list_empty)
+        root.addWidget(left,1)
+        right,right_layout=self.pane()
+        heading=QHBoxLayout()
+        self.title=QLabel("Выбери группу")
+        self.title.setTextFormat(Qt.TextFormat.PlainText)
+        self.title.setObjectName("paneTitle")
+        self.title.setWordWrap(True)
+        heading.addWidget(self.title,1)
+        self.remove=self.button("Удалить группу…",self.delete_group)
+        self.remove.setObjectName("deleteGroup")
+        heading.addWidget(self.remove)
+        right_layout.addLayout(heading)
+        self.detail=QLabel()
+        self.detail.setObjectName("hint")
+        right_layout.addWidget(self.detail)
+        self.fields=QWidget()
+        fields=QVBoxLayout(self.fields)
+        fields.setContentsMargins(0,0,0,0)
+        fields.setSpacing(5)
+        row=QHBoxLayout()
+        self.name=QLineEdit()
+        self.name.setMaxLength(60)
+        self.name.setPlaceholderText("Например, Работа или Игры")
+        self.name.setAccessibleName("Название выбранной группы")
+        self.name.textEdited.connect(self.name_edited)
+        self.name.editingFinished.connect(self.rename_current)
+        row.addWidget(self.name,1)
+        self.rename=self.button("Сохранить",self.rename_current)
+        row.addWidget(self.rename)
+        fields.addLayout(row)
+        right_layout.addWidget(self.fields)
+        self.files=GroupFiles(self)
+        right_layout.addWidget(self.files,1)
+        actions=QHBoxLayout()
+        self.add_files=self.button("Добавить файлы…",self.files.add_files)
+        self.add_folder=self.button("Папку…",self.files.add_folder)
+        self.remove_links=self.button("Убрать ссылки",self.files.remove_selected)
+        for button in (self.add_files,self.add_folder,self.remove_links):
+            actions.addWidget(button)
+        right_layout.addLayout(actions)
+        hint=QLabel("Удаление группы или ссылки сохраняет файлы на диске.")
+        hint.setObjectName("hint")
+        hint.setWordWrap(True)
+        right_layout.addWidget(hint)
+        root.addWidget(right,3)
+        manager.store.changed.connect(self.refresh)
+        manager.store.error.connect(notify)
+        self.refresh()
+
+    def pane(self):
+        frame=QFrame()
+        frame.setObjectName("groupPane")
+        layout=QVBoxLayout(frame)
+        layout.setContentsMargins(14,14,14,14)
+        layout.setSpacing(9)
+        return frame,layout
+
+    def button(self,title,callback):
+        button=QPushButton(title)
+        button.clicked.connect(callback)
+        return button
+
+    def selected_group(self):
+        return self.manager.store.find(self.selected_id)
+
+    def refresh(self):
+        if self.loading:
+            return
+        old=self.selected_id
+        old_row=max(0,self.groups.currentRow())
+        self.loading=True
+        self.groups.blockSignals(True)
+        self.groups.clear()
+        records=self.manager.store.groups
+        for number,group in enumerate(records,1):
+            count=len(group["items"])
+            item=QListWidgetItem(f"{number:02d}  {group['title']}\n"+(f"Элементов: {count}" if count else "Пустая группа"))
+            item.setData(Qt.ItemDataRole.UserRole,group["id"])
+            item.setToolTip(group["title"])
+            item.setSizeHint(QSize(1,58))
+            self.groups.addItem(item)
+        index=next((i for i,g in enumerate(records) if g["id"]==old),min(old_row,len(records)-1))
+        self.groups.setCurrentRow(index)
+        self.selected_id=records[index]["id"] if index>=0 else None
+        self.groups.blockSignals(False)
+        self.loading=False
+        self.count.setText(f"Группы · {len(records)}")
+        self.list_empty.setVisible(not records)
+        self.create.setEnabled(len(records)<30)
+        self.load_details(preserve_draft=self.selected_id==old)
+
+    def select_id(self,identifier):
+        for index in range(self.groups.count()):
+            if self.groups.item(index).data(Qt.ItemDataRole.UserRole)==identifier:
+                self.groups.setCurrentRow(index)
+                self.groups.scrollToItem(self.groups.item(index))
+                return self.selected_id==identifier
+        return False
+
+    def selection_changed(self,current,previous):
+        if self.loading:
+            return
+        identifier=current.data(Qt.ItemDataRole.UserRole) if current else None
+        if not self.rename_current():
+            self.align_selection(self.selected_id)
+            return
+        self.selected_id=identifier
+        self.align_selection(identifier)
+        self.dirty=False
+        self.load_details()
+
+    def align_selection(self,identifier):
+        self.groups.blockSignals(True)
+        for index in range(self.groups.count()):
+            if self.groups.item(index).data(Qt.ItemDataRole.UserRole)==identifier:
+                self.groups.setCurrentRow(index)
+                break
+        self.groups.blockSignals(False)
+
+    def load_details(self,preserve_draft=False):
+        group=self.selected_group()
+        self.title.setText(group["title"] if group else "Выбери группу")
+        self.detail.setText(f"Название группы · элементов: {len(group['items'])}" if group else "Создай первую группу кнопкой слева")
+        if not (preserve_draft and self.dirty):
+            self.name.setText(group["title"] if group else "")
+            self.dirty=False
+        self.files.load(group)
+        self.update_actions()
+
+    def update_actions(self):
+        selected=self.selected_group() is not None
+        self.fields.setEnabled(selected)
+        self.files.setEnabled(selected)
+        for button in (self.remove,self.add_files,self.add_folder):
+            button.setEnabled(selected)
+        self.rename.setEnabled(selected and self.dirty)
+        self.remove_links.setEnabled(selected and bool(self.files.selectedItems()))
+
+    def name_edited(self,value):
+        self.dirty=True
+        self.update_actions()
+
+    def rename_current(self):
+        if not self.dirty or self.loading:
+            return True
+        if not self.name.text().strip():
+            self.notify("Название не может быть пустым")
+            return False
+        identifier,title=self.selected_id,self.name.text()
+        self.dirty=False
+        if self.manager.store.rename(identifier,title):
+            self.name.setText(self.selected_group()["title"])
+            self.update_actions()
+            self.notify("Название сохранено")
+            return True
+        self.dirty=True
+        self.update_actions()
+        return False
+
+    def create_group(self):
+        if not self.rename_current():
+            return
+        group=self.manager.request_create(parent=self)
+        if group:
+            self.select_id(group["id"])
+            self.notify("Группа создана")
+
+    def delete_group(self):
+        identifier=self.selected_id
+        if identifier and self.manager.request_delete(identifier,self):
+            self.notify("Группа удалена · файлы сохранены")

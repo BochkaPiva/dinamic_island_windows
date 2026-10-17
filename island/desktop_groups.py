@@ -9,12 +9,44 @@ import uuid
 from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle)
+    QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle,
+    QInputDialog, QMessageBox, QDialog, QDialogButtonBox)
 from .hub import FileShelf
 from .platform_win import anchor_desktop_panel, disable_window_transitions, exclude_from_peek
 from .motion import DampedValue, smoothstep
 from .style import font
 from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
+
+
+DIALOG_STYLE="""
+    QDialog,QMessageBox {background:#202227;color:#f4f4f6;}
+    QLabel {background:transparent;color:#f4f4f6;font:13px 'Golos Text';}
+    QLineEdit {background:#292c33;color:#f4f4f6;border:1px solid #41454e;
+        border-radius:7px;padding:9px;min-width:240px;selection-background-color:#4b637a;selection-color:white;}
+    QPushButton {background:#2b2e36;color:#f4f4f6;border:1px solid #41454e;
+        border-radius:7px;padding:8px 15px;min-width:70px;}
+    QPushButton:hover {background:#3a414e;}
+    QPushButton:disabled {color:#747985;}
+"""
+
+
+def ask_group_title(parent,caption,value,verb):
+    dialog=QInputDialog(parent)
+    dialog.setStyleSheet(DIALOG_STYLE)
+    dialog.setWindowTitle(caption)
+    dialog.setLabelText("Название группы:")
+    dialog.setTextValue(value)
+    dialog.setOkButtonText(verb)
+    dialog.setCancelButtonText("Отмена")
+    field=dialog.findChild(QLineEdit)
+    field.setMaxLength(60)
+    accept=dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok)
+    field.textChanged.connect(lambda text:accept.setEnabled(bool(text.strip())))
+    accept.setEnabled(bool(value.strip()))
+    accepted=dialog.exec()==QDialog.DialogCode.Accepted
+    title=dialog.textValue()
+    dialog.deleteLater()
+    return title,accepted
 
 
 class GroupStore(QObject):
@@ -58,26 +90,76 @@ class GroupStore(QObject):
             self.error.emit("Не удалось сохранить группы на диск")
             return False
 
-    def add(self, title="Новая группа", x=None):
+    def find(self,identifier):
+        return next((g for g in self.groups if g["id"]==identifier),None)
+
+    def next_title(self):
+        titles={g["title"].casefold() for g in self.groups}
+        title,index="Новая группа",1
+        while title.casefold() in titles:
+            index+=1
+            title="Новая группа "+str(index)
+        return title
+
+    def add(self, title=None, x=None):
         if len(self.groups) >= 30:
+            return None
+        title=self.next_title() if title is None else title.strip()[:60]
+        if not title:
+            self.error.emit("Введите название группы")
             return None
         group = {"id": str(uuid.uuid4()), "title": title[:60] or "Новая группа", "items": [],
                  "x": x if x is not None else .03+(len(self.groups)%3)*.32,
                  "y": .12+min(.7, len(self.groups)//3*.27), "screen": ""}
         self.groups.append(group)
-        self.save()
-        return group
+        if self.save():
+            return group
+        self.groups.remove(group)
+        return None
+
+    def rename(self,identifier,title):
+        group=self.find(identifier)
+        title=title.strip()[:60]
+        if not group or not title:
+            self.error.emit("Введите название группы" if group else "Группа уже удалена")
+            return False
+        previous=group["title"]
+        if previous==title:
+            return True
+        group["title"]=title
+        if self.save():
+            return True
+        group["title"]=previous
+        return False
 
     def remove(self, identifier):
+        previous=self.groups
         self.groups = [g for g in self.groups if g["id"] != identifier]
-        self.save()
+        if len(previous)==len(self.groups):
+            return False
+        if self.save():
+            return True
+        self.groups=previous
+        return False
+
+    def set_paths(self,identifier,paths):
+        group=self.find(identifier)
+        if not group:
+            return False
+        previous=group["items"]
+        group["items"]=list(dict.fromkeys(p for p in paths if isinstance(p,str)))[:100]
+        if self.save():
+            return True
+        group["items"]=previous
+        return False
 
     def add_paths(self, group, paths):
+        values=group["items"][:]
         for value in paths:
             path = Path(value)
-            if path.exists() and str(path) not in group["items"] and len(group["items"]) < 100:
-                group["items"].append(str(path))
-        self.save()
+            if path.exists() and str(path) not in values and len(values) < 100:
+                values.append(str(path))
+        return self.set_paths(group["id"],values)
 
 
 class GroupItemDelegate(QStyledItemDelegate):
@@ -137,8 +219,8 @@ class GroupShelf(FileShelf):
             self.panel.animate(True, refresh=True)
 
     def persist(self):
-        self.panel.group["items"] = self.paths()
-        self.panel.manager.store.save()
+        if not self.panel.manager.store.set_paths(self.panel.group["id"],self.paths()):
+            self.reload()
         self.panel.animate(True)
 
     def filter(self, query):
@@ -185,6 +267,7 @@ class GroupPanel(QWidget):
         header.addWidget(LineIcon("folder",20))
         header.addSpacing(8)
         self.name = QLabel(group["title"])
+        self.name.setTextFormat(Qt.TextFormat.PlainText)
         self.name.setObjectName("groupName")
         self.name.setFont(font(15,500))
         self.name.setMinimumWidth(0)
@@ -354,19 +437,45 @@ class GroupPanel(QWidget):
         self.shelf.reload()
         self.animate(True)
 
-    def menu(self):
-        self.collapse.stop()
+    def build_menu(self):
         menu = QMenu(self)
         menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        menu.addAction("Добавить файлы / ярлыки…",self.add_files)
-        menu.addAction("Добавить папку…",self.add_folder)
-        menu.addAction("Настроить группы…",self.manager.open_settings)
+        for key,title in (("rename","Переименовать…"),("settings","Настроить эту группу…"),
+                          ("files","Добавить файлы / ярлыки…"),("folder","Добавить папку…")):
+            menu.addAction(title).setData(key)
         menu.addSeparator()
-        menu.addAction("Выровнять группы", self.manager.arrange)
+        menu.addAction("Создать новую группу…").setData("create")
+        menu.addAction("Выровнять группы").setData("arrange")
+        menu.addSeparator()
+        menu.addAction("Удалить эту группу…").setData("delete")
+        return menu
+
+    def perform_action(self,key):
+        # Dispatch after QMenu.exec has returned: deleting its owning panel
+        # inside the menu's nested event loop can otherwise invalidate widgets.
+        identifier=self.group["id"]
+        if key=="settings":
+            self.manager.open_settings(identifier)
+        elif key in {"rename","delete","create"}:
+            with self.interacting():
+                getattr(self.manager,"request_"+key)(identifier,self)
+        elif key=="files":
+            self.add_files()
+        elif key=="folder":
+            self.add_folder()
+        elif key=="arrange":
+            self.manager.arrange()
+
+    def menu(self):
+        self.collapse.stop()
+        menu=self.build_menu()
         with self.interacting():
-            menu.exec(self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft()))
+            selected=menu.exec(self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft()))
+            key=selected.data() if selected else None
         menu.deleteLater()
         self.collapse.start(800)
+        if key:
+            self.perform_action(key)
 
     @contextmanager
     def interacting(self):
@@ -481,7 +590,9 @@ class DesktopGroups(QObject):
     def reconcile(self):
         ids = {g["id"] for g in self.store.groups}
         for identifier in set(self.panels)-ids:
-            self.panels.pop(identifier).deleteLater()
+            panel=self.panels.pop(identifier)
+            panel.hide()
+            panel.deleteLater()
         for group in self.store.groups:
             if group["id"] not in self.panels:
                 self.panels[group["id"]] = GroupPanel(self,group)
@@ -569,9 +680,46 @@ class DesktopGroups(QObject):
                 panel.show()
             panel.desktop_anchored = anchor_desktop_panel(panel,reset=shown)
 
-    def open_settings(self):
+    def request_create(self,identifier=None,parent=None):
+        if len(self.store.groups)>=30:
+            QMessageBox.information(parent,"Группы","Можно создать до 30 групп")
+            return None
+        title,ok=ask_group_title(parent,"Создать группу",self.store.next_title(),"Создать")
+        return self.store.add(title) if ok else None
+
+    def request_rename(self,identifier,parent=None):
+        group=self.store.find(identifier)
+        if not group:
+            return False
+        title,ok=ask_group_title(parent,"Переименовать группу",group["title"],"Сохранить")
+        return self.store.rename(identifier,title) if ok else False
+
+    def request_delete(self,identifier,parent=None):
+        group=self.store.find(identifier)
+        if not group:
+            return False
+        dialog=QMessageBox(parent)
+        dialog.setStyleSheet(DIALOG_STYLE)
+        dialog.setWindowTitle("Удалить группу?")
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nИсчезнут только группа и её ссылки.\nФайлы и папки на диске останутся.")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)
+        dialog.button(QMessageBox.StandardButton.Yes).setText("Удалить группу")
+        dialog.button(QMessageBox.StandardButton.No).setText("Отмена")
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        dialog.setEscapeButton(QMessageBox.StandardButton.No)
+        answer=dialog.exec()
+        dialog.deleteLater()
+        return self.store.remove(identifier) if answer==QMessageBox.StandardButton.Yes else False
+
+    def open_settings(self,identifier=None):
         self.owner.show_hub()
-        self.owner.control_center.navigate("desktop")
+        center=self.owner.control_center
+        center.navigate("desktop")
+        center.group_tabs.setCurrentIndex(0)
+        if identifier:
+            center.group_editor.select_id(identifier)
 
     def shutdown(self):
         self.enabled = False

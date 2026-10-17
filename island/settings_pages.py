@@ -180,122 +180,34 @@ class SettingsPages:
         layout.addStretch()
 
     def desktop_page(self):
-        from .control_center import text
-        layout = self._page()
-        self.heading(layout,"Группы рабочего стола","Наведи на заголовок — панель раскроется. Перетащи заголовок, чтобы переместить её. При работе в приложениях панели скрыты.")
-        self._module(layout,"desktop_enabled","Сворачиваемые группы","Наш собственный модуль, без замены Проводника и изменения системных файлов")
-        frame,inside = self.card("Мои группы","Добавляй файлы, папки и ярлыки кнопками или перетаскиванием на раскрытую группу. Двойной щелчок открывает элемент.")
-        row = QHBoxLayout()
-        self.group_picker = QComboBox()
-        row.addWidget(self.group_picker,1)
-        row.addWidget(self.action("＋ Группа",self.add_group))
-        row.addWidget(self.action("Убрать группу",self.remove_group))
-        inside.addLayout(row)
-        name_row = QHBoxLayout()
-        self.group_name = QLineEdit()
-        self.group_name.setMaxLength(60)
-        self.group_name.setPlaceholderText("Название группы")
-        name_row.addWidget(self.group_name,1)
-        name_row.addWidget(self.action("Переименовать",self.rename_group))
-        inside.addLayout(name_row)
-        self.group_items = QListWidget()
-        self.group_items.setMinimumHeight(145)
-        self.group_items.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.group_items.itemDoubleClicked.connect(self.open_group_item)
-        inside.addWidget(self.group_items)
-        actions = QHBoxLayout()
-        for title,callback in (("＋ Файлы / ярлыки",self.group_add_files),("＋ Папка",self.group_add_folder),
-                                ("Убрать ссылки",self.group_remove_items)):
-            actions.addWidget(self.action(title,callback))
-        inside.addLayout(actions)
-        inside.addWidget(text("Файлы остаются на своём месте. Удаление группы или ссылки не удаляет оригиналы.",True))
-        layout.addWidget(frame)
-        frame,inside = self.card("Внешний вид и наведение")
-        self.number(inside,"group_width","Ширина группы"," px",True)
+        from PyQt6.QtWidgets import QScrollArea
+        from .group_editor import GroupEditor
+        layout=self._page()
+        layout.setContentsMargins(0,0,0,0)
+        layout.setSpacing(10)
+        self.heading(layout,"Группы рабочего стола")
+        self._module(layout,"desktop_enabled","Показывать группы","Они остаются на рабочем столе под окнами приложений")
+        self.group_tabs=QTabWidget()
+        self.group_editor=GroupEditor(self.owner.modules.desktop,self._message)
+        self.group_tabs.addTab(self.group_editor,"Мои группы")
+        appearance=QWidget()
+        inside=QVBoxLayout(appearance)
+        inside.setContentsMargins(16,16,16,16)
+        inside.setSpacing(12)
+        self.number(inside,"group_width","Ширина раскрытой группы"," px",True)
         self.number(inside,"group_columns","Значков в строке")
         self.number(inside,"group_opacity","Непрозрачность фона"," %",True)
         self.number(inside,"group_hover_delay","Раскрытие при наведении"," мс")
         self.number(inside,"group_collapse_delay","Сворачивание после ухода"," мс")
         self._module(inside,"groups_locked","Закрепить расположение","Запретить случайное перемещение за заголовок")
         inside.addWidget(self.action("Выровнять группы на рабочем столе",self.owner.modules.desktop.arrange))
-        layout.addWidget(frame)
-        layout.addStretch()
-        store = self.owner.modules.desktop.store
-        store.changed.connect(self.refresh_groups)
-        store.error.connect(self._message)
-        self.group_picker.currentIndexChanged.connect(self.select_group)
-        self.refresh_groups()
-
-    def selected_group(self):
-        return next((g for g in self.owner.modules.desktop.store.groups if g["id"] == self.group_picker.currentData()),None)
-
-    def refresh_groups(self):
-        current = self.group_picker.currentData()
-        self.group_picker.blockSignals(True)
-        self.group_picker.clear()
-        for group in self.owner.modules.desktop.store.groups:
-            self.group_picker.addItem(group["title"],group["id"])
-        self.group_picker.setCurrentIndex(max(0,self.group_picker.findData(current)))
-        self.group_picker.blockSignals(False)
-        self.select_group()
-
-    def select_group(self,*_):
-        self.group_items.clear()
-        group = self.selected_group()
-        self.group_name.setText(group["title"] if group else "")
-        if group:
-            from PyQt6.QtWidgets import QListWidgetItem
-            for path in group["items"]:
-                item = QListWidgetItem(Path(path).name + (" · недоступен" if not Path(path).exists() else ""))
-                item.setToolTip(path)
-                item.setData(Qt.ItemDataRole.UserRole,path)
-                self.group_items.addItem(item)
-
-    def add_group(self):
-        group = self.owner.modules.desktop.store.add()
-        if group:
-            self.group_picker.setCurrentIndex(self.group_picker.findData(group["id"]))
-            self.group_name.setFocus()
-            self.group_name.selectAll()
-        else:
-            self._message("Можно создать до 30 групп")
-
-    def remove_group(self):
-        group = self.selected_group()
-        if group and QMessageBox.question(self,"Убрать группу?","Убрать «"+group["title"]+"»? Файлы на диске останутся.") == QMessageBox.StandardButton.Yes:
-            self.owner.modules.desktop.store.remove(group["id"])
-
-    def rename_group(self):
-        group = self.selected_group()
-        if group and self.group_name.text().strip():
-            group["title"] = self.group_name.text().strip()
-            self.owner.modules.desktop.store.save()
-
-    def group_add_files(self):
-        group = self.selected_group()
-        if group:
-            paths,_ = QFileDialog.getOpenFileNames(self,"Добавить ссылки на файлы и ярлыки")
-            self.owner.modules.desktop.store.add_paths(group,paths)
-            self.owner.modules.desktop.panels[group["id"]].shelf.reload()
-
-    def group_add_folder(self):
-        group = self.selected_group()
-        if group:
-            path = QFileDialog.getExistingDirectory(self,"Добавить ссылку на папку")
-            if path:
-                self.owner.modules.desktop.store.add_paths(group,[path])
-                self.owner.modules.desktop.panels[group["id"]].shelf.reload()
-
-    def group_remove_items(self):
-        group = self.selected_group()
-        if group:
-            paths = {i.data(Qt.ItemDataRole.UserRole) for i in self.group_items.selectedItems()}
-            group["items"] = [p for p in group["items"] if p not in paths]
-            self.owner.modules.desktop.store.save()
-            self.owner.modules.desktop.panels[group["id"]].shelf.reload()
-
-    def open_group_item(self,item):
-        self._url(QUrl.fromLocalFile(item.data(Qt.ItemDataRole.UserRole)))
+        inside.addStretch()
+        scroll=QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(appearance)
+        self.group_tabs.addTab(scroll,"Оформление и поведение")
+        layout.addWidget(self.group_tabs,1)
 
     def library_page(self):
         layout = self._page()

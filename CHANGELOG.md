@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1
+
+- Replace the concealed group picker with a persistent, numbered list of all groups and item counts. Bind editing to stable IDs, including collections containing identical titles; retain selection and unfinished names when other surfaces update.
+- Add a dedicated group editor with a named creation dialog, editable title, explicit save/Enter/focus-out behavior, file and folder links, an instructive empty state and confirmed deletion. Separate global appearance and behavior into their own tab; keep controls accessible in smaller windows.
+- Add Rename, Settings for this group, Create and Delete to every desktop group's own menu. Open the corresponding editor directly and dispatch actions after the popup closes to safely delete its owning panel.
+- Localize and style group dialogs, reject blank names, cap names at 60 characters and propose distinct default names. Roll back group mutations on failed writes; keep file-dialog results bound to their original group. Removing groups or links never deletes source files.
+- Add regression and native Windows checks covering five duplicate titles, keyboard editing, popup actions, cancellation, deletion, empty collections, file preservation and reload persistence.
+
 ## v0.4.0
 
 - Replace foreground-driven desktop group hide/show with a persistent desktop layer. Assign only our own tool HWNDs to the shell owner using documented Win32 ownership, place them below ordinary applications without activation, and retain their position while other windows minimize. Keep the two-second timer solely for shell recovery.
