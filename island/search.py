@@ -9,9 +9,9 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from PyQt6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, pyqtSignal, QProcess
+from PyQt6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, pyqtSignal, QProcess, QFileInfo
 from PyQt6.QtGui import QDesktopServices, QKeyEvent
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QLabel, QStyle
+from PyQt6.QtWidgets import QWidget, QListWidgetItem, QFileIconProvider
 from .search_ui import SearchPresentation
 
 
@@ -111,6 +111,8 @@ class SearchPalette(SearchPresentation, QWidget):
         self.catalog, self.catalog_at = [], 0
         self.catalog_loading = False
         self.pending = None
+        self.icon_provider = QFileIconProvider()
+        self.icons = {}
         self.setWindowTitle("Cloud Hub — Поиск")
         self.build_presentation()
         self.debounce = QTimer(self)
@@ -128,7 +130,7 @@ class SearchPalette(SearchPresentation, QWidget):
             self.hide()
         elif self.enabled:
             screen = self.owner.screen().availableGeometry()
-            self.resize(min(640,screen.width()-40),self.height())
+            self.resize(min(600,screen.width()-40),self.height())
             self.move(screen.center().x()-self.width()//2, screen.top()+max(60, screen.height()//6))
             self.show()
             self.raise_()
@@ -195,6 +197,12 @@ class SearchPalette(SearchPresentation, QWidget):
             item = QListWidgetItem(result.title+"\n"+result.detail)
             item.setToolTip(result.detail)
             item.setData(Qt.ItemDataRole.UserRole, result)
+            if result.kind in {"app","file"} and not result.target.startswith("\\\\"):
+                if result.target not in self.icons:
+                    if len(self.icons)>=128:
+                        self.icons.clear()
+                    self.icons[result.target]=self.icon_provider.icon(QFileInfo(result.target))
+                item.setIcon(self.icons[result.target])
             self.results.addItem(item)
             existing.add(result.target)
         if self.results.currentRow() < 0 and self.results.count():

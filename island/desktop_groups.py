@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Desktop-only roll-up groups. Links stay in place; Explorer is never patched."""
-import ctypes
 import json
 import math
 import time
@@ -10,10 +9,12 @@ import uuid
 from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu)
+    QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle)
 from .hub import FileShelf
-from .platform_win import desktop_is_foreground, restore_desktop_panel, exclude_from_peek
+from .platform_win import anchor_desktop_panel, disable_window_transitions, exclude_from_peek
 from .motion import DampedValue, smoothstep
+from .style import font
+from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
 
 
 class GroupStore(QObject):
@@ -79,6 +80,34 @@ class GroupStore(QObject):
         self.save()
 
 
+class GroupItemDelegate(QStyledItemDelegate):
+    def sizeHint(self,option,index):
+        grid=self.parent().gridSize()
+        return QSize(max(1,grid.width()-4),max(1,grid.height()-4))
+
+    def paint(self,painter,option,index):
+        p=painter
+        p.save()
+        p.setClipRect(option.rect)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect=QRectF(option.rect).adjusted(3,2,-3,-2)
+        selected=bool(option.state & QStyle.StateFlag.State_Selected)
+        hovered=bool(option.state & QStyle.StateFlag.State_MouseOver)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(255,255,255,24 if selected else 12 if hovered else 0))
+        p.drawRoundedRect(rect,9,9)
+        icon=index.data(Qt.ItemDataRole.DecorationRole)
+        if icon:
+            icon.paint(p,QRect(round(rect.center().x()-20),round(rect.y()+7),40,40))
+        p.setFont(font(11,400))
+        p.setPen(QColor(TEXT))
+        label=index.data(Qt.ItemDataRole.DisplayRole) or ""
+        width=max(10,round(rect.width()-6))
+        label=p.fontMetrics().elidedText(label,Qt.TextElideMode.ElideRight,width*2-8)
+        p.drawText(QRectF(rect.x()+3,rect.y()+54,width,30),Qt.AlignmentFlag.AlignHCenter|Qt.TextFlag.TextWordWrap,label)
+        p.restore()
+
+
 class GroupShelf(FileShelf):
     def __init__(self, panel):
         self.panel = panel
@@ -89,6 +118,8 @@ class GroupShelf(FileShelf):
         self.setMovement(QListWidget.Movement.Static)
         self.setWordWrap(True)
         self.setIconSize(QSize(38, 38))
+        self.setItemDelegate(GroupItemDelegate(self))
+        self.setMouseTracking(True)
         self.setSpacing(2)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
@@ -97,6 +128,10 @@ class GroupShelf(FileShelf):
     def reload(self):
         self.clear()
         self.add_paths(self.panel.group["items"], save=False, keep_missing=True)
+        for index in range(self.count()):
+            item=self.item(index)
+            path=Path(item.data(Qt.ItemDataRole.UserRole))
+            item.setText(path.stem if path.suffix.casefold()==".lnk" else path.name)
         self.filter(self.panel.search.text())
         if hasattr(self.panel,"animation") and self.panel.expanded:
             self.panel.animate(True, refresh=True)
@@ -122,14 +157,18 @@ class GroupPanel(QWidget):
         self.extent.value = 44
         self.target_height = 44
         self.texture = QPixmap()
+        self.full_height = 112
+        self.closed_width = 216
         self.setWindowTitle("Cloud Hub — группа «"+group["title"]+"»")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
-        self.setStyleSheet("""QWidget {color:#eef0f5;font:12px 'Segoe UI';background:transparent;}
+        self.setStyleSheet("""QWidget {color:#f4f4f6;font:12px 'Golos Text';background:transparent;}
             QPushButton {border:0;padding:5px;background:transparent;border-radius:7px;}
-            QPushButton:hover {background:rgba(255,255,255,22);} QLabel {font-weight:600;font-size:13px;}
-            QLineEdit {background:rgba(0,0,0,35);border:0;padding:7px;border-radius:8px;selection-background-color:#53647a;}
+            QPushButton:hover {background:rgba(255,255,255,18);}
+            QLabel#groupName {font-weight:500;font-size:15px;}
+            QLabel#groupCount {color:#b2b6bf;font-size:11px;}
+            QLineEdit {background:rgba(255,255,255,7);border:0;padding:7px;border-radius:7px;selection-background-color:#53647a;}
             QListWidget {border:0;background:transparent;outline:0;padding:2px;}
             QListWidget::item {padding:3px;border-radius:7px;}
             QListWidget::item:selected {background:rgba(255,255,255,24);}
@@ -143,25 +182,34 @@ class GroupPanel(QWidget):
         header = QHBoxLayout(self.header)
         header.setContentsMargins(14, 0, 8, 0)
         header.setSpacing(3)
+        header.addWidget(LineIcon("folder",20))
+        header.addSpacing(8)
         self.name = QLabel(group["title"])
+        self.name.setObjectName("groupName")
+        self.name.setFont(font(15,500))
+        self.name.setMinimumWidth(0)
         self.name.installEventFilter(self)
         self.name.setToolTip("Наведи для раскрытия. Перетащи заголовок, чтобы переместить группу.")
         header.addWidget(self.name, 1)
-        self.chevron = QPushButton("⌄")
-        self.chevron.setFixedSize(25, 30)
+        self.chevron = IconButton("chevron","Свернуть группу")
         self.chevron.clicked.connect(lambda: self.animate(not self.expanded))
         header.addWidget(self.chevron)
-        menu = QPushButton("⋯")
+        slot=QWidget()
+        slot.setFixedSize(28,28)
+        self.count_label=QLabel(slot)
+        self.count_label.setObjectName("groupCount")
+        self.count_label.setGeometry(slot.rect())
+        self.count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        menu = IconButton("dots","Меню группы",slot)
         self.menu_button = menu
-        menu.setFixedSize(25, 30)
         menu.clicked.connect(self.menu)
-        header.addWidget(menu)
+        header.addWidget(slot)
         self.body = QWidget(self)
         body = QVBoxLayout(self.body)
         body.setContentsMargins(10, 4, 10, 10)
         body.setSpacing(8)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Найти в группе…")
+        self.search.setPlaceholderText("Фильтр…")
         self.search.setClearButtonEnabled(True)
         self.search.setFixedHeight(30)
         body.addWidget(self.search)
@@ -169,7 +217,7 @@ class GroupPanel(QWidget):
         self.shelf.setMinimumHeight(0)
         self.search.textChanged.connect(self.shelf.filter)
         body.addWidget(self.shelf, 1)
-        self.empty = QPushButton("＋  Добавить файлы или программы")
+        self.empty = QPushButton("＋  Добавить")
         self.empty.setFixedHeight(30)
         self.empty.clicked.connect(self.add_files)
         body.addWidget(self.empty)
@@ -186,30 +234,47 @@ class GroupPanel(QWidget):
         self.configure()
         self.setFixedHeight(44)
         self.place()
+        self._header_state(False)
 
     def configure(self):
         s = self.manager.owner.settings
-        old_width, old_grid = self.width(), self.shelf.gridSize()
-        self.setFixedWidth(s.get("group_width"))
-        self.shelf.setGridSize(QSize((self.width()-30)//s.get("group_columns"), 88))
+        old_width, old_grid = getattr(self,"full_width",0), self.shelf.gridSize()
+        self.full_width = s.get("group_width")
+        self.closed_width = min(self.full_width,max(216,min(264,self.name.fontMetrics().horizontalAdvance(self.group["title"])+88)))
+        if not self.animation.isActive():
+            self.setFixedWidth(self.full_width if self.expanded else self.closed_width)
+        self.shelf.setGridSize(QSize((self.full_width-30)//s.get("group_columns"), 96))
         self.header.setGeometry(0, 0, self.width(), 44)
         self.name.setText(self.group["title"])
         self.setWindowTitle("Cloud Hub — группа «"+self.group["title"]+"»")
-        changed = old_width != self.width() or old_grid != self.shelf.gridSize()
+        self.count_label.setText(str(self.shelf.count()))
+        changed = old_width != self.full_width or old_grid != self.shelf.gridSize()
         if self.expanded or self.animation.isActive():
             self.animate(self.expanded,refresh=changed)
         self.update()
 
+    def _header_state(self,hovered=None):
+        hovered=self.underMouse() if hovered is None else hovered
+        controls=hovered or self.expanded or self.interactions>0
+        self.menu_button.setVisible(controls)
+        self.count_label.setVisible(not controls)
+        self.chevron.setVisible(self.expanded)
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        if hasattr(self,"header"):
+            self.header.setGeometry(0,0,self.width(),44)
+
     def place(self):
         screen = next((s for s in QApplication.screens() if s.name() == self.group["screen"]), QApplication.primaryScreen())
         r = screen.availableGeometry()
-        self.move(r.left()+round(self.group["x"]*max(0,r.width()-self.width())),
+        self.move(r.left()+round(self.group["x"]*max(0,r.width()-self.full_width)),
                   r.top()+round(self.group["y"]*max(0,r.height()-44)))
 
     def animate(self, expanded, refresh=False):
         rows = math.ceil(self.shelf.count()/self.manager.owner.settings.get("group_columns"))
         available = self.screen().availableGeometry().bottom()-self.y()+1
-        full = max(44, min(44 + (min(4, rows)*92 + 90 if rows else 68), available))
+        full = max(44, min(44 + (min(4, rows)*100 + 90 if rows else 68), available))
         height = full if expanded else 44
         if expanded == self.expanded and height == self.target_height and not refresh:
             return
@@ -217,12 +282,13 @@ class GroupPanel(QWidget):
         if not was_moving or self.texture.isNull() or refresh:
             self.search.setVisible(bool(rows))
             self.shelf.setVisible(bool(rows))
-            self.body.setGeometry(0, 44, self.width(), max(1, full-44))
+            self.full_height=full
+            self.body.setGeometry(0, 44, self.full_width, max(1, full-44))
             self.body.ensurePolished()
             self.body.layout().activate()
             self.texture = self.body.grab()
         self.expanded = expanded
-        self.chevron.setText("⌃" if expanded else "⌄")
+        self._header_state()
         self.target_height = height
         self.body.hide()
         if not was_moving:
@@ -234,21 +300,25 @@ class GroupPanel(QWidget):
         now = time.monotonic()
         height = self.extent.step(self.target_height, now-self.last_frame, 23)
         self.last_frame = now
-        self.setFixedHeight(max(44, round(height)))
+        progress=max(0.,min(1.,(height-44)/max(1,self.full_height-44)))
+        self.setFixedSize(round(self.closed_width+(self.full_width-self.closed_width)*progress),max(44,round(height)))
         if abs(height-self.target_height) < .04 and abs(self.extent.velocity) < .8:
             self.animation.stop()
             self.extent.value, self.extent.velocity = float(self.target_height), 0.
             self.setFixedHeight(self.target_height)
+            self.setFixedWidth(self.full_width if self.expanded else self.closed_width)
             self.body.setVisible(self.expanded)
             self.texture = QPixmap()
         self.update()
 
     def enterEvent(self, event):
+        self._header_state(True)
         self.collapse.stop()
         if not self.expanded:
             self.hover.start(self.manager.owner.settings.get("group_hover_delay"))
 
     def leaveEvent(self, event):
+        self._header_state(False)
         self.hover.stop()
         self.collapse.start(self.manager.owner.settings.get("group_collapse_delay"))
 
@@ -270,7 +340,7 @@ class GroupPanel(QWidget):
             if event.type() == QEvent.Type.MouseButtonRelease and self.drag_origin is not None:
                 self.drag_origin = None
                 r = self.screen().availableGeometry()
-                self.group.update(x=max(0.,min(1.,(self.x()-r.left())/max(1,r.width()-self.width()))),
+                self.group.update(x=max(0.,min(1.,(self.x()-r.left())/max(1,r.width()-self.full_width))),
                     y=max(0.,min(1.,(self.y()-r.top())/max(1,r.height()-44))), screen=self.screen().name())
                 self.manager.store.save()
                 self.place()
@@ -346,18 +416,21 @@ class GroupPanel(QWidget):
     def paintEvent(self,event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor("#242832")
-        color.setAlpha(round(255*self.manager.owner.settings.get("group_opacity")/100))
+        progress=max(0.,min(1.,(self.height()-44)/max(1,self.full_height-44)))
+        color = QColor(SURFACE)
+        color.setAlpha(round((150+90*progress)*self.manager.owner.settings.get("group_opacity")/100))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         path = QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),14,14)
+        radius=10+4*progress
+        path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),radius,radius)
         p.fillPath(path,color)
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.setPen(QPen(QColor(255,255,255,22),1))
         p.drawPath(path)
         if self.animation.isActive() and not self.texture.isNull():
             p.setClipPath(path)
+            p.setClipRect(QRect(0,44,self.width(),max(0,self.height()-44)),Qt.ClipOperation.IntersectClip)
             full = self.texture.height()/self.texture.devicePixelRatioF()
             progress = min(1., max(0., (self.height()-44)/max(1,full)))
             p.setOpacity(smoothstep(progress/.7))
@@ -369,6 +442,7 @@ class GroupPanel(QWidget):
     def showEvent(self,event):
         super().showEvent(event)
         exclude_from_peek(self)
+        disable_window_transitions(self)
 
     def hideEvent(self,event):
         self.hover.stop()
@@ -377,6 +451,7 @@ class GroupPanel(QWidget):
         self.expanded = False
         self.body.hide()
         self.setFixedHeight(44)
+        self.setFixedWidth(self.closed_width)
         self.target_height = 44
         self.extent.value, self.extent.velocity = 44., 0.
         self.texture = QPixmap()
@@ -391,7 +466,7 @@ class DesktopGroups(QObject):
         self.panels = {}
         self.store.changed.connect(self.reconcile)
         self.timer = QTimer(self)
-        self.timer.setInterval(300)
+        self.timer.setInterval(2000)  # Shell recovery only; foreground changes never hide/show tiles.
         self.timer.timeout.connect(self.tick)
         QApplication.instance().screenAdded.connect(self.screen_added)
         QApplication.instance().screenRemoved.connect(lambda _:self.reposition())
@@ -416,6 +491,8 @@ class DesktopGroups(QObject):
                     panel.shelf.reload()
                 panel.configure()
         self.repair_overlaps()
+        if self.enabled:
+            self.tick()
 
     def repair_overlaps(self, force=False):
         """Move colliding headers only; keep identities, references and a backup."""
@@ -426,16 +503,16 @@ class DesktopGroups(QObject):
             screen = panel.screen()
             bounds = screen.availableGeometry()
             used = occupied.setdefault(screen.name(), [])
-            rect = QRect(panel.x(), panel.y(), panel.width(), 44)
+            rect = QRect(panel.x(), panel.y(), panel.full_width, 44)
             if force or any(rect.adjusted(-6,-6,6,6).intersects(old) for old in used):
-                step = panel.width()+20
-                candidates = [QRect(bounds.x()+20+x, bounds.y()+70+y, panel.width(),44)
+                step = panel.full_width+20
+                candidates = [QRect(bounds.x()+20+x, bounds.y()+70+y, panel.full_width,44)
                     for y in range(0,max(1,bounds.height()-114),280)
-                    for x in range(0,max(1,bounds.width()-panel.width()-20),step)]
+                    for x in range(0,max(1,bounds.width()-panel.full_width-20),step)]
                 # Dense fallback for many groups/small screens, still no coincident headers.
-                candidates += [QRect(bounds.x()+12+x,bounds.y()+12+y,panel.width(),44)
+                candidates += [QRect(bounds.x()+12+x,bounds.y()+12+y,panel.full_width,44)
                     for y in range(0,max(1,bounds.height()-56),60)
-                    for x in range(0,max(1,bounds.width()-panel.width()-12),step)]
+                    for x in range(0,max(1,bounds.width()-panel.full_width-12),step)]
                 rect = next((r for r in candidates if not any(r.adjusted(-6,-6,6,6).intersects(old) for old in used)),rect)
                 if rect.topLeft() != panel.pos():
                     if not moved and self.store.path.exists():
@@ -447,7 +524,7 @@ class DesktopGroups(QObject):
                             except OSError:
                                 self.store.error.emit("Не удалось сохранить резервную копию расположения групп")
                                 return
-                    panel.group.update(x=(rect.x()-bounds.x())/max(1,bounds.width()-panel.width()),
+                    panel.group.update(x=(rect.x()-bounds.x())/max(1,bounds.width()-panel.full_width),
                         y=(rect.y()-bounds.y())/max(1,bounds.height()-44), screen=screen.name())
                     panel.place()
                     moved = True
@@ -482,25 +559,15 @@ class DesktopGroups(QObject):
                 panel.hide()
 
     def tick(self):
-        ctypes.windll.user32.GetForegroundWindow.restype = ctypes.c_void_p
-        foreground = ctypes.windll.user32.GetForegroundWindow()
-        own_group = any(int(p.winId()) == foreground for p in self.panels.values())
-        popup = QApplication.activePopupWidget() or QApplication.activeModalWidget()
-        related = popup
-        while related is not None and related not in self.panels.values():
-            related = related.parentWidget()
-        group_popup = related is not None or any(p.interactions for p in self.panels.values())
-        desktop = desktop_is_foreground()
-        visible = self.enabled and (desktop or own_group or group_popup or
-            (not foreground and getattr(self,"_visible",False)))
-        self._visible = visible
+        if not self.enabled:
+            return
         for panel in self.panels.values():
-            if visible and not panel.isVisible():
+            shown = not panel.isVisible()
+            if shown:
+                if not anchor_desktop_panel(panel):
+                    continue  # Explorer is not ready yet during login.
                 panel.show()
-            elif not visible and panel.isVisible():
-                panel.hide()
-            if visible and desktop and not popup and not group_popup:
-                restore_desktop_panel(panel)
+            panel.desktop_anchored = anchor_desktop_panel(panel,reset=shown)
 
     def open_settings(self):
         self.owner.show_hub()

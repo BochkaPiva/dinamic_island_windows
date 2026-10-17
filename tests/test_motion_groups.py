@@ -111,8 +111,7 @@ class MotionGroupTests(unittest.TestCase):
         groups = self.w.modules.desktop
         groups.enabled = True
         panel = next(iter(groups.panels.values()))
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=True), \
-             patch("island.desktop_groups.restore_desktop_panel") as restore:
+        with patch("island.desktop_groups.anchor_desktop_panel",return_value=True) as anchor:
             groups.tick()
             menu = QMenu(panel)
             menu.addAction("Настройки")
@@ -120,11 +119,11 @@ class MotionGroupTests(unittest.TestCase):
             self.app.processEvents()
             groups.tick()
             self.assertTrue(panel.isVisible())
-            restore.reset_mock()
             groups.tick()
-            restore.assert_not_called()
+            self.assertTrue(panel.isVisible())
+            self.assertTrue(anchor.called)
             menu.close()
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=False):
+        with patch("island.desktop_groups.anchor_desktop_panel",return_value=True):
             with panel.interacting():
                 groups.tick()
                 self.assertTrue(panel.isVisible())
@@ -161,6 +160,20 @@ class MotionGroupTests(unittest.TestCase):
         QTest.qWait(80)
         self.assertEqual(panel.body.height(),height)
         self.assertFalse(panel.body.isVisible())
+
+    def test_foreground_changes_do_not_show_hide_or_move_desktop_tiles(self):
+        groups=self.w.modules.desktop
+        groups.enabled=True
+        panel=next(iter(groups.panels.values()))
+        with patch("island.desktop_groups.anchor_desktop_panel",return_value=True):
+            groups.tick()
+            bounds=panel.geometry()
+            with patch.object(panel,"show") as show,patch.object(panel,"hide") as hide:
+                for _ in range(10):
+                    groups.tick()
+                show.assert_not_called()
+                hide.assert_not_called()
+            self.assertEqual(panel.geometry(),bounds)
 
 
 if __name__ == "__main__":

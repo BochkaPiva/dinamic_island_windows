@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.0
+
+- Replace foreground-driven desktop group hide/show with a persistent desktop layer. Assign only our own tool HWNDs to the shell owner using documented Win32 ownership, place them below ordinary applications without activation, and retain their position while other windows minimize. Keep the two-second timer solely for shell recovery.
+- Disable Windows fly-in/minimize transitions on desktop tiles. Recreate our native surface after a shell-owner restart; no Explorer patching, injected DLLs, child-window reparenting or global animation changes.
+- Introduce compact, content-aware group headers, a unified original line-icon family, larger typography, unobtrusive counts, hover menus and synchronized width/height reveal. Preserve expanded dimensions, normalized positions, data and settings.
+- Paint stable desktop icon cells with native file/application icons and readable labels. Hide shortcut extensions and redundant folder prefixes; retain original paths and references.
+- Redesign search as one continuous neutral surface, a frameless input, denser result rows, quiet keyboard hints and recognizable icons. Remove stacked gradients, the nested input frame and the artificial bevel/shadow.
+- Remove Windows 11's incompatible native transient backplate from the layered Qt window: a successful API call still rendered an unwanted square/grey frame. Offer adjustable translucency through the existing appearance toggle, without claiming background blur.
+- Add native acceptance checks for immediate group visibility before the next poll, desktop/app z-order, menu ordering, owner destruction/recovery and actual compositor output over an isolated backing window. Preserve single-instance startup, the island compositor, real loopback audio and timer behavior.
+
 ## v0.3.2
 
 - Synchronize island content with the expanding black silhouette: scale a cached content layer from actual window geometry, clip it to the same bezel path, then hand back live controls. Preserve spring velocity on rapid reversals; remove the separate late content fade.

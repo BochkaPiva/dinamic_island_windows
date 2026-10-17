@@ -37,6 +37,7 @@ with tempfile.TemporaryDirectory() as directory:
             QTest.qWait(1800)
             assert w.worker.poll_active.is_set(), "Media did not start"
             assert w.audio.capture_active.is_set(), "WASAPI did not start"
+            assert all(p.isVisible() and p.desktop_anchored for p in w.modules.desktop.panels.values())
             w._toggle_setting("profile", "battery")
             QTest.qWait(200)
             assert w.audio.capture_active.is_set(), "Battery profile unexpectedly disabled spectrum"
@@ -54,6 +55,8 @@ with tempfile.TemporaryDirectory() as directory:
             assert not w.isVisible()
             assert not w.audio.capture_active.is_set()
             assert not w.worker.poll_active.is_set()
+            assert not w.modules.desktop.timer.isActive()
+            assert all(not p.isVisible() for p in w.modules.desktop.panels.values())
             assert not w._notch_pointer_timer.isActive()
             w.show_hub()
             QTest.qWait(200)

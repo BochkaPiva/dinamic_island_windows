@@ -86,17 +86,16 @@ with tempfile.TemporaryDirectory() as folder:
         assert panel.height() > 44
         assert link.read_text(encoding="utf-8") == "original"
         panel.hide()
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=True):
-            groups.enabled = True
-            groups.tick()
-            assert all(p.isVisible() for p in groups.panels.values())
-        # The settings window is an ordinary foreground app, not a desktop group.
+        w._system_timer.stop()
+        groups.enabled = True
+        groups.tick()
+        assert all(p.isVisible() for p in groups.panels.values())
+        # Ordinary apps cover the persistent desktop layer without hiding it.
         center.show()
         center.activateWindow()
         QTest.qWait(100)
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=False):
-            groups.tick()
-            assert all(not p.isVisible() for p in groups.panels.values())
+        groups.tick()
+        assert all(p.isVisible() for p in groups.panels.values())
         groups.enabled = False
         w._toggle_setting("paused",True)
         assert not groups.timer.isActive() and not w.modules.search.enabled

@@ -169,7 +169,7 @@ class SettingsPages:
         layout = self._page()
         self.heading(layout,"Быстрый поиск","Одна строка для приложений, файлов и команд Cloud Hub. Управление: ↑ ↓, Enter и Esc.")
         self._module(layout,"search_enabled","Включить поиск Cloud Hub","Собственный модуль; PowerToys Command Palette для него не нужен")
-        self._module(layout,"search_glass","Стеклянное оформление","Мягкое тонирование и блики; системный фон Windows 11 там, где он доступен")
+        self._module(layout,"search_glass","Полупрозрачная поверхность","Спокойное тонирование без дополнительных рамок; выключи для полностью непрозрачного фона")
         self._module(layout,"search_apps","Приложения и ярлыки","Меню «Пуск» и рабочий стол; каталог обновляется по запросу")
         self._module(layout,"search_files","Файлы из индекса Windows","По имени файла. Только индексированные Windows папки, без своего фонового обхода диска")
         layout.addWidget(self.action("Открыть поиск",self.owner.show_search))

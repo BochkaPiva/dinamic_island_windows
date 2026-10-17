@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from island.app import IslandWindow
 from island.media import Snapshot
 from island.storage import Settings
-from island.platform_win import restore_desktop_panel, exclude_from_peek
+from island.platform_win import anchor_desktop_panel, exclude_from_peek
 
 out = Path(sys.argv[1] if len(sys.argv)>1 else "build/motion-groups-check")
 out.mkdir(parents=True,exist_ok=True)
@@ -97,8 +97,7 @@ with tempfile.TemporaryDirectory() as folder:
         groups.store.save()
         assert len({(p.x(),p.y()) for p in groups.panels.values()}) == len(groups.panels)
         groups.enabled = True
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=True):
-            groups.tick()
+        groups.tick()
         panel.hover.stop()
         panel.collapse.stop()
         panel.animate(True)
@@ -118,12 +117,10 @@ with tempfile.TemporaryDirectory() as folder:
         menu.addAction("Настроить группы…")
         menu.popup(panel.mapToGlobal(QPoint(panel.width()-35,38)))
         QTest.qWait(80)
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=True), \
-             patch("island.desktop_groups.restore_desktop_panel",wraps=restore_desktop_panel) as repair:
+        with patch("island.desktop_groups.anchor_desktop_panel",wraps=anchor_desktop_panel):
             for _ in range(5):
                 groups.tick()
                 QTest.qWait(80)
-            repair.assert_not_called()
             assert panel.isVisible() and menu.isVisible()
         # Native z-order: the menu is reached before the panel walking downward.
         user.GetTopWindow.argtypes = (ctypes.c_void_p,)
@@ -148,16 +145,15 @@ with tempfile.TemporaryDirectory() as folder:
         menu.close()
         panel.collapse.stop()
         # A native file picker keeps its owning group visible throughout its modal loop.
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=False):
-            with panel.interacting():
-                groups.tick()
-                assert all(p.isVisible() for p in groups.panels.values())
+        with panel.interacting():
+            groups.tick()
+            assert all(p.isVisible() for p in groups.panels.values())
         # Show Desktop can minimize tools independently of Qt visibility.
         hwnd = ctypes.c_void_p(int(panel.winId()))
         user.ShowWindow(hwnd,6)
         QTest.qWait(50)
         foreground = user.GetForegroundWindow()
-        restore_desktop_panel(panel)
+        anchor_desktop_panel(panel)
         QTest.qWait(50)
         assert not user.IsIconic(hwnd)
         assert user.GetForegroundWindow() == foreground
@@ -172,25 +168,22 @@ with tempfile.TemporaryDirectory() as folder:
             frame.paste(image,(20,20),image)
             group_frames.append(frame)
         group_frames[0].save(out/"group-reveal.gif",save_all=True,append_images=group_frames[1:],duration=20,loop=0)
-        # A real ordinary foreground window hides groups until desktop returns.
+        # Ordinary windows cover persistent groups; no hide/show cycle on return.
         other = QWidget()
         other.setWindowTitle("Cloud Hub fixture")
         other.show()
         other.activateWindow()
         QTest.qWait(100)
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=False):
-            groups.tick()
-            assert all(not p.isVisible() for p in groups.panels.values())
+        groups.tick()
+        assert all(p.isVisible() for p in groups.panels.values())
         other.close()
-        with patch("island.desktop_groups.desktop_is_foreground",return_value=True):
-            groups.tick()
-            assert all(p.isVisible() for p in groups.panels.values())
+        assert all(p.isVisible() for p in groups.panels.values())
         assert len(group["items"]) == 4 and all(Path(p).read_text()=="fixture" for p in group["items"])
         report = {"native_menu_above_group":True,"menu_does_not_raise_panels":True,
             "dialogs_keep_groups":True,"desktop_restore_without_focus":True,"peek_api_accepted":True,
             "panels_not_topmost":True,"overlap_repair":True,"references_preserved":True,
             "no_idle_animation":not panel.animation.isActive(),"content_and_shell_synchronized":True,
-            "rapid_reversal_continuous":True,"ordinary_apps_hide_groups":True}
+            "rapid_reversal_continuous":True,"ordinary_apps_cover_persistent_groups":True}
         (out/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
         print(json.dumps(report))
     finally:

@@ -3,7 +3,8 @@
 import os
 import unittest
 from unittest.mock import Mock, patch
-from island.platform_win import is_desktop_window, is_fullscreen, exclude_from_peek
+from island.platform_win import (is_desktop_window, is_fullscreen, exclude_from_peek,
+    anchor_desktop_panel, disable_window_transitions, apply_search_backdrop)
 from island.motion import top_application
 
 
@@ -89,6 +90,48 @@ class DesktopTests(unittest.TestCase):
                 dwm.DwmSetWindowAttribute.return_value = failure
             with patch("island.platform_win.ctypes.windll.dwmapi", dwm):
                 self.assertFalse(exclude_from_peek(self.owner))
+
+    def test_desktop_owner_targets_our_hwnd_and_never_raises_over_apps(self):
+        user=Mock()
+        user.GetShellWindow.return_value=200
+        user.IsWindow.return_value=True
+        user.IsWindowVisible.return_value=True
+        user.IsIconic.return_value=False
+        current=[None]
+        user.GetWindow.side_effect=lambda h,flag:current[0]
+        user.SetWindowLongPtrW.side_effect=lambda h,key,value:current.__setitem__(0,value)
+        with patch("island.platform_win.ctypes.windll.user32",user):
+            self.assertTrue(anchor_desktop_panel(self.owner))
+            self.assertTrue(anchor_desktop_panel(self.owner))
+        h,key,value=user.SetWindowLongPtrW.call_args.args
+        self.assertEqual((hwnd(h),key,value),(1000,-8,200))
+        user.SetWindowPos.assert_called_once()
+        h,after,*rest=user.SetWindowPos.call_args.args
+        self.assertEqual((hwnd(h),hwnd(after)),(1000,1))  # bottom, never topmost
+        self.assertTrue(rest[-1]&0x10)  # NOACTIVATE
+        user.GetForegroundWindow.assert_not_called()
+
+    def test_desktop_waits_for_explorer_and_disables_fly_in_animation(self):
+        user=Mock()
+        user.GetShellWindow.return_value=None
+        with patch("island.platform_win.ctypes.windll.user32",user):
+            self.assertFalse(anchor_desktop_panel(self.owner))
+        user.SetWindowLongPtrW.assert_not_called()
+        dwm=Mock()
+        dwm.DwmSetWindowAttribute.return_value=0
+        with patch("island.platform_win.ctypes.windll.dwmapi",dwm):
+            self.assertTrue(disable_window_transitions(self.owner))
+        h,attribute,value,size=dwm.DwmSetWindowAttribute.call_args.args
+        self.assertEqual((hwnd(h),attribute,value._obj.value,size),(1000,3,1,4))
+
+    def test_layered_palette_does_not_request_the_rectangular_native_backplate(self):
+        dwm=Mock()
+        dwm.DwmSetWindowAttribute.return_value=0
+        with patch("island.platform_win.ctypes.windll.dwmapi",dwm):
+            self.assertFalse(apply_search_backdrop(self.owner))
+        requests={args[1]:args[2]._obj.value for args,_ in dwm.DwmSetWindowAttribute.call_args_list}
+        self.assertEqual(requests[38],1)  # NONE: native success did not mean visual support.
+        self.assertEqual(requests[34],-2)  # DWMWA_COLOR_NONE
 
 
 if __name__ == "__main__":

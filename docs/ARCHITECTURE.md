@@ -29,9 +29,11 @@ plugins; this release supports built-in modules only.
   requires an explicit selection, with separate process arguments and no shell.
 - `desktop_groups.py`: versioned `desktop-groups.json` contains group IDs,
   titles, references and normalized monitor positions. Independent tool windows
-  appear only in desktop/group context; no Explorer injection, shell replacement
-  or movement/deletion of the user's original files. One 300 ms visibility timer
-  runs only while the module is enabled; animations run only during interaction.
+  stay above the shell and below normal apps using documented top-level ownership.
+  No foreground hide/show cycle, Explorer injection, shell replacement or movement
+  of original files. One two-second shell recovery timer runs while enabled;
+  geometry/reveal animation clocks stop at rest. Destroyed owned HWNDs are recreated
+  from retained widgets and data after the shell restarts.
 - `notebook.py`: named notes in versioned `notes.json`. The quick note shares
   the island document and preserves `notch-notes.txt`. Debounced atomic saves and
   flush-on-close prevent losing a last edit. An unreadable store is copied to a
@@ -46,9 +48,11 @@ plugins; this release supports built-in modules only.
   in `tools/generate_timer_chime.py`; no recorded audio is bundled.
 - `search_ui.py`: search appearance is separate from providers. Result delegates
   paint selected text explicitly, elide paths, and never need horizontal scrolling.
-  Windows 11 backdrop attributes are best effort; layered-window composition and
-  Windows transparency settings may affect the material. Vector tint/highlights
-  remain available without desktop capture or animation running in the background.
+  A single alpha-painted surface supplies the complete shape. The incompatible
+  DWM transient backplate and extra border are explicitly disabled; an accepted
+  DWM call did not guarantee correct visual composition. No runtime screen capture,
+  fake live blur or idle animation. `ui_tokens.py` shares type/color roles and original
+  vector icons with the groups.
 - `hotkey.py`: native `RegisterHotKey`, no keyboard hooks. A candidate binding
   must register before the old ID is released. Failed changes retain the old key.
 - `integrations.py`: optional PowerToys bridge. Complete configuration snapshots,
@@ -62,6 +66,9 @@ Run `python -m unittest discover -s tests -v` for domain and Qt regressions.
 `tools/check_native.py` checks own-window click-through, edge dwell, rendering,
 volume event routing, desktop recovery and DWM Peek exclusion.
 `tools/check_hub.py` checks real WASAPI/media suspension and profiles.
+`tools/check_surfaces.py` checks persistent desktop ordering, immediate visibility
+after minimize, owner destruction/recovery and real native composition over our
+own backing window. See `docs/design.md` for the visual decisions and sources.
 `tools/check_audio_timer.py` checks compact battery capture, direct/wheel timer
 entry and actual alarm playback/dismissal with an isolated window. It plays one
 short chime to verify output, without modifying system volume.

@@ -79,7 +79,12 @@ def exclude_from_peek(owner):
 
 
 def apply_search_backdrop(owner):
-    """Request Windows 11's transient backdrop on our HWND; older Windows falls back."""
+    """Remove native frame/material from the layered Qt palette.
+
+    DWMSBT_TRANSIENTWINDOW paints a rectangular backplate outside layered
+    QWidget alpha/masks on Windows 11. Native acceptance is not visual support.
+    Use our single translucent surface until the renderer can host it correctly.
+    """
     if sys.getwindowsversion().build < 22621:
         return False
     try:
@@ -87,12 +92,12 @@ def apply_search_backdrop(owner):
         setter.argtypes=(ctypes.c_void_p,ctypes.c_uint,ctypes.c_void_p,ctypes.c_uint)
         setter.restype=ctypes.c_long
         hwnd=ctypes.c_void_p(int(owner.winId()))
-        enabled=owner.owner.settings.get("search_glass")
-        for attribute,value in ((20,1),(33,2),(38,3 if enabled else 1)):
+        # Our complete client surface supplies its contour and one hairline.
+        # Suppress DWM's additional border: layered custom chrome otherwise
+        # acquires the thick grey frame visible on Windows 11.
+        for attribute,value in ((20,1),(33,1),(34,0xfffffffe),(38,1)):
             native=ctypes.c_int(value)
-            result=setter(hwnd,attribute,ctypes.byref(native),ctypes.sizeof(native))
-            if attribute==38:
-                return enabled and result>=0
+            setter(hwnd,attribute,ctypes.byref(native),ctypes.sizeof(native))
     except (AttributeError,OSError):
         pass
     return False
@@ -137,6 +142,57 @@ def restore_desktop_panel(owner):
         user.SetWindowPos.argtypes = (ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_uint)
         user.SetWindowPos(hwnd, None, 0,0,0,0,0x0213)  # HWND_TOP; NOACTIVATE
     return restored
+
+
+def anchor_desktop_panel(owner, reset=False):
+    """Own only our tool HWND by the shell; keep it below ordinary apps.
+
+    Documented top-level ownership keeps it above Progman even when Explorer
+    activates. No reparenting, shell messages, injected DLLs or Explorer writes.
+    Qt can reset native ownership on show; reapply then and after shell changes.
+    """
+    user = ctypes.windll.user32
+    user.GetShellWindow.restype = ctypes.c_void_p
+    user.GetWindow.argtypes = (ctypes.c_void_p,ctypes.c_uint)
+    user.GetWindow.restype = ctypes.c_void_p
+    shell = user.GetShellWindow()
+    if not shell or not user.IsWindow(ctypes.c_void_p(shell)):
+        return False
+    hwnd = ctypes.c_void_p(int(owner.winId()))
+    if not user.IsWindow(hwnd):
+        # Explorer can destroy its owned HWNDs while restarting. Qt retains the
+        # widget, data and position; recreate only our native surface.
+        owner.hide()
+        owner.destroy()
+        owner.show()
+        hwnd = ctypes.c_void_p(int(owner.winId()))
+        reset = True
+    changed = user.GetWindow(hwnd,4) != shell  # GW_OWNER
+    if changed:
+        user.SetWindowLongPtrW.argtypes = (ctypes.c_void_p,ctypes.c_int,ctypes.c_ssize_t)
+        user.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user.SetWindowLongPtrW(hwnd,-8,shell)  # GWLP_HWNDPARENT (owner, not parent)
+        if user.GetWindow(hwnd,4) != shell:
+            return False
+    if user.IsIconic(hwnd) or not user.IsWindowVisible(hwnd):
+        user.ShowWindow(hwnd,4)
+        reset = True
+    if changed or reset:
+        user.SetWindowPos.argtypes = (ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_uint)
+        user.SetWindowPos(hwnd,ctypes.c_void_p(1),0,0,0,0,0x213)  # HWND_BOTTOM; owned stays above shell
+    return True
+
+
+def disable_window_transitions(owner):
+    """Desktop tiles have their own animation; never fly in from the taskbar."""
+    try:
+        setter = ctypes.windll.dwmapi.DwmSetWindowAttribute
+        setter.argtypes = (ctypes.c_void_p,ctypes.c_uint,ctypes.c_void_p,ctypes.c_uint)
+        setter.restype = ctypes.c_long
+        value = ctypes.c_int(1)
+        return setter(ctypes.c_void_p(int(owner.winId())),3,ctypes.byref(value),ctypes.sizeof(value)) >= 0
+    except (AttributeError,OSError):
+        return False
 
 
 def is_fullscreen(owner):
