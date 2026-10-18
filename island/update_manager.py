@@ -137,18 +137,22 @@ class UpdateChecker(QObject):
         return True
 
     def _fetch(self):
-        try:
-            with open_release(f'https://api.github.com/repos/{REPOSITORY}/releases/latest') as response:
-                raw=response.read(1_000_001)
-                if len(raw)>1_000_000: raise ValueError('Слишком большой ответ сервера')
-                payload=json.loads(raw.decode('utf-8'))
-            available=release_info(payload)
-            latest=release_info(payload,current='0.0.0')
-            if available: result={'status':'available',**available}
-            elif latest and version_tuple(latest['version'])<=version_tuple(__version__): result={'status':'current','release':latest}
-            else: raise ValueError('Неверные данные релиза')
-        except Exception:
-            result={'status':'unavailable','message':'Не удалось проверить обновления. Проверь подключение и попробуй ещё раз.'}
+        result={'status':'unavailable','message':'Не удалось проверить обновления. Проверь подключение и попробуй ещё раз.'}
+        # Public release metadata does not spend the shared anonymous API quota.
+        # API fallback keeps compatibility with older releases without a channel file.
+        for url in (REPO_URL+'/releases/latest/download/update.json',f'https://api.github.com/repos/{REPOSITORY}/releases/latest'):
+            try:
+                with open_release(url) as response:
+                    raw=response.read(1_000_001)
+                    if len(raw)>1_000_000: raise ValueError('Слишком большой ответ сервера')
+                    payload=json.loads(raw.decode('utf-8'))
+                available=release_info(payload)
+                latest=release_info(payload,current='0.0.0')
+                if available: result={'status':'available',**available}
+                elif latest and version_tuple(latest['version'])<=version_tuple(__version__): result={'status':'current','release':latest}
+                else: raise ValueError('Неверные данные релиза')
+                break
+            except Exception: continue
         self.finished.emit(result)
 
     def _checked(self,result):

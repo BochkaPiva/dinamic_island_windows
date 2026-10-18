@@ -36,9 +36,13 @@ if (-not $SkipInstaller) {
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
     Copy-Item -LiteralPath "packaging/Output/CloudIsland-Setup-$version-win-x64.exe" -Destination 'dist/release' -Force
 }
-$checksums = Get-ChildItem -LiteralPath 'dist/release' -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
+$checksums = Get-ChildItem -LiteralPath 'dist/release' -File | Where-Object { $_.Name -notin @('SHA256SUMS.txt','update.json') } | Sort-Object Name | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $($_.Name)"
 }
 $checksums | Set-Content -LiteralPath 'dist/release/SHA256SUMS.txt' -Encoding ascii
+if (-not $SkipInstaller) {
+    python tools/release_channel.py dist/release
+    if ($LASTEXITCODE -ne 0) { throw 'Release channel generation failed' }
+}
 Write-Host "Cloud Island ${version}: dist/release"

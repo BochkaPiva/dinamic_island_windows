@@ -28,6 +28,20 @@ def payload(version='9.0.0',content=b'MZ'+b'installer'*256):
 
 
 class ReleaseTrustTests(unittest.TestCase):
+    def test_generated_release_channel_matches_exact_files_and_notes(self):
+        from tools.release_channel import build_channel
+        with tempfile.TemporaryDirectory() as folder:
+            directory=Path(folder)
+            name=f'CloudIsland-Setup-{__version__}-win-x64.exe'
+            (directory/name).write_bytes(b'MZinstaller')
+            (directory/'SHA256SUMS.txt').write_bytes(b'checksums')
+            channel=build_channel(directory,f'# Changelog\n\n## v{__version__}\n\nНаш релиз\n\n## v0.0.0\nOld')
+            info=release_info(channel,current='0.0.0')
+            self.assertEqual(info['notes'],'Наш релиз')
+            self.assertEqual(info['installer']['size'],11)
+            self.assertEqual(info['checksums']['size'],9)
+            self.assertEqual(info['installer']['digest'],'sha256:'+hashlib.sha256(b'MZinstaller').hexdigest())
+
     def test_exact_repository_and_asset_identity(self):
         good=payload()
         info=release_info(good)
@@ -111,6 +125,23 @@ class DownloadTests(unittest.TestCase):
         self.assertIn('verifying',self.states)
         self.assertFalse(self.manager.check(),'background check must not discard ready installer')
         self.assertFalse(list(Path(self.temp.name).rglob('*.part')))
+
+    def test_public_channel_check_does_not_use_anonymous_api_quota(self):
+        with patch('island.update_manager.open_release',side_effect=lambda url:io.BytesIO(json.dumps(payload()).encode())) as opened:
+            self.manager.check()
+            self.wait_terminal()
+        self.assertEqual(self.manager.state,'available')
+        opened.assert_called_once_with(REPO_URL+'/releases/latest/download/update.json')
+
+    def test_api_fallback_for_legacy_release_without_channel(self):
+        def response(url):
+            if url.endswith('update.json'): raise OSError('missing legacy channel')
+            return io.BytesIO(json.dumps(payload()).encode())
+        with patch('island.update_manager.open_release',side_effect=response) as opened:
+            self.manager.check()
+            self.wait_terminal()
+        self.assertEqual(self.manager.state,'available')
+        self.assertEqual(opened.call_count,2)
 
     def test_truncated_and_overlong_files_never_become_installable(self):
         for data in (self.content[:-1],self.content+b'extra'):
