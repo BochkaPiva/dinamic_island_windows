@@ -191,11 +191,14 @@ class FileShelf(QListWidget):
             item = QListWidgetItem(("Папка · " if path.is_dir() else "") + path.name)
             item.setToolTip(str(path))
             item.setData(Qt.ItemDataRole.UserRole, str(path))
-            item.setIcon(self.icons.icon(QFileInfo(str(path))))
+            item.setIcon(self.icon_for(path))
             self.addItem(item)
             existing.add(str(path))
         if save:
             self.persist()
+
+    def icon_for(self,path):
+        return self.icons.icon(QFileInfo(str(path)))
 
     def add_files(self):
         paths, _ = QFileDialog.getOpenFileNames(self, "Добавить ссылки на файлы")
@@ -220,10 +223,14 @@ class FileShelf(QListWidget):
             menu.addAction("Открыть расположение", lambda: QDesktopServices.openUrl(
                 QUrl.fromLocalFile(str(Path(item.data(Qt.ItemDataRole.UserRole)).parent))))
             menu.addAction("Убрать ссылку из списка", self.remove_selected)
+            self.extra_context_actions(menu,item)
             menu.addSeparator()
         menu.addAction("Добавить файлы…", self.add_files)
         menu.addAction("Добавить папку…", self.add_folder)
         menu.exec(self.viewport().mapToGlobal(point))
+
+    def extra_context_actions(self,menu,item):
+        pass
 
     def persist(self):
         if self.store is None:

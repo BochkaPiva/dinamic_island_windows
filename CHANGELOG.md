@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.2
+
+- Keep independent, byte-for-byte copies of imported `.lnk` and `.url` shortcuts in Cloud Hub's local library. Commit the group before removing a matching desktop shortcut, verify both copies again before collection, preserve original documents/folders, and retain library files when removing a group. Offer an opt-out from desktop collection and a per-item Copy to desktop action.
+- Migrate existing accessible shortcuts with a before-migration backup. Preserve IDs, titles, positions and order; never remove source shortcuts if copying, library metadata or the group commit fails. Keep unavailable references for recovery instead of silently deleting them.
+- Load native icons from the system image list without shortcut overlays, on a bounded background worker with an LRU cache. Keep custom shortcut icons, arguments, launch targets and Steam URLs; change no Explorer icon settings.
+- Add critically damped scrolling for wheel notches while applying touchpad pixel input directly. Preserve velocity when retargeting, stop on manual scrollbar input/hide/range changes and stop animation clocks at rest. Retain scroll position when reloading the grid.
+- Remove patterned scrollbar tracks, hide `.url` suffixes in desktop groups and wrap/elide long captions inside their own cells. Add migration, rollback, desktop restore, wheel/touchpad and native shortcut/grid acceptance checks.
+
 ## v0.4.1
 
 - Replace the concealed group picker with a persistent, numbered list of all groups and item counts. Bind editing to stable IDs, including collections containing identical titles; retain selection and unfinished names when other surfaces update.

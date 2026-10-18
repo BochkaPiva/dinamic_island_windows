@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
     QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
 from .hub import FileShelf
+from .group_icons import group_icons
 
 
 class GroupFiles(FileShelf):
@@ -18,6 +19,22 @@ class GroupFiles(FileShelf):
         self.empty.setWordWrap(True)
         self.empty.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.itemSelectionChanged.connect(editor.update_actions)
+        group_icons().changed.connect(self.refresh_icon)
+
+    def icon_for(self,path):
+        return group_icons().icon(path)
+
+    def extra_context_actions(self,menu,item):
+        path=item.data(Qt.ItemDataRole.UserRole)
+        store=self.editor.manager.store
+        if store.library.owns(path):
+            menu.addAction("Скопировать ярлык на рабочий стол",lambda:store.restore_shortcut(path))
+
+    def refresh_icon(self,path):
+        for index in range(self.count()):
+            item=self.item(index)
+            if item.data(Qt.ItemDataRole.UserRole)==path:
+                item.setIcon(self.icon_for(path))
 
     def resizeEvent(self,event):
         super().resizeEvent(event)
@@ -36,6 +53,12 @@ class GroupFiles(FileShelf):
     def persist(self):
         if not self.editor.manager.store.set_paths(self.editor.selected_id,self.paths()):
             self.load(self.editor.selected_group())
+
+    def add_paths(self,paths,save=True,keep_missing=False):
+        if save:
+            self.add_to_group(self.editor.selected_id,paths)
+        else:
+            super().add_paths(paths,save=False,keep_missing=keep_missing)
 
     def add_files(self):
         identifier=self.editor.selected_id
@@ -137,14 +160,17 @@ class GroupEditor(QWidget):
         for button in (self.add_files,self.add_folder,self.remove_links):
             actions.addWidget(button)
         right_layout.addLayout(actions)
-        hint=QLabel("Удаление группы или ссылки сохраняет файлы на диске.")
+        hint=QLabel("Файлы остаются на диске. Ярлыки хранятся в библиотеке Cloud Hub.")
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         right_layout.addWidget(hint)
         root.addWidget(right,3)
         manager.store.changed.connect(self.refresh)
         manager.store.error.connect(notify)
+        manager.store.notice.connect(notify)
         self.refresh()
+        if manager.store.last_warning:
+            notify(manager.store.last_warning)
 
     def pane(self):
         frame=QFrame()

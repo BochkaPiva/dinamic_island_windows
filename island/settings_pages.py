@@ -200,6 +200,8 @@ class SettingsPages:
         self.number(inside,"group_hover_delay","Раскрытие при наведении"," мс")
         self.number(inside,"group_collapse_delay","Сворачивание после ухода"," мс")
         self._module(inside,"groups_locked","Закрепить расположение","Запретить случайное перемещение за заголовок")
+        self._module(inside,"group_collect_shortcuts","Убирать добавленные ярлыки с рабочего стола","Cloud Hub сначала сохраняет собственную копию .lnk или .url. Документы и папки остаются на своём месте.")
+        inside.addWidget(self.action("Открыть библиотеку ярлыков ↗",lambda:self._url(QUrl.fromLocalFile(str(self.owner.modules.desktop.store.library.root)))))
         inside.addWidget(self.action("Выровнять группы на рабочем столе",self.owner.modules.desktop.arrange))
         inside.addStretch()
         scroll=QScrollArea()

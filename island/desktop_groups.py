@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Desktop-only roll-up groups. Links stay in place; Explorer is never patched."""
+"""Desktop groups with owned shortcuts; documents remain references."""
 import json
 import math
 import time
@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import uuid
 from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle,
     QInputDialog, QMessageBox, QDialog, QDialogButtonBox)
@@ -16,6 +16,9 @@ from .platform_win import anchor_desktop_panel, disable_window_transitions, excl
 from .motion import DampedValue, smoothstep
 from .style import font
 from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
+from .shortcut_library import ShortcutLibrary
+from .scrolling import SmoothScroll
+from .group_icons import group_icons
 
 
 DIALOG_STYLE="""
@@ -52,10 +55,14 @@ def ask_group_title(parent,caption,value,verb):
 class GroupStore(QObject):
     changed = pyqtSignal()
     error = pyqtSignal(str)
+    notice = pyqtSignal(str)
 
-    def __init__(self, directory):
+    def __init__(self, directory, collect_desktop=True, desktop_roots=None, migrate=True):
         super().__init__()
         self.path = Path(directory)/"desktop-groups.json"
+        self.library=ShortcutLibrary(directory,desktop_roots)
+        self.collect_desktop=collect_desktop
+        self.last_warning=""
         self.groups = []
         loaded = False
         try:
@@ -77,6 +84,54 @@ class GroupStore(QObject):
         if not self.groups and not loaded:
             self.add("Работа", .03)
             self.add("Личное", .31)
+        elif loaded and migrate:
+            self.migrate_shortcuts()
+
+    def warn(self,message):
+        self.last_warning=message
+        self.error.emit(message)
+
+    def collect(self,paths):
+        enabled=self.collect_desktop() if callable(self.collect_desktop) else self.collect_desktop
+        if enabled:
+            for path in dict.fromkeys(paths):
+                try:
+                    self.library.collect(path)
+                except OSError:
+                    self.warn("Ярлык сохранён в Cloud Hub, но убрать его с рабочего стола не удалось: "+Path(path).name)
+
+    def restore_shortcut(self,path):
+        try:
+            result=self.library.restore(path)
+            self.notice.emit("Ярлык скопирован на рабочий стол: "+result.name)
+            return result
+        except OSError as exc:
+            self.warn(str(exc))
+            return None
+
+    def migrate_shortcuts(self):
+        import shutil
+        replacements={}
+        try:
+            candidates=[p for group in self.groups for p in group['items']
+                if Path(p).suffix.casefold() in {'.lnk','.url'} and Path(p).is_file() and not self.library.owns(p)]
+            if not candidates:
+                return
+            backup=self.path.with_suffix('.before-shortcuts.json')
+            if not backup.exists():
+                shutil.copy2(self.path,backup)
+            for path in dict.fromkeys(candidates):
+                replacements[path]=self.library.capture(path)
+        except OSError:
+            self.warn("Не удалось перенести ярлыки в библиотеку. Исходные ярлыки оставлены на месте.")
+            return
+        previous=[g['items'] for g in self.groups]
+        for group in self.groups:
+            group['items']=list(dict.fromkeys(replacements.get(p,p) for p in group['items']))
+        if self.save():
+            self.collect(replacements.values())
+        else:
+            for group,items in zip(self.groups,previous): group['items']=items
 
     def save(self):
         try:
@@ -154,12 +209,26 @@ class GroupStore(QObject):
         return False
 
     def add_paths(self, group, paths):
+        if self.find(group['id']) is None:
+            return False
         values=group["items"][:]
-        for value in paths:
-            path = Path(value)
-            if path.exists() and str(path) not in values and len(values) < 100:
-                values.append(str(path))
-        return self.set_paths(group["id"],values)
+        captured=[]
+        try:
+            for value in paths:
+                path=Path(value)
+                if not path.exists() or len(values)>=100:
+                    continue
+                stored=self.library.capture(path)
+                if stored not in values:
+                    values.append(stored)
+                captured.append(stored)
+        except OSError:
+            self.warn("Не удалось сохранить ярлык. Исходный файл оставлен на месте.")
+            return False
+        if self.set_paths(group["id"],values):
+            self.collect(captured)
+            return True
+        return False
 
 
 class GroupItemDelegate(QStyledItemDelegate):
@@ -172,6 +241,7 @@ class GroupItemDelegate(QStyledItemDelegate):
         p.save()
         p.setClipRect(option.rect)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         rect=QRectF(option.rect).adjusted(3,2,-3,-2)
         selected=bool(option.state & QStyle.StateFlag.State_Selected)
         hovered=bool(option.state & QStyle.StateFlag.State_MouseOver)
@@ -185,8 +255,20 @@ class GroupItemDelegate(QStyledItemDelegate):
         p.setPen(QColor(TEXT))
         label=index.data(Qt.ItemDataRole.DisplayRole) or ""
         width=max(10,round(rect.width()-6))
-        label=p.fontMetrics().elidedText(label,Qt.TextElideMode.ElideRight,width*2-8)
-        p.drawText(QRectF(rect.x()+3,rect.y()+54,width,30),Qt.AlignmentFlag.AlignHCenter|Qt.TextFlag.TextWordWrap,label)
+        text_layout=QTextLayout(label,p.font())
+        text_option=QTextOption()
+        text_option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+        text_layout.setTextOption(text_option)
+        text_layout.beginLayout()
+        first=text_layout.createLine()
+        if first.isValid(): first.setLineWidth(width)
+        length=first.textLength() if first.isValid() else len(label)
+        text_layout.endLayout()
+        lines=[p.fontMetrics().elidedText(label,Qt.TextElideMode.ElideRight,width)] if ' ' not in label else [label[:length].strip()]
+        if ' ' in label and length<len(label):
+            lines.append(p.fontMetrics().elidedText(label[length:].strip(),Qt.TextElideMode.ElideRight,width))
+        for number,line in enumerate(lines):
+            p.drawText(QRectF(rect.x()+3,rect.y()+53+number*15,width,15),Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter,line)
         p.restore()
 
 
@@ -205,16 +287,51 @@ class GroupShelf(FileShelf):
         self.setSpacing(2)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.smooth_scroll=SmoothScroll(self)
+        group_icons().changed.connect(self.refresh_icon)
         self.reload()
 
+    def icon_for(self,path):
+        return group_icons().icon(path)
+
+    def extra_context_actions(self,menu,item):
+        path=item.data(Qt.ItemDataRole.UserRole)
+        store=self.panel.manager.store
+        if store.library.owns(path):
+            menu.addAction("Скопировать ярлык на рабочий стол",lambda:store.restore_shortcut(path))
+
+    def refresh_icon(self,path):
+        for index in range(self.count()):
+            item=self.item(index)
+            if item.data(Qt.ItemDataRole.UserRole)==path:
+                item.setIcon(self.icon_for(path))
+
+    def wheelEvent(self,event):
+        self.smooth_scroll.wheel(event)
+
+    def hideEvent(self,event):
+        self.smooth_scroll.stop()
+        super().hideEvent(event)
+
+    def add_paths(self,paths,save=True,keep_missing=False):
+        if save:
+            self.panel.manager.store.add_paths(self.panel.group,paths)
+        else:
+            super().add_paths(paths,save=False,keep_missing=keep_missing)
+
     def reload(self):
+        position=self.verticalScrollBar().value()
+        selected=set(i.data(Qt.ItemDataRole.UserRole) for i in self.selectedItems())
         self.clear()
         self.add_paths(self.panel.group["items"], save=False, keep_missing=True)
         for index in range(self.count()):
             item=self.item(index)
             path=Path(item.data(Qt.ItemDataRole.UserRole))
-            item.setText(path.stem if path.suffix.casefold()==".lnk" else path.name)
+            item.setText(path.stem if path.suffix.casefold() in {".lnk",".url"} else path.name)
+            item.setSelected(str(path) in selected)
         self.filter(self.panel.search.text())
+        self.doItemsLayout()
+        self.verticalScrollBar().setValue(position)
         if hasattr(self.panel,"animation") and self.panel.expanded:
             self.panel.animate(True, refresh=True)
 
@@ -257,6 +374,7 @@ class GroupPanel(QWidget):
             QScrollBar:vertical {width:4px;background:transparent;}
             QScrollBar::handle:vertical {background:#657080;border-radius:2px;min-height:24px;}
             QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
+            QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}
             QMenu {background:#20242c;border:1px solid #414550;border-radius:10px;padding:6px;}
             QMenu::item {padding:9px 15px;border-radius:5px;}
             QMenu::item:selected {background:#3c4350;}""")
@@ -571,7 +689,9 @@ class DesktopGroups(QObject):
     def __init__(self,owner):
         super().__init__(owner)
         self.owner, self.enabled = owner, False
-        self.store = GroupStore(owner.settings.directory)
+        self.store = GroupStore(owner.settings.directory,collect_desktop=lambda:owner.settings.get('group_collect_shortcuts'))
+        self.store.notice.connect(self.notify)
+        self.store.error.connect(self.notify)
         self.panels = {}
         self.store.changed.connect(self.reconcile)
         self.timer = QTimer(self)
@@ -582,6 +702,10 @@ class DesktopGroups(QObject):
         for screen in QApplication.screens():
             screen.availableGeometryChanged.connect(lambda _:self.reposition())
         self.reconcile()
+
+    def notify(self,message):
+        if self.owner._services and getattr(self.owner,'tray',None) and not (self.owner.control_center and self.owner.control_center.isVisible()):
+            self.owner.tray.showMessage('Cloud Hub',message)
 
     def screen_added(self,screen):
         screen.availableGeometryChanged.connect(lambda _:self.reposition())
@@ -703,7 +827,7 @@ class DesktopGroups(QObject):
         dialog.setWindowTitle("Удалить группу?")
         dialog.setIcon(QMessageBox.Icon.Question)
         dialog.setTextFormat(Qt.TextFormat.PlainText)
-        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nИсчезнут только группа и её ссылки.\nФайлы и папки на диске останутся.")
+        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nФайлы и папки на диске останутся.\nСохранённые ярлыки останутся в библиотеке Cloud Hub.")
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)
         dialog.button(QMessageBox.StandardButton.Yes).setText("Удалить группу")
         dialog.button(QMessageBox.StandardButton.No).setText("Отмена")

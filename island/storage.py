@@ -27,7 +27,7 @@ class Settings:
                 "timer_minutes": 25, "search_apps": True, "search_files": True, "search_glass": True,
                 "desktop_enabled": True, "group_width": 300, "group_columns": 3,
                 "group_opacity": 90, "group_hover_delay": 220, "group_collapse_delay": 650,
-                "groups_locked": False, "hotkey_hub": "Ctrl+Alt+H",
+                "groups_locked": False, "group_collect_shortcuts": True, "hotkey_hub": "Ctrl+Alt+H",
                 "hotkey_search": "Alt+Space", "hotkey_island": "Ctrl+Alt+I"}
 
     RANGES = {"compact_width": (140, 360), "compact_height": (32, 64),
