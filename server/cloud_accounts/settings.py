@@ -21,7 +21,7 @@ if PRODUCTION and (origin.scheme != 'https' or '*' in ALLOWED_HOSTS):
     raise ImproperlyConfigured('Production requires HTTPS and explicit hosts')
 INSTALLED_APPS = [
     'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions',
-    'django.contrib.staticfiles', 'oauth2_provider', 'accounts',
+    'django.contrib.staticfiles', 'oauth2_provider', 'accounts', 'community',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', 'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -91,6 +91,38 @@ CONSENT_VERSION = os.environ.get('CONSENT_VERSION', '')
 SIGNING_KEY_PATH = os.environ.get('SIGNING_KEY_PATH', '')
 SIGNING_KEY_ID = os.environ.get('SIGNING_KEY_ID', '')
 MAX_DEVICES = int(os.environ.get('MAX_DEVICES', '3'))
+# Membership is an optional factor AFTER first-party authentication, never Telegram-only login.
+# The experiment does not enable desktop blocking or publish a service.
+COMMUNITY_EXPERIMENT_ENABLED = os.environ.get('COMMUNITY_EXPERIMENT_ENABLED', '0') == '1'
+COMMUNITY_CHANNEL_ID = int(os.environ.get('COMMUNITY_CHANNEL_ID', '0'))
+COMMUNITY_CHANNEL_URL = os.environ.get('COMMUNITY_CHANNEL_URL', '')
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', '')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
+COMMUNITY_SIGNING_KEY_PATH = os.environ.get('COMMUNITY_SIGNING_KEY_PATH', '')
+COMMUNITY_SIGNING_KEY_ID = os.environ.get('COMMUNITY_SIGNING_KEY_ID', '')
+if PRODUCTION and COMMUNITY_EXPERIMENT_ENABLED:
+    import json
+    import re
+    try:
+        community_approvals = json.loads(Path(os.environ.get('COMMUNITY_APPROVALS_PATH', '')).read_text(encoding='utf-8'))
+        if not all(community_approvals.get(k) is True for k in
+                   ('authentication_review', 'personal_data_review', 'code_rights', 'operational_checks')):
+            raise ValueError()
+        if not all((YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET, COMMUNITY_CHANNEL_ID < 0,
+                    urlsplit(COMMUNITY_CHANNEL_URL).scheme == 'https',
+                    urlsplit(COMMUNITY_CHANNEL_URL).netloc == 't.me',
+                    re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', TELEGRAM_BOT_USERNAME),
+                    re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]+', TELEGRAM_BOT_TOKEN),
+                    re.fullmatch(r'[A-Za-z0-9_-]{32,256}', TELEGRAM_WEBHOOK_SECRET), COMMUNITY_SIGNING_KEY_PATH,
+                    COMMUNITY_SIGNING_KEY_ID)):
+            raise ValueError()
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        if not isinstance(load_pem_private_key(Path(COMMUNITY_SIGNING_KEY_PATH).read_bytes(), None), Ed25519PrivateKey):
+            raise ValueError()
+    except (OSError, ValueError, TypeError):
+        raise ImproperlyConfigured('Community launch review or configuration is incomplete') from None
 if PRODUCTION and SALES_ENABLED:
     import json
     try:

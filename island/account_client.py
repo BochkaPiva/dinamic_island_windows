@@ -190,4 +190,5 @@ class AccountSession:
             self.api('logout', {})  # Offline failure remains visible; do not pretend remote sessions were revoked.
             (self.directory / 'account-session.bin').unlink(missing_ok=True)
             (self.directory / 'license.json').unlink(missing_ok=True)
+            (self.directory / 'community-permit.json').unlink(missing_ok=True)
             self.tokens = None

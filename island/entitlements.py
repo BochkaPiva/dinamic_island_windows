@@ -89,8 +89,8 @@ class FeatureAccess(QObject):
     def reload(self):
         self.reason=''
         self.grant=free_grant()
-        if self.distribution=='preview':
-            self.grant=Grant('preview',PRO_FEATURES,dict(PRO_LIMITS))
+        if self.distribution in ('preview','community'):
+            self.grant=Grant(self.distribution,PRO_FEATURES,dict(PRO_LIMITS))
         elif not self.storage_available:
             self.reason='Защищённое хранилище Windows недоступно'
         else:
