@@ -4,9 +4,9 @@ from collections import OrderedDict
 import ctypes
 import os
 from pathlib import Path
-from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSignal
-from PyQt6.QtGui import QIcon, QImage, QPixmap
-from PyQt6.QtWidgets import QApplication, QFileIconProvider
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
+from PySide6.QtGui import QIcon, QImage, QPixmap
+from PySide6.QtWidgets import QApplication, QFileIconProvider
 
 
 def native_icon(path):
@@ -68,8 +68,8 @@ class IconTask(QRunnable):
 
 
 class GroupIcons(QObject):
-    ready=pyqtSignal(object,QImage)
-    changed=pyqtSignal(str)
+    ready=Signal(object,QImage)
+    changed=Signal(str)
 
     def __init__(self,parent):
         super().__init__(parent)

@@ -6,10 +6,10 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt,QPoint,QPointF
-from PyQt6.QtGui import QWheelEvent
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication,QListWidget
+from PySide6.QtCore import Qt,QPoint,QPointF
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication,QListWidget
 from island.desktop_groups import GroupStore
 from island.shortcut_library import ShortcutLibrary
 from island.scrolling import SmoothScroll

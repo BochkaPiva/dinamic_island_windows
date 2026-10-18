@@ -10,10 +10,10 @@ import time
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image
-from PyQt6.QtCore import QBuffer, QIODevice, QPoint, QPointF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPixmap
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
+from PySide6.QtCore import QBuffer, QIODevice, QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QWidget, QPushButton
 from island.app import IslandWindow
 from island.media import Snapshot
 from island.storage import Settings
@@ -23,7 +23,7 @@ out = Path(sys.argv[1] if len(sys.argv) > 1 else "build/native-check")
 out.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 with tempfile.TemporaryDirectory() as folder:
-    under = QWidget(flags=Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+    under = QWidget(f=Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
     bounds = app.primaryScreen().geometry()
     under.setGeometry(bounds.x(), bounds.top(), bounds.width(), 130)
     button = QPushButton("Own test tab", under)

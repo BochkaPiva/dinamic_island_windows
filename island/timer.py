@@ -4,14 +4,14 @@ import math
 from pathlib import Path
 import time
 import winsound
-from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
-from PyQt6.QtGui import QIntValidator
-from PyQt6.QtWidgets import QLineEdit
+from PySide6.QtCore import Qt, QObject, QTimer, Signal
+from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import QLineEdit
 from .style import font
 
 
 class TimerAlarm(QObject):
-    changed = pyqtSignal()
+    changed = Signal()
 
     def __init__(self, settings, parent=None, player=None):
         super().__init__(parent)

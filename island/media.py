@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import queue
 import threading
 import time
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 
 
 @dataclass
@@ -29,8 +29,8 @@ class Snapshot:
 
 
 class MediaWorker(QThread):
-    snapshot_updated = pyqtSignal(object)
-    failure = pyqtSignal(str)
+    snapshot_updated = Signal(object)
+    failure = Signal(str)
 
     def __init__(self, source="", parent=None):
         super().__init__(parent)

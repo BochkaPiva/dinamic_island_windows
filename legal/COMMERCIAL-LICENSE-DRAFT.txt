@@ -1,0 +1,17 @@
+Cloud Hub — private commercial development candidate
+
+This candidate is provided to its owner for local development and evaluation.
+It is not a public sales release. Final seller identity, customer license,
+subscription, cancellation, refund and privacy documents remain to be approved.
+
+Copyright holders reserve the rights in newly authored commercial components.
+The earlier public releases remain available under their original GPL terms.
+No rights already granted for those releases are revoked by this candidate.
+
+Third-party libraries retain their respective licenses. Nothing in these
+candidate terms restricts rights granted by the LGPL, including replacement of
+interface-compatible LGPL libraries and reverse engineering for debugging their
+modifications. See THIRD_PARTY.md and licenses/ in the application directory.
+
+Before any public proprietary distribution, complete the ownership/provenance
+review, corresponding-source delivery, and the commercial release checklist.

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Direct touchpad pixels; continuous damped movement for wheel notches."""
 import time
-from PyQt6.QtCore import Qt, QObject, QTimer
+from PySide6.QtCore import Qt, QObject, QTimer
 from .motion import DampedValue
 
 

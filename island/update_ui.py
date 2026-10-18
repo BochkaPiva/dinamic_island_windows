@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """A single update surface shared by manual checks and background notifications."""
 from pathlib import Path
-from PyQt6.QtCore import Qt,QUrl
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QProgressBar,QPlainTextEdit
+from PySide6.QtCore import Qt,QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QProgressBar,QPlainTextEdit
 from . import __version__
 from .style import app_icon
 

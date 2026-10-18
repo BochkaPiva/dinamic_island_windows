@@ -6,9 +6,9 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 import numpy as np
-from PyQt6.QtCore import QPointF
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import QPointF
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.audio import Spectrum
 from island.media import Snapshot

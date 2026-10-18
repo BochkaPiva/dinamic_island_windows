@@ -10,7 +10,7 @@ import time
 import uuid
 import numpy as np
 import pyaudiowpatch as pa
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 
 
 class Spectrum:
@@ -90,8 +90,8 @@ def default_output_id():
 
 
 class AudioSpectrum(QThread):
-    levels_changed = pyqtSignal(object)
-    availability_changed = pyqtSignal(bool)
+    levels_changed = Signal(object)
+    availability_changed = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)

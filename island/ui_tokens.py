@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Shared quiet surfaces, type and original line icons for desktop tools."""
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import QWidget, QPushButton
 
 SURFACE = "#202227"
 TEXT = "#f4f4f6"

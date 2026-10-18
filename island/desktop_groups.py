@@ -6,9 +6,9 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 import uuid
-from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+from PySide6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, Signal
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
+from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle,
     QInputDialog, QMessageBox, QDialog, QDialogButtonBox)
 from .hub import FileShelf
@@ -61,17 +61,18 @@ def ask_group_title(parent,caption,value,verb):
 
 
 class GroupStore(QObject):
-    changed = pyqtSignal()
-    error = pyqtSignal(str)
-    notice = pyqtSignal(str)
+    changed = Signal()
+    error = Signal(str)
+    notice = Signal(str)
 
-    def __init__(self, directory, collect_desktop=True, desktop_roots=None, migrate=True):
+    def __init__(self, directory, collect_desktop=True, desktop_roots=None, migrate=True, access=None):
         super().__init__()
         self.path = Path(directory)/"desktop-groups.json"
         self.library=ShortcutLibrary(directory,desktop_roots)
         self.collect_desktop=collect_desktop
         self.last_warning=""
         self.groups = []
+        self.access = access
         loaded = False
         try:
             document = json.loads(self.path.read_text(encoding="utf-8"))
@@ -165,6 +166,11 @@ class GroupStore(QObject):
         return title
 
     def add(self, title=None, x=None):
+        if self.access is not None:
+            decision=self.access.capacity('desktop.groups.active',len(self.groups))
+            if not decision.allowed:
+                self.error.emit(decision.reason)
+                return None
         if len(self.groups) >= 30:
             return None
         title=self.next_title() if title is None else title.strip()[:60]
@@ -355,7 +361,7 @@ class GroupShelf(FileShelf):
 
 class GroupPanel(QWidget):
     def __init__(self, manager, group):
-        super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        super().__init__(f=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.manager, self.group = manager, group
         self.expanded = False
         self.drag_origin = None
@@ -697,7 +703,8 @@ class DesktopGroups(QObject):
     def __init__(self,owner):
         super().__init__(owner)
         self.owner, self.enabled = owner, False
-        self.store = GroupStore(owner.settings.directory,collect_desktop=lambda:owner.settings.get('group_collect_shortcuts'))
+        self.store = GroupStore(owner.settings.directory,collect_desktop=lambda:owner.settings.get('group_collect_shortcuts'),
+                                access=getattr(owner,'access',None))
         self.store.notice.connect(self.notify)
         self.store.error.connect(self.notify)
         self.panels = {}

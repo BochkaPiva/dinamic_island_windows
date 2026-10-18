@@ -6,10 +6,10 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch, Mock
-from PyQt6.QtCore import Qt, QPoint, QPointF
-from PyQt6.QtGui import QWheelEvent
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt, QPoint, QPointF
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.desktop_groups import GroupStore
 from island.hotkey import HubHotkey, parse_shortcut

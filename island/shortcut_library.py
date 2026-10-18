@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from PyQt6.QtCore import QStandardPaths
+from PySide6.QtCore import QStandardPaths
 
 
 def desktop_directories():

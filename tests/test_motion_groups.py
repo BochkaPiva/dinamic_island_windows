@@ -7,10 +7,10 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import QRect, QPointF
-from PyQt6.QtGui import QPainterPathStroker
-from PyQt6.QtWidgets import QApplication, QMenu
-from PyQt6.QtTest import QTest
+from PySide6.QtCore import QRect, QPointF
+from PySide6.QtGui import QPainterPathStroker
+from PySide6.QtWidgets import QApplication, QMenu
+from PySide6.QtTest import QTest
 from island.app import IslandWindow
 from island.storage import Settings
 

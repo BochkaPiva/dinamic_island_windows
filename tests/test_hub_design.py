@@ -8,9 +8,9 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt,QAbstractAnimation
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt,QAbstractAnimation
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.storage import Settings
 from island.hub_ui import ToggleSwitch,ModuleCard

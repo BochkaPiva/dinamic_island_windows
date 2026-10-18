@@ -1,11 +1,17 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
-#define AppName "Cloud Hub"
+#ifdef ValidationBuild
+  #define AppName "Cloud Hub Verification"
+  #define ProductId "33D58E9E-E275-41E8-8BC2-BB9CFD0CF308"
+#else
+  #define AppName "Cloud Hub"
+  #define ProductId "FC837952-6ABC-4F61-8A70-1ED23D0FD195"
+#endif
 #define AppUrl "https://github.com/BochkaPiva/dinamic_island_windows"
 
 [Setup]
-AppId={{FC837952-6ABC-4F61-8A70-1ED23D0FD195}
+AppId={{{#ProductId}}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=BochkaPiva
@@ -16,7 +22,7 @@ DefaultDirName={localappdata}\Programs\Cloud Island
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
-LicenseFile=..\LICENSE
+LicenseFile=..\legal\COMMERCIAL-LICENSE-DRAFT.txt
 SetupIconFile=cloud.ico
 UninstallDisplayIcon={app}\CloudIsland.exe
 ArchitecturesAllowed=x64compatible
@@ -38,18 +44,23 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 
 [Files]
-Source: "..\dist\CloudIsland.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\CloudIsland\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE"; DestDir: "{app}"
 Source: "..\THIRD_PARTY.md"; DestDir: "{app}"
+Source: "..\legal\COMMERCIAL-LICENSE-DRAFT.txt"; DestDir: "{app}"
 Source: "..\build\licenses\*"; DestDir: "{app}\licenses"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Cloud Hub"; Filename: "{app}\CloudIsland.exe"
-Name: "{autodesktop}\Cloud Hub"; Filename: "{app}\CloudIsland.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\CloudIsland.exe"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\CloudIsland.exe"; Tasks: desktopicon
 
 [InstallDelete]
+; Application runtime contains no user data. Never retain plugins from a previous Qt.
+Type: filesandordirs; Name: "{app}\_internal"
+#ifndef ValidationBuild
 Type: files; Name: "{autoprograms}\Cloud Island.lnk"
 Type: files; Name: "{autodesktop}\Cloud Island.lnk"
+#endif
 
 [Run]
 Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Cloud Hub}"; Flags: nowait postinstall skipifsilent
@@ -79,6 +90,8 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
+#ifndef ValidationBuild
   if CurUninstallStep = usPostUninstall then
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Cloud Island');
+#endif
 end;

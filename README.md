@@ -1,5 +1,12 @@
 # Cloud Hub с Cloud Island
 
+> **Активная линия: 0.6.0, частная предварительная сборка на PySide6.**
+> Это основа будущей коммерческой версии, пока без оплаты и новых ограничений.
+> Не публиковать исходники этой ветки в прежний публичный репозиторий.
+> Старые выпуски 0.5.1 и ранее сохраняют свои GPL-условия.
+> Инструкции сборки и оставшиеся требования: [коммерческая база](docs/commercial-foundation.md),
+> [проверка прав](legal/PROVENANCE.md). Описания версий ниже — история проекта.
+
 Единый локальный центр модулей Windows: чёлка Cloud Island, рабочие профили,
 пауза фоновых служб, собственный поиск, группы рабочего стола, заметки и таймер.
 Центр открывается через ярлык **Cloud Hub**, значок в трее или **Ctrl+Alt+H**.
@@ -193,16 +200,17 @@ TranslucentTB. Глубокая стилизация «Пуска» и микш�
 
 ## Установка
 
-Windows 10/11, x64. Скачай `CloudIsland-Setup-X.Y.Z-win-x64.exe` из последнего
-релиза и запусти. Установка выполняется для текущего пользователя, без прав
+Windows 10/11, x64. Для предварительной 0.6 используй проверенный частный
+`CloudIsland-Setup-X.Y.Z-win-x64.exe`; публичный latest относится к старой GPL-линии.
+Установка выполняется для текущего пользователя, без прав
 администратора. Python и библиотеки отдельно не нужны.
 
 Имя EXE, путь установки и идентификатор установщика сохранены от Cloud Island,
 чтобы обновления 0.1.x сохраняли заметки, настройки и файловую полку.
 
-Для переносного варианта распакуй `CloudIsland-X.Y.Z-win-x64.zip` в отдельную
-папку и запусти `CloudIsland.exe`. EXE содержит все необходимые библиотеки;
-ZIP также содержит текст лицензии и сведения о компонентах. Релизы пока
+Для переносного варианта распакуй `CloudHub-X.Y.Z-preview-win-x64.zip` в отдельную
+папку и запусти `CloudIsland.exe`. Сохраняй рядом `_internal` и лицензии:
+один EXE без этих файлов не запускается. Релизы пока
 не имеют сертификата подписи кода.
 
 ## Как пользоваться
@@ -260,11 +268,10 @@ ZIP также содержит текст лицензии и сведения 
 Текущая проверенная среда сборки: Windows x64, CPython 3.14.
 
 ```powershell
-git clone https://github.com/BochkaPiva/dinamic_island_windows.git
-cd dinamic_island_windows
+# Выполняй из частной рабочей копии cloud-hub-commercial, не из публичной GPL-линии.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
+python -m pip install --only-binary=:all: -r requirements-dev.txt
 python main.py
 ```
 
@@ -280,9 +287,9 @@ powershell -ExecutionPolicy Bypass -File packaging/build.ps1
 `packaging/build.ps1 -SkipInstaller`. Диагностика собранного EXE:
 
 ```powershell
-.\dist\CloudIsland.exe --self-test build/runtime.json
-.\dist\CloudIsland.exe --audio-self-test build/audio.json
-.\dist\CloudIsland.exe --diagnostics build/runtime-state.json
+.\dist\CloudIsland\CloudIsland.exe --self-test build/runtime.json
+.\dist\CloudIsland\CloudIsland.exe --audio-self-test build/audio.json
+.\dist\CloudIsland\CloudIsland.exe --diagnostics build/runtime-state.json
 ```
 
 Тест мыши использует собственное нижнее окно с кнопкой вкладки, без
@@ -298,7 +305,9 @@ powershell -ExecutionPolicy Bypass -File packaging/build.ps1
 
 ## Происхождение и лицензия
 
-Самостоятельная реализация **Cloud Island**, GPL-3.0-only — см. [LICENSE](LICENSE).
+Публичная линия 0.5.1 — GPL-3.0-only. Эта частная 0.6 является кандидатом
+коммерческого преемника, со смешанными унаследованными и новыми файлами до
+завершения проверки прав: [LICENSE](LICENSE), [PROVENANCE](legal/PROVENANCE.md).
 Создана после личного прототипа на базе Glassy Music Widget; исходный код,
 иконка и файлы переводов того приложения в этой версии не распространяются.
 Наши заново написанные модули интерфейса, волны и анализа звука сохранены.

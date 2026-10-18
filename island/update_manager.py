@@ -10,8 +10,10 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 from . import __version__, APP_NAME, REPOSITORY, REPO_URL
+from . import build_config
+from .signed_payload import verify_envelope
 
 MAX_INSTALLER=256*1024*1024
 TRUSTED_HOSTS={'github.com','release-assets.githubusercontent.com','objects.githubusercontent.com','api.github.com'}
@@ -88,15 +90,16 @@ class Cancelled(Exception): pass
 
 
 class UpdateChecker(QObject):
-    finished=pyqtSignal(object)
-    changed=pyqtSignal(object)
-    _event=pyqtSignal(object)
+    finished=Signal(object)
+    changed=Signal(object)
+    _event=Signal(object)
 
-    def __init__(self,parent=None,directory=None):
+    def __init__(self,parent=None,directory=None,channel_url=None):
         super().__init__(parent)
         from .storage import data_dir
         self.directory=Path(directory) if directory is not None else (parent.settings.directory if parent is not None else data_dir())
         self.running=False
+        self.channel_url=build_config.UPDATE_CHANNEL_URL if channel_url is None else channel_url
         self.state='idle'
         self.info=None
         self.path=None
@@ -131,6 +134,9 @@ class UpdateChecker(QObject):
 
     def check(self):
         if self.busy or self.state=='ready': return False
+        if not self.channel_url:
+            self.set_state('current','Предварительная версия. Канал коммерческих обновлений ещё не опубликован.')
+            return False
         self.running=True
         self.set_state('checking','Ищем новую версию…')
         threading.Thread(target=self._fetch,daemon=True).start()
@@ -140,12 +146,15 @@ class UpdateChecker(QObject):
         result={'status':'unavailable','message':'Не удалось проверить обновления. Проверь подключение и попробуй ещё раз.'}
         # Public release metadata does not spend the shared anonymous API quota.
         # API fallback keeps compatibility with older releases without a channel file.
-        for url in (REPO_URL+'/releases/latest/download/update.json',f'https://api.github.com/repos/{REPOSITORY}/releases/latest'):
+        # A commercial client must never fall back into the public GPL channel.
+        for url in (self.channel_url,):
             try:
                 with open_release(url) as response:
                     raw=response.read(1_000_001)
                     if len(raw)>1_000_000: raise ValueError('Слишком большой ответ сервера')
                     payload=json.loads(raw.decode('utf-8'))
+                if build_config.DISTRIBUTION=='commercial':
+                    payload=verify_envelope(payload,build_config.UPDATE_PUBLIC_KEYS,'cloud-hub/update/v1')
                 available=release_info(payload)
                 latest=release_info(payload,current='0.0.0')
                 if available: result={'status':'available',**available}
@@ -253,6 +262,11 @@ class UpdateChecker(QObject):
             source=Path(context['source_exe']).resolve()
             helper=stage/'CloudHub-UpdateHelper.exe'
             shutil.copy2(source,helper)
+            # onedir executables require the *matching* runtime beside the helper.
+            # Keep it outside the installation so Inno Setup can replace all DLLs.
+            runtime=source.parent/'_internal'
+            if runtime.is_dir():
+                shutil.copytree(runtime,stage/'_internal',dirs_exist_ok=True)
             manifest={'version':self.info['version'],'current_version':__version__,'installer':str(Path(self.path).resolve()),
                 'sha256':self.sha256,'size':self.info['installer']['size'],'data_dir':str(self.directory.resolve()),
                 'source_exe':str(source),'parent_pid':context['parent_pid'],'timer':context.get('timer')}

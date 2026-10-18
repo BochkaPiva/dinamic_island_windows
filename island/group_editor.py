@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Visible group collection and one ID-bound editor shared with desktop actions."""
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
     QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
 from .hub import FileShelf
 from .group_icons import group_icons

@@ -9,9 +9,9 @@ import math
 from pathlib import Path
 import time
 
-from PyQt6.QtCore import Qt, QDate, QLocale, QMimeData, QPoint, QRectF, QTimer, QUrl, QVariantAnimation, pyqtSignal, QFileInfo
-from PyQt6.QtGui import QColor, QDesktopServices, QDrag, QPainter, QPixmap
-from PyQt6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QListWidget,
+from PySide6.QtCore import Qt, QDate, QLocale, QMimeData, QPoint, QRectF, QTimer, QUrl, QVariantAnimation, Signal, QFileInfo
+from PySide6.QtGui import QColor, QDesktopServices, QDrag, QPainter, QPixmap
+from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QListWidget,
     QListWidgetItem, QPlainTextEdit, QPushButton, QSlider, QStackedWidget, QVBoxLayout, QWidget,
     QSpinBox, QFileDialog, QFileIconProvider, QMenu)
 from . import style as gs
@@ -153,7 +153,7 @@ class CalendarPeek(QWidget):
 
 
 class FileShelf(QListWidget):
-    changed = pyqtSignal()
+    changed = Signal()
 
     def __init__(self, path: Path, parent=None):
         super().__init__(parent)
@@ -325,8 +325,8 @@ class PageTransition(QWidget):
 
 
 class NotchHub(QWidget):
-    timer_finished = pyqtSignal()
-    source_selected = pyqtSignal(str)
+    timer_finished = Signal()
+    source_selected = Signal(str)
 
     def __init__(self, owner, store: Path):
         super().__init__(owner.card)
@@ -558,7 +558,7 @@ class NotchHub(QWidget):
             action.setCheckable(True)
             action.setChecked(index == self.sources.currentIndex())
             action.triggered.connect(lambda _,i=index:self.sources.setCurrentIndex(i))
-        from PyQt6.QtGui import QCursor
+        from PySide6.QtGui import QCursor
         menu.exec(QCursor.pos())
 
     def select_tab(self, index):

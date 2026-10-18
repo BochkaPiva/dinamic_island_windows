@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMessageBox
 from island.app import IslandWindow
 from island.desktop_groups import GroupStore
 from island.group_editor import GroupEditor

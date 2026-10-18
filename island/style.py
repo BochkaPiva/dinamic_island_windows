@@ -2,9 +2,9 @@
 """Original vector drawing for Cloud Island. Uses the Windows system font."""
 import math
 from pathlib import Path
-from PyQt6.QtCore import Qt, QRectF, QEasingCurve
-from PyQt6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPixmap
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PySide6.QtCore import Qt, QRectF, QEasingCurve
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtWidgets import QWidget, QPushButton
 
 
 _fonts_loaded = False

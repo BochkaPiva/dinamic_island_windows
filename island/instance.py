@@ -3,8 +3,8 @@
 import hashlib
 import json
 import os
-from PyQt6.QtCore import QObject, QTimer
-from PyQt6.QtNetwork import QLocalServer, QLocalSocket
+from PySide6.QtCore import QObject, QTimer
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from .storage import data_dir
 
 
@@ -78,7 +78,9 @@ class InstanceServer(QObject):
         if command == b"status":
             w=self.window
             from . import __version__
+            from .build_config import DISTRIBUTION
             report={"running":True,"version":__version__,"pid":os.getpid(),"profile":w._policy.profile,
+                    "binding":"PySide6","distribution":DISTRIBUTION,
                     "spectrum_policy":w._policy.spectrum,"audio_enabled":w.audio.enabled.is_set(),
                     "audio_capture":w.audio.capture_active.is_set(),"spectrum_levels":list(w.status_mark.levels),
                     "island_visible":w.isVisible(),"island_expanded":w._island_expanded,

@@ -6,10 +6,10 @@ import sys
 import tempfile
 import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from PyQt6.QtCore import Qt,QPoint,QPointF
-from PyQt6.QtGui import QWheelEvent
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt,QPoint,QPointF
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.storage import Settings
 

@@ -5,9 +5,9 @@ import os
 from pathlib import Path
 import time
 import winreg
-from PyQt6.QtCore import Qt, QTimer, QUrl, QRectF,QEvent
-from PyQt6.QtGui import QDesktopServices,QPainter,QColor,QLinearGradient,QPen,QShortcut,QKeySequence
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+from PySide6.QtCore import Qt, QTimer, QUrl, QRectF,QEvent
+from PySide6.QtGui import QDesktopServices,QPainter,QColor,QLinearGradient,QPen,QShortcut,QKeySequence
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox,QLineEdit)
 from . import __version__, REPO_URL
 from .integrations import load_workspaces, powertoys_root
@@ -337,7 +337,7 @@ class ControlCenter(QWidget, SettingsPages):
         layout.addStretch()
 
     def _honor(self):
-        from PyQt6.QtCore import QProcess
+        from PySide6.QtCore import QProcess
         roots = [Path(os.environ.get("ProgramFiles", ""))/"HONOR/PCManager",
                  Path(os.environ.get("ProgramFiles(x86)", ""))/"HONOR/PCManager"]
         for root in roots:

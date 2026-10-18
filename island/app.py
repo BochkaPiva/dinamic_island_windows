@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 import sys
 import time
-from PyQt6.QtCore import (Qt, QRect, QTimer, QUrl, QVariantAnimation,
+from PySide6.QtCore import (Qt, QRect, QTimer, QUrl, QVariantAnimation,
                           QSharedMemory, QEasingCurve)
-from PyQt6.QtGui import QColor, QDesktopServices, QPainter
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QMenu, QSystemTrayIcon
+from PySide6.QtGui import QColor, QDesktopServices, QPainter
+from PySide6.QtWidgets import QApplication, QWidget, QLabel, QMenu, QSystemTrayIcon
 from . import APP_NAME, __version__, REPO_URL
 from .audio import AudioSpectrum
 from .hub import NotchHub, battery_state, fmt
@@ -59,7 +59,7 @@ class ArtLabel(QLabel):
 
 class IslandWindow(QWidget):
     def __init__(self, settings=None, services=True):
-        super().__init__(flags=Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool |
+        super().__init__(f=Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool |
                          Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -67,6 +67,8 @@ class IslandWindow(QWidget):
         self.setWindowIcon(app_icon())
         self.setMouseTracking(True)
         self.settings = settings or Settings()
+        from .entitlements import FeatureAccess
+        self.access = FeatureAccess(self.settings.directory)
         self.setWindowOpacity(self.settings.get("island_opacity")/100)
         self._wheel_source = NativeWheelSource(QApplication.instance())
         self._volume_scroll = VolumeScroll(adjust_volume, self._wheel_source)

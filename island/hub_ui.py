@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Quiet native surfaces, switches, navigation and short-lived transitions."""
-from PyQt6.QtCore import Qt,QRectF,QSize,QVariantAnimation,QEasingCurve,QAbstractAnimation
-from PyQt6.QtGui import QColor,QPainter,QPen,QLinearGradient,QIcon,QPixmap
-from PyQt6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame
+from PySide6.QtCore import Qt,QRectF,QSize,QVariantAnimation,QEasingCurve,QAbstractAnimation
+from PySide6.QtGui import QColor,QPainter,QPen,QLinearGradient,QIcon,QPixmap
+from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame
 from .ui_tokens import glyph
 from .style import font,rounded_art
 

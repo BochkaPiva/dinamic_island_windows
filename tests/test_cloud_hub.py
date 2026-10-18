@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
-from PyQt6.QtCore import QProcess, Qt
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import QProcess, Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.audio import AudioSpectrum
 from island.media import MediaWorker

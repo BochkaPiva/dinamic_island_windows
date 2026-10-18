@@ -7,9 +7,9 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
-from PyQt6.QtGui import QCursor, QPainter, QPixmap, QRegion
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
+from PySide6.QtGui import QCursor, QPainter, QPixmap, QRegion
+from PySide6.QtWidgets import QWidget
 from .platform_win import is_desktop_window
 
 

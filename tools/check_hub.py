@@ -8,8 +8,8 @@ import tempfile
 import time
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
+from PySide6.QtTest import QTest
 from island.app import IslandWindow
 from island.storage import Settings
 from island.control_center import ProcessUsage

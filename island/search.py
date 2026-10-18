@@ -9,9 +9,9 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from PyQt6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, pyqtSignal, QProcess, QFileInfo
-from PyQt6.QtGui import QDesktopServices, QKeyEvent
-from PyQt6.QtWidgets import QWidget, QListWidgetItem, QFileIconProvider
+from PySide6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, Signal, QProcess, QFileInfo
+from PySide6.QtGui import QDesktopServices, QKeyEvent
+from PySide6.QtWidgets import QWidget, QListWidgetItem, QFileIconProvider
 from .search_ui import SearchPresentation
 
 
@@ -97,12 +97,12 @@ try {
 
 
 class Signals(QObject):
-    completed = pyqtSignal(int, object, str)
+    completed = Signal(int, object, str)
 
 
 class SearchPalette(SearchPresentation, QWidget):
     def __init__(self, owner):
-        super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        super().__init__(f=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.owner, self.enabled = owner, True
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="cloud-search")
         self.signals = Signals(self)

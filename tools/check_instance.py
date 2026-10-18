@@ -8,7 +8,7 @@ import tempfile
 import time
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root))
-from PyQt6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 from island.instance import notify_existing, query_status
 app = QCoreApplication([])
 with tempfile.TemporaryDirectory() as folder:

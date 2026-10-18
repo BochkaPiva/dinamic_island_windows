@@ -1,5 +1,5 @@
 """Include dependency notices and metadata with both installer and portable ZIP."""
-from importlib.metadata import distributions
+from importlib.metadata import distribution
 from pathlib import Path
 import shutil
 import sys
@@ -7,7 +7,10 @@ import sys
 root = Path(__file__).resolve().parents[1]
 out = root / "build" / "licenses"
 out.mkdir(parents=True, exist_ok=True)
-for dist in distributions():
+runtime_names=('PySide6-Essentials','shiboken6','numpy','PyAudioWPatch','winrt-runtime',
+    'winrt-Windows.Foundation','winrt-Windows.Foundation.Collections','winrt-Windows.Media.Control',
+    'winrt-Windows.Storage.Streams','typing_extensions','cryptography','cffi','pycparser','pyinstaller')
+for dist in map(distribution,runtime_names):
     name = dist.metadata["Name"]
     target = out / name
     for entry in dist.files or []:
@@ -24,4 +27,7 @@ for dist in distributions():
 python_license = Path(sys.base_prefix) / "LICENSE.txt"
 if python_license.exists():
     shutil.copyfile(python_license, out / "Python-LICENSE.txt")
+for path in (root/'legal'/'runtime-licenses').glob('*.txt'):
+    shutil.copy2(path,out/path.name)
+if not (out/'LGPL-3.0.txt').is_file(): raise SystemExit('Missing LGPL text')
 print(f"Dependency notices: {out}")

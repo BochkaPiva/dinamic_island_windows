@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Page factories: adding a page doesn't require changing the window shell."""
 from pathlib import Path
-from PyQt6.QtCore import Qt, QTimer, QUrl
-from PyQt6.QtGui import QKeySequence
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QKeySequence
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
     QLabel, QPushButton, QSpinBox, QSlider, QComboBox, QKeySequenceEdit, QLineEdit,
     QListWidget, QTabWidget, QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog)
 from .modules import MODULES
@@ -218,7 +218,7 @@ class SettingsPages:
         screen_row.addWidget(QLabel("Экран"))
         self.screen_picker = QComboBox()
         self.screen_picker.addItem("Основной экран","")
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         for screen in QApplication.screens():
             self.screen_picker.addItem(screen.name(),screen.name())
         self.screen_picker.setCurrentIndex(max(0,self.screen_picker.findData(self.owner.settings.get("monitor"))))
@@ -247,7 +247,7 @@ class SettingsPages:
         layout.addStretch()
 
     def desktop_page(self):
-        from PyQt6.QtWidgets import QScrollArea
+        from PySide6.QtWidgets import QScrollArea
         from .group_editor import GroupEditor
         layout=self._page()
         layout.setContentsMargins(0,0,0,0)

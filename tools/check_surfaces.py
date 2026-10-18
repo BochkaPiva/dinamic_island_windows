@@ -6,10 +6,10 @@ from pathlib import Path
 import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from PyQt6.QtCore import Qt, QRectF, QPoint
-from PyQt6.QtGui import QColor, QPainter, QLinearGradient
-from PyQt6.QtWidgets import QApplication, QWidget, QMenu
-from PyQt6.QtTest import QTest
+from PySide6.QtCore import Qt, QRectF, QPoint
+from PySide6.QtGui import QColor, QPainter, QLinearGradient
+from PySide6.QtWidgets import QApplication, QWidget, QMenu
+from PySide6.QtTest import QTest
 from island.app import IslandWindow
 from island.storage import Settings
 from island.platform_win import anchor_desktop_panel
@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as folder:
     w._system_timer.stop()
     w._notch_pointer_timer.stop()
     w._notch_pointer.enabled=False
-    background=Backdrop(flags=Qt.WindowType.Tool|Qt.WindowType.FramelessWindowHint|Qt.WindowType.WindowStaysOnTopHint)
+    background=Backdrop(f=Qt.WindowType.Tool|Qt.WindowType.FramelessWindowHint|Qt.WindowType.WindowStaysOnTopHint)
     background.setGeometry(100,120,1100,600)
     background.show()
     try:

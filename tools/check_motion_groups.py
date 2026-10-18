@@ -10,10 +10,10 @@ import time
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from PIL import Image
-from PyQt6.QtCore import QBuffer, QIODevice, Qt, QPoint
-from PyQt6.QtGui import QColor, QPainter, QPixmap, QPen
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMenu, QWidget
+from PySide6.QtCore import QBuffer, QIODevice, Qt, QPoint
+from PySide6.QtGui import QColor, QPainter, QPixmap, QPen
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMenu, QWidget
 from island.app import IslandWindow
 from island.media import Snapshot
 from island.storage import Settings
