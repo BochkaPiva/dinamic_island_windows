@@ -2,6 +2,7 @@
 """Cloud Island's independent application shell and lifecycle."""
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -156,6 +157,14 @@ class IslandWindow(QWidget):
             if self.settings.get("autostart"):
                 autostart(True)
             QTimer.singleShot(5000, self._scheduled_update)
+        from .update_helper import resume_timer
+        restored=resume_timer(self.settings.directory)
+        if restored:
+            self.notch_hub._timer_remaining=restored['remaining']
+            if restored['running']:
+                self.notch_hub._timer_end=time.monotonic()+restored['remaining'] if restored['remaining'] else time.monotonic()-.01
+            self.notch_hub.tick()
+            if restored['running']: self.notch_hub.clock.start(1000)
         app = QApplication.instance()
         app.screenAdded.connect(lambda _: self._screens_changed())
         app.screenRemoved.connect(lambda _: self._screens_changed())
@@ -529,7 +538,7 @@ class IslandWindow(QWidget):
         menu.addSeparator()
         menu.addAction("Проверить обновления сейчас", self._check_update)
         if self._update_info:
-            menu.addAction(f"Скачать {self._update_info['version']} ↗", lambda: QDesktopServices.openUrl(QUrl(self._update_info["url"])))
+            menu.addAction(f"Обновить до {self._update_info['version']}…", self._show_updates)
         menu.addAction("Страница проекта ↗", lambda: QDesktopServices.openUrl(QUrl(REPO_URL)))
         menu.addAction("Открыть папку данных", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.settings.directory))))
         menu.addSeparator()
@@ -578,16 +587,31 @@ class IslandWindow(QWidget):
             self.updates.check()
 
     def _check_update(self):
+        self._show_updates()
         self._manual_update = True
         self.updates.check()
+
+    def _show_updates(self):
+        self.show_hub()
+        self.control_center.navigate('updates')
+
+    def _install_update(self):
+        if self.control_center:
+            if not self.control_center.group_editor.rename_current():
+                self.control_center.navigate('desktop')
+                return
+            self.control_center.notebook.flush()
+        self.notch_hub.save_notes()
+        remaining=self.notch_hub.timer_seconds()
+        self.updates.install({'source_exe':sys.executable,'parent_pid':os.getpid(),
+            'timer':{'remaining':remaining,'running':bool(self.notch_hub._timer_end),'deadline':time.time()+remaining}})
 
     def _update_result(self, result):
         if result["status"] == "available":
             self._update_info = result
             self._build_menu()
-            self.tray.showMessage(APP_NAME, f"Доступна версия {result['version']}. Скачать можно через меню острова.")
-        elif self._manual_update:
-            self.tray.showMessage(APP_NAME, "Установлена актуальная версия" if result["status"] == "current" else "Проверка недоступна. Попробуй позже.")
+            if not (self.control_center and self.control_center.isVisible()):
+                self.tray.showMessage(APP_NAME, f"Доступна версия {result['version']}. Обновиться можно в Cloud Hub → Обновления.")
         self._manual_update = False
 
     def cleanup(self):
@@ -618,7 +642,7 @@ class IslandWindow(QWidget):
         self.tray.hide()
 
 
-def run(background=False, island=False):
+def run(background=False, island=False, updated=False):
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("BochkaPiva")
@@ -641,4 +665,6 @@ def run(background=False, island=False):
     window._update_services()
     if not background:
         window._show_panel() if island else window.show_hub()
+        if updated and window.control_center:
+            window.control_center.navigate('updates')
     return app.exec()

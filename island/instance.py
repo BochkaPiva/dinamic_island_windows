@@ -2,6 +2,7 @@
 """Same-user local IPC for activation and graceful installer shutdown."""
 import hashlib
 import json
+import os
 from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from .storage import data_dir
@@ -77,20 +78,22 @@ class InstanceServer(QObject):
         if command == b"status":
             w=self.window
             from . import __version__
-            report={"running":True,"version":__version__,"profile":w._policy.profile,
+            report={"running":True,"version":__version__,"pid":os.getpid(),"profile":w._policy.profile,
                     "spectrum_policy":w._policy.spectrum,"audio_enabled":w.audio.enabled.is_set(),
                     "audio_capture":w.audio.capture_active.is_set(),"spectrum_levels":list(w.status_mark.levels),
                     "island_visible":w.isVisible(),"island_expanded":w._island_expanded,
                     "spectrum_battery_save":w.settings.get("spectrum_battery_save"),
                     "audio_economy":w.audio.economy.is_set(),"timer_alarm":w.notch_hub.alarm.active,
                     "timer_sounding":w.notch_hub.alarm.sounding,
+                    "timer_remaining":w.notch_hub.timer_seconds(),"timer_running":bool(w.notch_hub._timer_end),
                     "search_glass_requested":w.modules.search.backdrop_applied,
                     "desktop_enabled":w.modules.desktop.enabled,
                     "desktop_groups":len(w.modules.desktop.panels),
                     "desktop_visible":sum(p.isVisible() for p in w.modules.desktop.panels.values()),
                     "desktop_animating":sum(p.animation.isActive() for p in w.modules.desktop.panels.values()),
                     "island_animating":w._geometry.timer.isActive(),
-                    "hub_visible":bool(w.control_center and w.control_center.isVisible())}
+                    "hub_visible":bool(w.control_center and w.control_center.isVisible()),
+                    "hub_page":w.control_center.pages.currentIndex() if w.control_center else None}
             connection.write(json.dumps(report).encode("utf-8"))
             connection.flush()
             connection.disconnectFromServer()

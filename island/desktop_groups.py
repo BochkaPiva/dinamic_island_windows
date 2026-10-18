@@ -33,9 +33,17 @@ DIALOG_STYLE="""
 """
 
 
+def group_dialog_style(parent):
+    window=parent.window() if parent is not None else None
+    if window is not None and hasattr(window,'colors'):
+        from .hub_ui import stylesheet
+        return stylesheet(window.colors)
+    return DIALOG_STYLE
+
+
 def ask_group_title(parent,caption,value,verb):
     dialog=QInputDialog(parent)
-    dialog.setStyleSheet(DIALOG_STYLE)
+    dialog.setStyleSheet(group_dialog_style(parent))
     dialog.setWindowTitle(caption)
     dialog.setLabelText("Название группы:")
     dialog.setTextValue(value)
@@ -823,7 +831,7 @@ class DesktopGroups(QObject):
         if not group:
             return False
         dialog=QMessageBox(parent)
-        dialog.setStyleSheet(DIALOG_STYLE)
+        dialog.setStyleSheet(group_dialog_style(parent))
         dialog.setWindowTitle("Удалить группу?")
         dialog.setIcon(QMessageBox.Icon.Question)
         dialog.setTextFormat(Qt.TextFormat.PlainText)

@@ -86,20 +86,6 @@ class GroupEditor(QWidget):
         self.dirty=False
         self.loading=False
         self.setMinimumHeight(280)
-        self.setStyleSheet("""
-            QWidget {background:transparent;}
-            QFrame#groupPane {background:#202227;border:1px solid #34373e;border-radius:10px;}
-            QLabel#paneTitle {font-size:15px;font-weight:600;color:#f4f4f6;}
-            QLabel#hint {color:#a2a6b0;font-size:11px;background:transparent;}
-            QLineEdit {background:#292c33;border:1px solid #41454e;border-radius:7px;padding:8px;color:#f4f4f6;}
-            QPushButton {background:#2b2e36;border:1px solid #41454e;border-radius:7px;padding:8px;color:#f4f4f6;}
-            QPushButton:hover {background:#373c46;}
-            QPushButton:disabled {color:#737985;border-color:#333740;}
-            QPushButton#deleteGroup {color:#efb2b6;}
-            QListWidget {background:transparent;border:0;outline:0;color:#f4f4f6;}
-            QListWidget::item {padding:8px;border-radius:7px;}
-            QListWidget::item:selected {color:#ffffff;background:#3a414e;}
-        """)
         root=QHBoxLayout(self)
         root.setContentsMargins(0,0,0,0)
         root.setSpacing(12)

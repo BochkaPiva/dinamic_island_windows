@@ -13,15 +13,16 @@ from .notebook import Notebook
 from .timer import TimerReadout
 
 
-PAGES = (("hub","Обзор","overview_page"),
+PAGES = (("hub","Модули","overview_page"),
          ("island","Dynamic Island","island_page"),
          ("search","Поиск","search_page"),
          ("desktop","Рабочий стол","desktop_page"),
-         ("library","Файлы и заметки","library_page"),
-         ("timer","Фокус и таймер","timer_page"),
+         ("library","Заметки и файлы","library_page"),
+         ("timer","Фокус","timer_page"),
          ("shortcuts","Горячие клавиши","shortcuts_page"),
          ("workspaces","Окна и наборы","_workspaces_page"),
          ("integrations","Приложение","application_page"),
+         ("updates","Обновления","updates_page"),
          ("windows","Windows и HONOR","_windows_page"))
 
 
@@ -95,31 +96,97 @@ class SettingsPages:
 
     def overview_page(self):
         from .control_center import text
+        from .hub_ui import IslandPreview,ModuleCard,ToggleSwitch,icon
         layout = self._page()
-        self.heading(layout,"Твоё рабочее пространство","Каждый модуль работает самостоятельно. Изменения настроек применяются сразу.")
+        self.heading(layout,"Твоё пространство")
+        hero=QFrame()
+        hero.setObjectName('hero')
+        hero_layout=QHBoxLayout(hero)
+        hero_layout.setContentsMargins(22,12,14,12)
+        words=QVBoxLayout()
+        eyebrow=text('CLOUD HUB  /  ДЛЯ ТВОЕГО РИТМА')
+        eyebrow.setObjectName('eyebrow')
+        words.addWidget(eyebrow)
+        hero_title=text('Всё под рукой.')
+        hero_title.setObjectName('heroTitle')
+        words.addWidget(hero_title)
+        words.addWidget(text('Музыка, фокус и рабочие инструменты\nв твоём ритме.',True))
+        hero_layout.addLayout(words,1)
+        self.hero_preview=IslandPreview(self.owner)
+        hero_layout.addWidget(self.hero_preview,1)
+        layout.addWidget(hero)
         row = QHBoxLayout()
+        self.policy_label=text('',True)
+        row.addWidget(self.policy_label)
+        segmented=QFrame()
+        segmented.setObjectName('segments')
+        segment_row=QHBoxLayout(segmented)
+        segment_row.setContentsMargins(3,3,3,3)
+        segment_row.setSpacing(2)
         self.profile_buttons = {}
         for key,title in PROFILES.items():
-            btn = self.action(title,lambda _,k=key:self._setting("profile",k))
+            btn = self.action('Авто' if key=='auto' else title,lambda _,k=key:self._setting("profile",k))
+            btn.setObjectName('segment')
             btn.setCheckable(True)
-            row.addWidget(btn)
+            segment_row.addWidget(btn)
             self.profile_buttons[key] = btn
+        row.addStretch()
+        row.addWidget(segmented)
         layout.addLayout(row)
-        self.policy_label = text("",True)
-        layout.addWidget(self.policy_label)
         grid = QGridLayout()
         grid.setSpacing(12)
         self.module_status = {}
-        for index,module in enumerate(MODULES):
-            frame,inside = self.card(module.title,module.detail)
-            status = text("",True)
-            inside.addWidget(status)
-            self.module_status[module.key] = status
-            target = module.key if module.key not in {"layouts","workspaces"} else "workspaces"
-            inside.addWidget(self.action("Настроить →",lambda _,k=target:self.navigate(k)))
-            grid.addWidget(frame,index//2,index%2)
+        self.module_switches={}
+        specs=(('island','Dynamic Island','Музыка и звук у верхней рамки','island_enabled','island'),
+            ('desktop','Рабочий стол','Группы с твоими приложениями','desktop_enabled','folder'),
+            ('search','Быстрый поиск','Найти и открыть одной строкой','search_enabled','search'),
+            ('timer','Фокус','Время для важного',None,'timer'),
+            ('library','Заметки и файлы','Мысли и материалы под рукой',None,'note'),
+            ('workspaces','Окна и наборы','Рабочие раскладки PowerToys',None,'windows'))
+        for index,(key,title,detail,setting,glyph_name) in enumerate(specs):
+            frame=ModuleCard(lambda k=key:self.navigate(k))
+            inside=QVBoxLayout(frame)
+            inside.setContentsMargins(16,14,16,14)
+            inside.setSpacing(8)
+            top=QHBoxLayout()
+            emblem=QLabel()
+            emblem.setProperty('glyph',glyph_name)
+            emblem.setPixmap(icon(glyph_name,self.colors['accent'],24).pixmap(24,24))
+            top.addWidget(emblem)
+            top.addStretch()
+            if setting:
+                toggle=ToggleSwitch(title)
+                toggle.toggled.connect(lambda value,k=setting:self._setting(k,value))
+                top.addWidget(toggle)
+                self.module_switches[setting]=toggle
+            else:
+                arrow=self.action('↗',lambda _,k=key:self.navigate(k))
+                arrow.setObjectName('quiet')
+                arrow.setFixedSize(26,26)
+                arrow.setAccessibleName('Открыть '+title)
+                top.addWidget(arrow)
+            inside.addLayout(top)
+            label=text(title)
+            label.setObjectName('cardTitle')
+            inside.addWidget(label)
+            inside.addWidget(text(detail,True))
+            if setting:
+                status=text('',True)
+                inside.addWidget(status)
+                self.module_status[key]=status
+            elif key=='timer':
+                self.overview_timer=TimerReadout(self.owner.notch_hub,26)
+                inside.addWidget(self.overview_timer)
+            elif key=='workspaces':
+                for external in ('layouts','workspaces'):
+                    status=text('',True)
+                    status.setStyleSheet('font-size:10px')
+                    inside.addWidget(status)
+                    self.module_status[external]=status
+            else:
+                inside.addWidget(text('Открыть заметки →',True))
+            grid.addWidget(frame,index//3,index%3)
         layout.addLayout(grid)
-        layout.addWidget(text("Авто: от сети — «Работа», без зарядки — «Батарея». От батареи спектр обновляется реже, но продолжает работать. «Игра» и пауза останавливают модули; запущенный таймер продолжает отсчёт.",True))
         layout.addStretch()
 
     def island_page(self):
@@ -271,7 +338,7 @@ class SettingsPages:
         self.owner.notch_hub.select_tab(1)
 
     def sync_focus_timer(self):
-        if self.isVisible() and self.navigation.currentRow() == self.page_indices["timer"]:
+        if self.isVisible() and self.navigation.currentRow() in {self.page_indices["timer"],self.page_indices['hub']}:
             self.focus_tick.start()
             self.refresh_timer_display()
         else:
@@ -280,6 +347,7 @@ class SettingsPages:
     def refresh_timer_display(self):
         hub = self.owner.notch_hub
         self.timer_label.refresh()
+        if hasattr(self,'overview_timer'): self.overview_timer.refresh()
         self.focus_start.setText("Остановить сигнал" if hub.alarm.active else "Пауза" if hub._timer_end else "Продолжить" if 0 < hub.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
 
     def preview_timer_sound(self):
@@ -325,10 +393,20 @@ class SettingsPages:
 
     def application_page(self):
         layout = self._page()
-        self.heading(layout,"Приложение","Профили сохраняют твои настройки модулей. Выключенный модуль не выполняет фоновую работу.")
+        self.heading(layout,"Приложение","Оформление, запуск и подключение дополнительных инструментов.")
+        frame,inside=self.card('Твой Cloud Hub')
+        row=QHBoxLayout()
+        row.addWidget(QLabel('Оформление'),1)
+        self.theme_picker=QComboBox()
+        for label,value in (('Тёмное','dark'),('Светлое','light'),('Как в Windows','system')): self.theme_picker.addItem(label,value)
+        self.theme_picker.setCurrentIndex(max(0,self.theme_picker.findData(self.owner.settings.get('hub_theme'))))
+        self.theme_picker.currentIndexChanged.connect(lambda _:self._setting('hub_theme',self.theme_picker.currentData()))
+        row.addWidget(self.theme_picker)
+        inside.addLayout(row)
+        self._module(inside,'hub_animations','Плавные переходы','Короткие анимации навигации, переключателей и карточек')
+        layout.addWidget(frame)
         self._module(layout,"autostart","Запускать с Windows","При входе в систему — только трей и выбранные модули")
-        self._module(layout,"updates","Проверять обновления","Проверка раз в день; установка запускается вручную")
-        layout.addWidget(self.action("Проверить обновления",self.owner._check_update))
+        layout.addWidget(self.action('Версия и обновления →',lambda:self.navigate('updates')))
         layout.addWidget(self.action("Открыть папку данных",lambda:self._url(QUrl.fromLocalFile(str(self.owner.settings.directory)))))
         frame,inside = self.card("PowerToys · необязательное подключение","Для FancyZones и Workspaces. Поиск и группы Cloud Hub работают самостоятельно. При применении параметров PowerToys перезапускается. При выходе исходное подключение восстанавливается.")
         self.integration_status = QLabel()
@@ -342,4 +420,13 @@ class SettingsPages:
         inside.addWidget(self.restore_button)
         inside.addWidget(self.action("Параметры PowerToys",lambda:self.owner.powertoys.launch("PowerToys.exe",["--open-settings"])))
         layout.addWidget(frame)
+        layout.addStretch()
+
+    def updates_page(self):
+        from .update_ui import UpdatePanel
+        layout=self._page()
+        self.heading(layout,'Обновления','Новые возможности приходят сюда. Без ручной загрузки с GitHub.')
+        self.update_panel=UpdatePanel(self.owner)
+        layout.addWidget(self.update_panel)
+        self._module(layout,'updates','Проверять автоматически','Раз в день и после запуска. Загрузка и перезапуск — когда ты решишь.')
         layout.addStretch()

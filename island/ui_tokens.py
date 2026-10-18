@@ -39,6 +39,19 @@ def glyph(painter, name, rect, color=TEXT):
         p.drawLine(12,5,12,19); p.drawLine(5,12,19,12)
     elif name in {"hub","app","store"}:
         for x,y in ((4,4),(14,4),(4,14),(14,14)): p.drawRoundedRect(QRectF(x,y,6,6),1.5,1.5)
+    elif name=='download':
+        p.drawLine(12,3,12,15); p.drawLine(7,10,12,15); p.drawLine(12,15,17,10)
+        p.drawLine(4,16,4,21); p.drawLine(4,21,20,21); p.drawLine(20,21,20,16)
+    elif name=='keyboard':
+        p.drawRoundedRect(QRectF(2,5,20,14),3,3)
+        for x in (6,10,14,18):
+            p.drawPoint(x,9); p.drawPoint(x,12)
+        p.drawLine(7,16,17,16)
+    elif name=='windows':
+        p.drawRoundedRect(QRectF(3,3,18,18),3,3); p.drawLine(3,9,21,9); p.drawLine(12,9,12,21)
+    elif name=='settings':
+        for y,x in ((6,9),(12,16),(18,7)):
+            p.drawLine(3,y,21,y); p.setBrush(QColor(color)); p.drawEllipse(QRectF(x-2,y-2,4,4))
     else:
         p.drawRoundedRect(QRectF(5,3,14,18),2,2)
         for y in (9,13,17): p.drawLine(9,y,15,y)

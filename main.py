@@ -36,8 +36,13 @@ def main():
     parser.add_argument("--diagnostics", metavar="REPORT", help="Read runtime state from the current same-user instance")
     parser.add_argument("--quit", action="store_true", help="Gracefully close the current user's running instance")
     parser.add_argument("--background", action="store_true", help="Start tray and enabled modules without opening Cloud Hub")
+    parser.add_argument("--apply-update", metavar="MANIFEST", help=argparse.SUPPRESS)
+    parser.add_argument("--updated", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--island", action="store_true", help="Open the island instead of Cloud Hub")
     args = parser.parse_args()
+    if args.apply_update:
+        from island.update_helper import apply_update
+        return apply_update(args.apply_update)
     if args.diagnostics:
         from PyQt6.QtCore import QCoreApplication
         from island.instance import query_status
@@ -61,7 +66,7 @@ def main():
             traceback.print_exception(kind, value, trace, file=stream)
         sys.__excepthook__(kind, value, trace)
     sys.excepthook = failure
-    return run(background=args.background, island=args.island)
+    return run(background=args.background, island=args.island, updated=args.updated)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,35 @@
-# Cloud Hub 0.4 · desktop tools
+# Cloud Hub · design notes
+
+## 0.5: the settings center
+
+The settings center now shares the island's quiet contrast, compact rounded
+surfaces and limited movement. The reference is the hierarchy and restrained
+materials described in Apple's [macOS Tahoe design announcement](https://www.apple.com/newsroom/2025/06/macos-tahoe-26-makes-the-mac-more-capable-productive-and-intelligent-than-ever/),
+with original icons and bundled Golos Text. No Apple assets or system branding
+are used. This is an original native Qt interface, not a claim of Apple's
+Liquid Glass rendering or live optical refraction.
+
+A narrow sidebar stays visible, supports local settings search and shows an
+update badge. The main page exposes six tools and real state: three switches,
+the shared editable timer, notes and the optional PowerToys integration. Its
+island preview uses actual media metadata and actual loopback spectrum levels.
+Themes use neutral surfaces, a single lavender accent and consistent spacing.
+Controls remain keyboard-operable; the frameless window retains native moving,
+resizing and maximize behavior. All content scrolls in smaller windows.
+
+Page transitions last 210 ms, switches and hover feedback 170 ms. Cached outgoing
+and incoming page frames share one clock, disappear after completion and are
+released on resize or hide. No continuously animated decorative background,
+screen capture, WebView or blur pass is added. The visibility-bound resource
+counter and timer stop when hidden. A separate preference disables Hub motion
+without changing global Windows animation settings or the island's renderer.
+
+`tools/check_hub_design.py` renders all eleven pages, light and dark themes,
+small-window layout and all update states using native widgets in isolated data.
+Existing shortcut collection, desktop ownership, Peek, island geometry and
+audio behavior remain separate from the new window shell.
+
+## 0.4: desktop tools
 
 The previous UI had two concrete problems: nested outlines and gradients made
 the launcher look like an inset control, while constant full-width group headers

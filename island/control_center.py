@@ -5,16 +5,18 @@ import os
 from pathlib import Path
 import time
 import winreg
-from PyQt6.QtCore import Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import Qt, QTimer, QUrl, QRectF,QEvent
+from PyQt6.QtGui import QDesktopServices,QPainter,QColor,QLinearGradient,QPen,QShortcut,QKeySequence
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox)
+    QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox,QLineEdit)
 from . import __version__, REPO_URL
 from .integrations import load_workspaces, powertoys_root
 from .policy import PROFILES
 from .style import app_icon
 from .settings_pages import SettingsPages, PAGES
 from .modules import MODULES
+from .hub_ui import Navigation,ContentTransition,ToggleSwitch,WindowHeader,palette,stylesheet,icon
+from .style import font
 
 
 def text(value, secondary=False):
@@ -77,65 +79,195 @@ class ControlCenter(QWidget, SettingsPages):
     def __init__(self, owner):
         super().__init__()
         self.owner = owner
+        self.setWindowFlags(Qt.WindowType.Window|Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setMouseTracking(True)
         self.setWindowTitle("Cloud Hub")
         self.setWindowIcon(app_icon())
         self.setMinimumSize(900, 600)
-        self.resize(1100, 740)
+        self.resize(1120, 760)
         self.usage = ProcessUsage()
         self._workspace_ids = []
         self._apply_theme()
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 18, 24, 18)
-        layout.setSpacing(16)
+        self.outer=QVBoxLayout(self)
+        layout=self.outer
+        layout.setContentsMargins(18, 10, 18, 16)
+        layout.setSpacing(10)
+        titlebar=WindowHeader(self)
+        titlebar.setFixedHeight(44)
         header = QHBoxLayout()
+        titlebar.setLayout(header)
+        header.setContentsMargins(8,0,0,0)
+        brand_icon=QLabel()
+        brand_icon.setPixmap(app_icon().pixmap(24,24))
+        header.addWidget(brand_icon)
         title = text("Cloud Hub")
-        title.setObjectName("title")
+        title.setObjectName("brand")
         header.addWidget(title)
-        subtitle = text("Рабочее пространство Windows", True)
-        subtitle.setMinimumWidth(260)
+        subtitle = text("РАБОЧЕЕ ПРОСТРАНСТВО", True)
+        subtitle.setObjectName('eyebrow')
         subtitle.setWordWrap(False)
+        header.addSpacing(16)
         header.addWidget(subtitle)
         header.addStretch()
-        self.pause_button = button("Приостановить", self._pause)
-        header.addWidget(self.pause_button)
-        layout.addLayout(header)
+        for label,tip,callback,name in (('−','Свернуть',self.showMinimized,'windowButton'),
+            ('□','Развернуть',self.toggle_maximized,'windowButton'),('×','Скрыть в трей',self.close,'closeButton')):
+            control=button(label,callback)
+            control.setObjectName(name)
+            control.setFixedSize(34,30)
+            control.setAccessibleName(tip)
+            control.setToolTip(tip)
+            header.addWidget(control)
+        layout.addWidget(titlebar)
         body = QHBoxLayout()
-        body.setSpacing(24)
-        self.navigation = QListWidget()
-        self.navigation.addItems([title for _,title,_ in PAGES])
-        self.navigation.setFixedWidth(202)
+        body.setSpacing(22)
+        sidebar=QFrame()
+        sidebar.setObjectName('sidebar')
+        sidebar.setFixedWidth(202)
+        side=QVBoxLayout(sidebar)
+        side.setContentsMargins(10,14,10,12)
+        side.setSpacing(10)
+        self.settings_search=QLineEdit()
+        self.settings_search.setPlaceholderText('Найти настройку…')
+        self.settings_search.setAccessibleName('Поиск раздела настроек')
+        self.settings_search.addAction(icon('search'),QLineEdit.ActionPosition.LeadingPosition)
+        self.settings_search.setClearButtonEnabled(True)
+        side.addWidget(self.settings_search)
+        self.navigation = Navigation()
+        for key,label,_ in PAGES:
+            self.navigation.addItem(label)
+            self.navigation.item(self.navigation.count()-1).setData(Qt.ItemDataRole.UserRole,key)
         self.navigation.setObjectName("navigation")
         self.pages = QStackedWidget()
-        self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
-        body.addWidget(self.navigation)
-        body.addWidget(self.pages, 1)
+        self.transition=ContentTransition(self.pages)
+        side.addWidget(self.navigation,1)
+        self.search_empty=text('Ничего не найдено',True)
+        self.search_empty.hide()
+        side.addWidget(self.search_empty)
+        self.pause_button=button('Приостановить',self._pause)
+        side.addWidget(self.pause_button)
+        version=button(f'Cloud Hub  {__version__}',lambda:self.navigate('updates'))
+        version.setObjectName('quiet')
+        side.addWidget(version)
+        body.addWidget(sidebar)
+        content=QVBoxLayout()
+        content.setContentsMargins(0,10,5,0)
+        content.setSpacing(12)
+        content.addWidget(self.pages,1)
+        body.addLayout(content,1)
         layout.addLayout(body, 1)
         self.checks = {}
         self.values = {}
         self.sliders = {}
         self.page_indices = {key:i for i,(key,_,_) in enumerate(PAGES)}
-        self.feedback = text("", True)
+        self.feedback = QLabel(self)
+        self.feedback.setObjectName('toast')
+        self.feedback.setWordWrap(True)
+        self.feedback.setMaximumWidth(440)
+        self.feedback.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.feedback.hide()
+        self.toast_timer=QTimer(self)
+        self.toast_timer.setSingleShot(True)
+        self.toast_timer.timeout.connect(self.feedback.hide)
         for _,_,factory in PAGES:
             getattr(self,factory)()
+        self.navigation.currentRowChanged.connect(self.select_page)
         self.navigation.setCurrentRow(0)
-        layout.addWidget(self.feedback)
+        self.settings_search.textChanged.connect(self.filter_pages)
+        self.settings_search.returnPressed.connect(self.open_first_match)
+        QShortcut(QKeySequence('Ctrl+F'),self,activated=self.settings_search.setFocus)
         footer = QHBoxLayout()
         self.resource_label = text("", True)
+        self.resource_label.setObjectName('resource')
         self.resource_label.setWordWrap(False)
         footer.addWidget(self.resource_label)
         footer.addStretch()
         self.shortcut_label = text("Ctrl + Alt + H", True)
+        self.shortcut_label.setObjectName('resource')
         footer.addWidget(self.shortcut_label)
-        footer.addWidget(text(f"v{__version__}", True))
-        layout.addLayout(footer)
+        content.addLayout(footer)
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setInterval(3000)
         self.refresh_timer.timeout.connect(self.refresh)
         owner.powertoys.changed.connect(self.refresh)
         owner.powertoys.message.connect(self._message)
+        owner.updates.changed.connect(lambda _:self.navigation.viewport().update())
+        self._apply_theme()
 
     def navigate(self,key):
+        if self.settings_search.text(): self.settings_search.clear()
         self.navigation.setCurrentRow(self.page_indices.get(key,0))
+
+    def select_page(self,index):
+        if index<0 or index==self.pages.currentIndex(): return
+        old=self.pages.grab() if self.isVisible() else None
+        self.transition.animation.stop()
+        self.transition.hide()
+        self.pages.setCurrentIndex(index)
+        self.pages.currentWidget().ensurePolished()
+        if self.pages.currentWidget().layout(): self.pages.currentWidget().layout().activate()
+        if old is not None and self.owner.settings.get('hub_animations'):
+            self.transition.start(old,self.pages.grab())
+
+    def filter_pages(self,value):
+        synonyms={'island':'чёлка челка музыка прозрачность эквалайзер', 'desktop':'группы папки ярлыки прозрачность',
+            'integrations':'автозапуск тема оформление анимации powertoys', 'updates':'обновление установить скачать версия',
+            'timer':'таймер минуты фокус звук','library':'заметки файлы текст','shortcuts':'клавиши сочетания хоткей'}
+        count=0
+        for i,(key,label,_) in enumerate(PAGES):
+            visible=value.casefold().strip() in (label+' '+synonyms.get(key,'')).casefold()
+            self.navigation.item(i).setHidden(not visible)
+            count+=visible
+        self.search_empty.setVisible(not count)
+
+    def open_first_match(self):
+        for i in range(self.navigation.count()):
+            if not self.navigation.item(i).isHidden():
+                self.navigation.setCurrentRow(i)
+                self.pages.setFocus()
+                return
+
+    def toggle_maximized(self):
+        self.showNormal() if self.isMaximized() else self.showMaximized()
+
+    def paintEvent(self,event):
+        p=QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect=QRectF(self.rect()) if self.isMaximized() else QRectF(self.rect()).adjusted(5,5,-5,-5)
+        radius=0 if self.isMaximized() else 22
+        for spread in range(4,0,-1):
+            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(0,0,0,10))
+            p.drawRoundedRect(rect.adjusted(-spread,-spread,spread,spread),radius+spread,radius+spread)
+        gradient=QLinearGradient(rect.topLeft(),rect.bottomRight())
+        gradient.setColorAt(0,QColor(self.colors['side'])); gradient.setColorAt(1,QColor(self.colors['bg']))
+        p.setBrush(gradient); p.setPen(QPen(QColor(self.colors['line']),1))
+        p.drawRoundedRect(rect,radius,radius)
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        if hasattr(self,'transition'): self.transition.animation.stop(); self.transition.done()
+        if hasattr(self,'feedback') and self.feedback.isVisible(): self.place_toast()
+
+    def mouseMoveEvent(self,event):
+        point=event.position()
+        horizontal=point.x()<8 or point.x()>self.width()-8
+        vertical=point.y()<8 or point.y()>self.height()-8
+        self.setCursor(Qt.CursorShape.SizeFDiagCursor if horizontal and vertical else Qt.CursorShape.SizeHorCursor if horizontal else Qt.CursorShape.SizeVerCursor if vertical else Qt.CursorShape.ArrowCursor)
+
+    def mousePressEvent(self,event):
+        if event.button()!=Qt.MouseButton.LeftButton or self.isMaximized(): return
+        point=event.position()
+        edges=Qt.Edge(0)
+        if point.x()<8: edges|=Qt.Edge.LeftEdge
+        if point.x()>self.width()-8: edges|=Qt.Edge.RightEdge
+        if point.y()<8: edges|=Qt.Edge.TopEdge
+        if point.y()>self.height()-8: edges|=Qt.Edge.BottomEdge
+        if edges and self.windowHandle(): self.windowHandle().startSystemResize(edges)
+
+    def keyPressEvent(self,event):
+        if event.key()==Qt.Key.Key_Escape:
+            self.settings_search.clear() if self.settings_search.text() else self.close()
+        else: super().keyPressEvent(event)
 
 
     def _page(self):
@@ -151,21 +283,21 @@ class ControlCenter(QWidget, SettingsPages):
         return layout
 
     def _module(self, layout, key, name, detail):
-        row = QHBoxLayout()
+        frame=QFrame()
+        frame.setObjectName('settingRow')
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(2,10,2,12)
         description = QVBoxLayout()
         description.setSpacing(2)
         description.addWidget(text(name))
         description.addWidget(text(detail, True))
         row.addLayout(description, 1)
-        checkbox = QCheckBox("Включён")
+        checkbox = ToggleSwitch(name)
         checkbox.setObjectName(key)
         checkbox.toggled.connect(lambda value, k=key: self._setting(k, value))
         row.addWidget(checkbox)
         self.checks[key] = checkbox
-        layout.addLayout(row)
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        layout.addWidget(line)
+        layout.addWidget(frame)
 
     def _workspaces_page(self):
         layout = self._page()
@@ -219,6 +351,8 @@ class ControlCenter(QWidget, SettingsPages):
     def _setting(self, key, value):
         if self.owner._toggle_setting(key, value):
             self._message("Сохранено")
+        if key=='hub_theme': self._apply_theme()
+        if key=='hub_animations' and not value: self.transition.animation.stop(); self.transition.done()
         self.refresh()
 
     def _pause(self):
@@ -281,6 +415,16 @@ class ControlCenter(QWidget, SettingsPages):
 
     def _message(self, message):
         self.feedback.setText(message)
+        if message:
+            self.feedback.adjustSize()
+            self.place_toast()
+            self.feedback.show()
+            self.feedback.raise_()
+            self.toast_timer.start(3500)
+        else: self.feedback.hide()
+
+    def place_toast(self):
+        self.feedback.move(max(230,self.width()-self.feedback.width()-25),max(20,self.height()-self.feedback.height()-44))
 
     def refresh(self):
         w = self.owner
@@ -290,10 +434,12 @@ class ControlCenter(QWidget, SettingsPages):
             checkbox.blockSignals(False)
             checkbox.setEnabled(key not in {"layouts_enabled", "workspaces_enabled"} or w.settings.get("manage_powertoys"))
         for key,widget in self.values.items():
+            if widget.hasFocus(): continue
             widget.blockSignals(True)
             widget.setValue(w.settings.get(key))
             widget.blockSignals(False)
         for key,widget in self.sliders.items():
+            if widget.isSliderDown(): continue
             widget.blockSignals(True)
             widget.setValue(w.settings.get(key))
             widget.blockSignals(False)
@@ -303,10 +449,8 @@ class ControlCenter(QWidget, SettingsPages):
         for key, widget in self.profile_buttons.items():
             widget.setChecked(w.settings.get("profile") == key)
         self.pause_button.setText("Возобновить" if w.settings.get("paused") else "Приостановить")
-        self.policy_label.setText(f"Сейчас: {PROFILES[w._policy.profile]}. " +
-            ("Модули на паузе." if w.settings.get("paused") else
-             "Чёлка и медиаслужбы остановлены." if not w._policy.island else
-             "Спектр в свёрнутой чёлке отключён настройкой экономии." if w._policy.profile == "battery" and w.settings.get("spectrum_battery_save") else "Все выбранные модули доступны."))
+        self.policy_label.setText('Модули на паузе' if w.settings.get('paused') else 'Сейчас: '+PROFILES[w._policy.profile])
+        self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
         bridge = w.powertoys
         bridge.root = powertoys_root()
         self.integration_status.setText(bridge.status if w.settings.get("manage_powertoys") or bridge.busy else "Не подключён · изменения PowerToys не применяются")
@@ -317,8 +461,12 @@ class ControlCenter(QWidget, SettingsPages):
         for module in MODULES:
             enabled = w.settings.get(module.setting)
             external = module.key in {"layouts","workspaces"}
-            self.module_status[module.key].setText("Выключен" if not enabled else "На паузе" if not active else
-                "Требуется подключение PowerToys" if external and not w.settings.get("manage_powertoys") else "Включён")
+            status="Выключен" if not enabled else "На паузе" if not active else "Не подключён" if external and not w.settings.get("manage_powertoys") else "Включён"
+            prefix=('FancyZones: ' if module.key=='layouts' else 'Workspaces: ') if external else ''
+            self.module_status[module.key].setText(prefix+status)
+        for key,widget in getattr(self,'module_switches',{}).items():
+            widget.blockSignals(True); widget.setChecked(w.settings.get(key)); widget.blockSignals(False); widget.update()
+        if hasattr(self,'hero_preview'): self.hero_preview.update()
         for key,status in self.key_status.items():
             binding = w.hotkeys.get(key)
             value = w.settings.get(key)
@@ -326,7 +474,7 @@ class ControlCenter(QWidget, SettingsPages):
                            ((binding.error or "Редактирование сочетания…") if binding else value+" · доступна при запуске приложения"))
         self.refresh_timer_display()
         if self.isVisible():
-            self.resource_label.setText(self.usage.sample()+" · процесс Cloud Hub")
+            self.resource_label.setText(self.usage.sample())
             hotkey = getattr(w, "_hub_hotkey", None)
             self.shortcut_label.setText(w.settings.get("hotkey_hub") if hotkey and hotkey.registered else "Открытие через трей")
         self._refresh_workspaces()
@@ -339,6 +487,8 @@ class ControlCenter(QWidget, SettingsPages):
 
     def hideEvent(self, event):
         self.refresh_timer.stop()
+        self.transition.animation.stop()
+        self.transition.done()
         if hasattr(self,"focus_tick"):
             self.focus_tick.stop()
         if hasattr(self,"notebook"):
@@ -346,46 +496,22 @@ class ControlCenter(QWidget, SettingsPages):
         super().hideEvent(event)
 
     def _apply_theme(self):
-        dark = True
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as key:
-                dark = not winreg.QueryValueEx(key, "AppsUseLightTheme")[0]
-        except OSError:
-            pass
-        bg, surface, fg, muted, line, selected = (("#171c24", "#232b37", "#edf0f6", "#abb8cb", "#354153", "#344f73") if dark else
-            ("#f4f6f9", "#ffffff", "#202934", "#536378", "#d6dee8", "#dae7fa"))
-        self.setStyleSheet(f"""
-            QWidget {{ background: {bg}; color: {fg}; font-family: 'Segoe UI'; font-size: 13px; }}
-            QLabel#title {{ font-size: 25px; font-weight: 600; }}
-            QLabel#heading {{ font-size: 17px; font-weight: 600; margin-top: 8px; }}
-            QLabel#cardTitle {{ font-size: 15px; font-weight: 600; background: transparent; }}
-            QLabel#timer {{ font-size: 56px; font-weight: 500; padding: 22px; }}
-            QFrame#card {{ background: {surface}; border: 1px solid {line}; border-radius: 12px; }}
-            QFrame#card QLabel {{ background: transparent; }}
-            QFrame#card QWidget {{ background: transparent; }}
-            QLabel#secondary {{ color: {muted}; font-size: 12px; }}
-            QPushButton {{ background: {surface}; border: 1px solid {line}; border-radius: 8px; padding: 9px 13px; }}
-            QPushButton:hover, QPushButton:checked {{ background: {selected}; }}
-            QPushButton:disabled, QCheckBox:disabled {{ color: {muted}; }}
-            QPushButton:focus, QCheckBox:focus {{ outline: 1px solid #79a9eb; }}
-            QListWidget {{ background: {surface}; border: 1px solid {line}; border-radius: 9px; padding: 6px; }}
-            QListWidget#navigation {{ background: transparent; border: none; padding: 0; }}
-            QListWidget::item {{ padding: 12px 8px; border-radius: 7px; }}
-            QListWidget::item:selected {{ background: {selected}; color: {fg}; }}
-            QCheckBox {{ spacing: 7px; padding: 5px; }}
-            QCheckBox::indicator {{ width: 18px; height: 18px; }}
-            QFrame[frameShape="4"] {{ color: {line}; }}
-            QScrollArea {{ border: none; }}
-            QSpinBox, QLineEdit, QComboBox, QKeySequenceEdit {{ background:{surface}; border:1px solid {line}; border-radius:7px; padding:7px; selection-background-color:{selected}; }}
-            QPlainTextEdit {{ background:{surface}; border:1px solid {line}; border-radius:9px; padding:10px; selection-background-color:{selected}; }}
-            QTabWidget::pane {{ border:0; }}
-            QTabBar::tab {{ background:{surface}; padding:10px 18px; border-radius:6px; margin:0 5px 8px 0; }}
-            QTabBar::tab:selected {{ background:{selected}; }}
-            QSlider::groove:horizontal {{ height:4px;background:{line};border-radius:2px; }}
-            QSlider::sub-page:horizontal {{ background:#729de1;border-radius:2px; }}
-            QSlider::handle:horizontal {{ width:14px;margin:-5px 0;background:#9fbeef;border-radius:7px; }}
-            QScrollBar:vertical {{ width:8px;background:transparent;margin:0; }}
-            QScrollBar::handle:vertical {{ background:{line};border-radius:4px;min-height:28px; }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background:transparent; }}
-        """)
+        theme=self.owner.settings.get('hub_theme')
+        if theme=='system':
+            theme='dark'
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize') as key:
+                    theme='light' if winreg.QueryValueEx(key,'AppsUseLightTheme')[0] else 'dark'
+            except OSError: pass
+        self.colors=palette(theme)
+        self.setStyleSheet(stylesheet(self.colors))
+        self.setFont(font(13))
+        from .timer import TimerReadout
+        for readout in self.findChildren(TimerReadout):
+            base=getattr(readout,'_hub_original_style',readout.styleSheet())
+            readout._hub_original_style=base
+            readout.setStyleSheet(base.replace('#f1f2f6',self.colors['text']).replace('#648ac9',self.colors['accent']))
+        for emblem in self.findChildren(QLabel):
+            if emblem.property('glyph'):
+                emblem.setPixmap(icon(emblem.property('glyph'),self.colors['accent'],24).pixmap(24,24))
+        self.update()

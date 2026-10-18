@@ -27,7 +27,7 @@ class Settings:
                 "timer_minutes": 25, "search_apps": True, "search_files": True, "search_glass": True,
                 "desktop_enabled": True, "group_width": 300, "group_columns": 3,
                 "group_opacity": 90, "group_hover_delay": 220, "group_collapse_delay": 650,
-                "groups_locked": False, "group_collect_shortcuts": True, "hotkey_hub": "Ctrl+Alt+H",
+                "groups_locked": False, "group_collect_shortcuts": True, "hub_theme": "dark", "hub_animations": True, "hotkey_hub": "Ctrl+Alt+H",
                 "hotkey_search": "Alt+Space", "hotkey_island": "Ctrl+Alt+I"}
 
     RANGES = {"compact_width": (140, 360), "compact_height": (32, 64),
@@ -54,6 +54,7 @@ class Settings:
             pass
         if self.values["profile"] not in {"auto", "work", "battery", "game"}:
             self.values["profile"] = "auto"
+        if self.values['hub_theme'] not in {'dark','light','system'}: self.values['hub_theme']='dark'
 
     def get(self, key):
         return self.values[key]
@@ -63,6 +64,7 @@ class Settings:
             raise ValueError("Invalid setting")
         if key == "profile" and value not in {"auto", "work", "battery", "game"}:
             raise ValueError("Unknown profile")
+        if key=='hub_theme' and value not in {'dark','light','system'}: raise ValueError('Unknown theme')
         if key in self.RANGES and not self.RANGES[key][0] <= value <= self.RANGES[key][1]:
             raise ValueError("Setting is outside its range")
         if self.values.get(key) == value:
