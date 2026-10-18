@@ -1,7 +1,10 @@
-# Future license-service contract
+# Account and license service contract
 
-This document defines the boundary; it is not a deployed payment or activation
-backend. Current preview does not contact an account or payment service.
+An implementation now exists in `server/` with Django migrations and tests,
+plus a native client in `island/account_client.py` and `island/account_ui.py`.
+It has not been deployed or connected to real provider accounts. Current installed
+preview does not contact an account or payment service. See `server/README.md`
+for exact endpoints, operational limits, and outstanding launch checks.
 
 Authentication opens the system browser. The client must not embed a payment
 form or store card details. Use a standard browser-to-native flow with PKCE and

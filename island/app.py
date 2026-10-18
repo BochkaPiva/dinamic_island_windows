@@ -69,6 +69,11 @@ class IslandWindow(QWidget):
         self.settings = settings or Settings()
         from .entitlements import FeatureAccess
         self.access = FeatureAccess(self.settings.directory)
+        from . import build_config
+        self.account = None
+        if services and build_config.ACCOUNT_API_ORIGIN:
+            from .account_ui import AccountController
+            self.account = AccountController(build_config.ACCOUNT_API_ORIGIN, self.settings.directory, self.access, self)
         self.setWindowOpacity(self.settings.get("island_opacity")/100)
         self._wheel_source = NativeWheelSource(QApplication.instance())
         self._volume_scroll = VolumeScroll(adjust_volume, self._wheel_source)
@@ -620,6 +625,8 @@ class IslandWindow(QWidget):
         if self._closed:
             return
         self._closed = True
+        if self.account:
+            self.account.stop()
         self._wheel_source.close()
         for binding in self.hotkeys.values():
             binding.close()

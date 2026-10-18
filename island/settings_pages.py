@@ -23,6 +23,7 @@ PAGES = (("hub","Модули","overview_page"),
          ("workspaces","Окна и наборы","_workspaces_page"),
          ("integrations","Приложение","application_page"),
          ("updates","Обновления","updates_page"),
+         ("account","Аккаунт","account_page"),
          ("windows","Windows и HONOR","_windows_page"))
 
 
@@ -44,6 +45,13 @@ class ShortcutRecorder(QKeySequenceEdit):
 
 
 class SettingsPages:
+    def account_page(self):
+        from .account_ui import AccountPanel
+        layout = self._page()
+        self.heading(layout, 'Аккаунт', 'Подписка и устройства')
+        self.account_panel = AccountPanel(getattr(self.owner, 'account', None))
+        layout.addWidget(self.account_panel)
+
     def heading(self, layout, title, detail=""):
         from .control_center import section
         section(layout,title,detail)

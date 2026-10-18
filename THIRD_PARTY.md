@@ -31,3 +31,13 @@ public distribution (legal/release-approvals.json).
 
 Font files are used under their OFL license. Product names of Windows, Apple and
 media services identify compatibility; this application is not affiliated with them.
+
+The account service has an isolated dependency lock in `server/requirements.txt`
+and is not bundled into the desktop runtime. It uses Django, Authlib,
+django-oauth-toolkit, OAuthlib, requests, psycopg, cryptography and WhiteNoise,
+with their transitive distribution notices. Linux deployment additionally uses
+Gunicorn. Their complete notices, supported deployment versions, and security
+review are part of server launch approval; installing the pinned environment and
+passing `pip check` do not replace that review. Authentication and payment brand
+names identify the intended integrations; no provider accounts are provisioned
+by this source commit.

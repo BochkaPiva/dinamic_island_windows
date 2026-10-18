@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+import os
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cloud_accounts.settings')
+application = get_wsgi_application()

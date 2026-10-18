@@ -20,7 +20,7 @@ def problems(sales=False):
         if config.DISTRIBUTION!='commercial': issues.append('Preview distribution cannot be sold')
         if not config.PUBLIC_RELEASE_REPOSITORY or config.PUBLIC_RELEASE_REPOSITORY=='BochkaPiva/dinamic_island_windows':
             issues.append('Commercial releases need a separate binary release repository')
-        for name in ('UPDATE_CHANNEL_URL','LICENSE_API_URL'):
+        for name in ('UPDATE_CHANNEL_URL','LICENSE_API_URL','ACCOUNT_API_ORIGIN'):
             if not getattr(config,name).startswith('https://'): issues.append(name+' is not configured')
         for name in ('LICENSE_PUBLIC_KEYS','UPDATE_PUBLIC_KEYS'):
             keys=getattr(config,name)
