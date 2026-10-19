@@ -141,7 +141,7 @@ class IslandWindow(QWidget):
         self._update_timer.timeout.connect(self._scheduled_update)
         self._update_timer.start(24*60*60*1000)
         self.tray = QSystemTrayIcon(app_icon(), self)
-        self.tray.setToolTip(f"Cloud Hub · Cloud Island {__version__}")
+        self.tray.setToolTip(f"Nelviro {__version__}")
         self.tray.activated.connect(self._tray_activate)
         self._build_menu()
         from .modules import ModuleRuntime
@@ -450,7 +450,7 @@ class IslandWindow(QWidget):
                 duplicate = parsed and any(k != key and parse_shortcut(v) == parsed
                     for k,v in self.settings.values.items() if k.startswith("hotkey_"))
                 if duplicate:
-                    raise ValueError("Это сочетание уже назначено другому действию Cloud Hub")
+                    raise ValueError("Это сочетание уже назначено другому действию Nelviro")
                 binding = self.hotkeys.get(key)
                 if binding and not binding.rebind(enabled):
                     raise ValueError(binding.error)
@@ -515,7 +515,7 @@ class IslandWindow(QWidget):
     def _build_menu(self):
         menu = QMenu(self)
         menu.setStyleSheet("QMenu { background: #17171c; color: #eeeeef; padding: 6px; border: 1px solid #35353d; } QMenu::item { padding: 7px 18px; } QMenu::item:selected { background: #33333e; }")
-        menu.addAction(f"Cloud Hub {__version__}").setEnabled(False)
+        menu.addAction(f"Nelviro {__version__}").setEnabled(False)
         menu.addAction("Центр управления", self.show_hub)
         menu.addAction("Открыть остров", self._show_panel)
         profiles = menu.addMenu("Профиль")
@@ -618,7 +618,7 @@ class IslandWindow(QWidget):
             self._update_info = result
             self._build_menu()
             if not (self.control_center and self.control_center.isVisible()):
-                self.tray.showMessage(APP_NAME, f"Доступна версия {result['version']}. Обновиться можно в Cloud Hub → Обновления.")
+                self.tray.showMessage(APP_NAME, f"Доступна версия {result['version']}. Обновиться можно в Nelviro → Обновления.")
         self._manual_update = False
 
     def cleanup(self):

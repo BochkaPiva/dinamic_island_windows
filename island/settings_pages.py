@@ -14,7 +14,7 @@ from .timer import TimerReadout
 
 
 PAGES = (("hub","Модули","overview_page"),
-         ("island","Dynamic Island","island_page"),
+         ("island","Остров","island_page"),
          ("search","Поиск","search_page"),
          ("desktop","Рабочий стол","desktop_page"),
          ("library","Заметки и файлы","library_page"),
@@ -104,25 +104,10 @@ class SettingsPages:
 
     def overview_page(self):
         from .control_center import text
-        from .hub_ui import IslandPreview,ModuleCard,ToggleSwitch,icon
+        from .hub_ui import ModuleCard,ToggleSwitch,icon
+        from .module_preview import ModulePreview,FocusPreview
         layout = self._page()
-        self.heading(layout,"Твоё пространство")
-        hero=QFrame()
-        hero.setObjectName('hero')
-        hero_layout=QHBoxLayout(hero)
-        hero_layout.setContentsMargins(22,12,14,12)
-        words=QVBoxLayout()
-        eyebrow=text('CLOUD HUB  /  ДЛЯ ТВОЕГО РИТМА')
-        eyebrow.setObjectName('eyebrow')
-        words.addWidget(eyebrow)
-        hero_title=text('Всё под рукой.')
-        hero_title.setObjectName('heroTitle')
-        words.addWidget(hero_title)
-        words.addWidget(text('Музыка, фокус и рабочие инструменты\nв твоём ритме.',True))
-        hero_layout.addLayout(words,1)
-        self.hero_preview=IslandPreview(self.owner)
-        hero_layout.addWidget(self.hero_preview,1)
-        layout.addWidget(hero)
+        self.heading(layout,"Модули", "Настрой пространство под себя")
         row = QHBoxLayout()
         self.policy_label=text('',True)
         row.addWidget(self.policy_label)
@@ -142,11 +127,11 @@ class SettingsPages:
         row.addWidget(segmented)
         layout.addLayout(row)
         grid = QGridLayout()
-        grid.setSpacing(12)
+        grid.setSpacing(16)
         self.module_status = {}
         self.module_switches={}
-        specs=(('island','Dynamic Island','Музыка и звук у верхней рамки','island_enabled','island'),
-            ('desktop','Рабочий стол','Группы с твоими приложениями','desktop_enabled','folder'),
+        specs=(('island','Остров','Музыка и звук у верхней рамки','island_enabled','island'),
+            ('desktop','Группы','Приложения и файлы в одном месте','desktop_enabled','folder'),
             ('search','Быстрый поиск','Найти и открыть одной строкой','search_enabled','search'),
             ('timer','Фокус','Время для важного',None,'timer'),
             ('library','Заметки и файлы','Мысли и материалы под рукой',None,'note'),
@@ -154,7 +139,7 @@ class SettingsPages:
         for index,(key,title,detail,setting,glyph_name) in enumerate(specs):
             frame=ModuleCard(lambda k=key:self.navigate(k))
             inside=QVBoxLayout(frame)
-            inside.setContentsMargins(16,14,16,14)
+            inside.setContentsMargins(20,18,20,20)
             inside.setSpacing(8)
             top=QHBoxLayout()
             emblem=QLabel()
@@ -178,13 +163,24 @@ class SettingsPages:
             label.setObjectName('cardTitle')
             inside.addWidget(label)
             inside.addWidget(text(detail,True))
+            if key in ('island','desktop','search'):
+                # Search uses its normal launcher, including focus and hotkey handling.
+                callback=(self.owner._show_panel if key=='island' else
+                          self.owner.modules.search.toggle if key=='search' else lambda:self.navigate('desktop'))
+                preview=ModulePreview(self.owner,key,callback)
+                inside.addWidget(preview)
+                if key=='island': self.hero_preview=preview
             if setting:
                 status=text('',True)
                 inside.addWidget(status)
                 self.module_status[key]=status
             elif key=='timer':
-                self.overview_timer=TimerReadout(self.owner.notch_hub,26)
-                inside.addWidget(self.overview_timer)
+                self.focus_preview=FocusPreview(self.owner.notch_hub)
+                self.overview_timer=self.focus_preview.readout
+                inside.addWidget(self.focus_preview)
+                self.overview_start=self.action('Начать / пауза',self.owner.notch_hub.toggle_timer)
+                self.overview_start.setObjectName('primary')
+                inside.addWidget(self.overview_start)
             elif key=='workspaces':
                 for external in ('layouts','workspaces'):
                     status=text('',True)
@@ -193,13 +189,13 @@ class SettingsPages:
                     self.module_status[external]=status
             else:
                 inside.addWidget(text('Открыть заметки →',True))
-            grid.addWidget(frame,index//3,index%3)
+            grid.addWidget(frame,index//2,index%2)
         layout.addLayout(grid)
         layout.addStretch()
 
     def island_page(self):
         layout = self._page()
-        self.heading(layout,"Dynamic Island","Мини-плеер слева, неделя по центру, фокус справа. Календарь листается жестами и перетаскиванием, без полос прокрутки.")
+        self.heading(layout,"Остров","Мини-плеер слева, неделя по центру, фокус справа. Календарь листается жестами и перетаскиванием, без полос прокрутки.")
         self._module(layout,"island_enabled","Показывать чёлку","Всегда по центру выбранного экрана, у верхней рамки")
         row = QHBoxLayout()
         row.addWidget(self.action("Посмотреть чёлку",self.owner._show_panel))
@@ -242,8 +238,8 @@ class SettingsPages:
 
     def search_page(self):
         layout = self._page()
-        self.heading(layout,"Быстрый поиск","Одна строка для приложений, файлов и команд Cloud Hub. Управление: ↑ ↓, Enter и Esc.")
-        self._module(layout,"search_enabled","Включить поиск Cloud Hub","Собственный модуль; PowerToys Command Palette для него не нужен")
+        self.heading(layout,"Быстрый поиск","Одна строка для приложений, файлов и команд Nelviro. Управление: ↑ ↓, Enter и Esc.")
+        self._module(layout,"search_enabled","Включить поиск Nelviro","Собственный модуль; PowerToys Command Palette для него не нужен")
         self._module(layout,"search_glass","Полупрозрачная поверхность","Спокойное тонирование без дополнительных рамок; выключи для полностью непрозрачного фона")
         self._module(layout,"search_apps","Приложения и ярлыки","Меню «Пуск» и рабочий стол; каталог обновляется по запросу")
         self._module(layout,"search_files","Файлы из индекса Windows","По имени файла. Только индексированные Windows папки, без своего фонового обхода диска")
@@ -275,7 +271,7 @@ class SettingsPages:
         self.number(inside,"group_hover_delay","Раскрытие при наведении"," мс")
         self.number(inside,"group_collapse_delay","Сворачивание после ухода"," мс")
         self._module(inside,"groups_locked","Закрепить расположение","Запретить случайное перемещение за заголовок")
-        self._module(inside,"group_collect_shortcuts","Убирать добавленные ярлыки с рабочего стола","Cloud Hub сначала сохраняет собственную копию .lnk или .url. Документы и папки остаются на своём месте.")
+        self._module(inside,"group_collect_shortcuts","Убирать добавленные ярлыки с рабочего стола","Nelviro сначала сохраняет собственную копию .lnk или .url. Документы и папки остаются на своём месте.")
         inside.addWidget(self.action("Открыть библиотеку ярлыков ↗",lambda:self._url(QUrl.fromLocalFile(str(self.owner.modules.desktop.store.library.root)))))
         inside.addWidget(self.action("Выровнять группы на рабочем столе",self.owner.modules.desktop.arrange))
         inside.addStretch()
@@ -356,7 +352,9 @@ class SettingsPages:
         hub = self.owner.notch_hub
         self.timer_label.refresh()
         if hasattr(self,'overview_timer'): self.overview_timer.refresh()
+        if hasattr(self,'focus_preview'): self.focus_preview.update()
         self.focus_start.setText("Остановить сигнал" if hub.alarm.active else "Пауза" if hub._timer_end else "Продолжить" if 0 < hub.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
+        if hasattr(self,'overview_start'): self.overview_start.setText(self.focus_start.text())
 
     def preview_timer_sound(self):
         import winsound
@@ -372,7 +370,7 @@ class SettingsPages:
         layout = self._page()
         self.heading(layout,"Горячие клавиши","Нажми поле, введи сочетание и нажми «Применить». «Отключить» освобождает клавишу. Занятые сочетания не заменяют рабочую настройку.")
         self.key_editors, self.key_status = {},{}
-        for key,title in (("hotkey_search","Быстрый поиск"),("hotkey_island","Открыть чёлку"),("hotkey_hub","Открыть Cloud Hub")):
+        for key,title in (("hotkey_search","Быстрый поиск"),("hotkey_island","Открыть чёлку"),("hotkey_hub","Открыть Nelviro")):
             frame,inside = self.card(title)
             row = QHBoxLayout()
             editor = ShortcutRecorder(self.owner,self.owner.settings.get(key))
@@ -402,7 +400,7 @@ class SettingsPages:
     def application_page(self):
         layout = self._page()
         self.heading(layout,"Приложение","Оформление, запуск и подключение дополнительных инструментов.")
-        frame,inside=self.card('Твой Cloud Hub')
+        frame,inside=self.card('Твой Nelviro')
         row=QHBoxLayout()
         row.addWidget(QLabel('Оформление'),1)
         self.theme_picker=QComboBox()
@@ -416,7 +414,7 @@ class SettingsPages:
         self._module(layout,"autostart","Запускать с Windows","При входе в систему — только трей и выбранные модули")
         layout.addWidget(self.action('Версия и обновления →',lambda:self.navigate('updates')))
         layout.addWidget(self.action("Открыть папку данных",lambda:self._url(QUrl.fromLocalFile(str(self.owner.settings.directory)))))
-        frame,inside = self.card("PowerToys · необязательное подключение","Для FancyZones и Workspaces. Поиск и группы Cloud Hub работают самостоятельно. При применении параметров PowerToys перезапускается. При выходе исходное подключение восстанавливается.")
+        frame,inside = self.card("PowerToys · необязательное подключение","Для FancyZones и Workspaces. Поиск и группы Nelviro работают самостоятельно. При применении параметров PowerToys перезапускается. При выходе исходное подключение восстанавливается.")
         self.integration_status = QLabel()
         self.integration_status.setWordWrap(True)
         inside.addWidget(self.integration_status)

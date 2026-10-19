@@ -104,7 +104,7 @@ class UpdateChecker(QObject):
         self.info=None
         self.path=None
         self.sha256=None
-        self.message='Проверь, доступна ли новая версия Cloud Hub.'
+        self.message='Проверь, доступна ли новая версия Nelviro.'
         self.received=self.total=0
         self.cancel_event=threading.Event()
         self._event.connect(self._receive)
@@ -116,7 +116,7 @@ class UpdateChecker(QObject):
             if isinstance(result,dict) and not result.get('seen') and 0<=time.time()-result['at']<172800:
                 self.last_result=result
                 self.state='updated' if result['status']=='installed' and result['version']==__version__ else 'error'
-                self.message='Cloud Hub обновлён. Всё готово к работе.' if self.state=='updated' else result.get('message','Установка не завершена')
+                self.message='Nelviro обновлён. Всё готово к работе.' if self.state=='updated' else result.get('message','Установка не завершена')
                 result['seen']=True
                 result_path.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
         except (OSError,ValueError,TypeError,KeyError): pass
@@ -168,10 +168,10 @@ class UpdateChecker(QObject):
         self.running=False
         if result['status']=='available':
             self.info=result
-            self.set_state('available','Доступна новая версия Cloud Hub.')
+            self.set_state('available','Доступна новая версия Nelviro.')
         elif result['status']=='current':
             self.info=result.get('release')
-            self.set_state('current','Установлена последняя версия Cloud Hub.')
+            self.set_state('current','Установлена последняя версия Nelviro.')
         else: self.set_state('error',result['message'])
 
     def download(self):
@@ -249,7 +249,7 @@ class UpdateChecker(QObject):
         if self.state!='ready' or not self.path or not self.info: return False
         source=Path(context.get('source_exe',''))
         if source.name.casefold()!='cloudisland.exe' or not source.is_file():
-            self.set_state('error','Установка доступна в собранном приложении Cloud Hub.')
+            self.set_state('error','Установка доступна в собранном приложении Nelviro.')
             return False
         self.set_state('installing','Подготавливаем установку и резервную копию…')
         threading.Thread(target=self._handoff,args=(dict(context),),daemon=True).start()

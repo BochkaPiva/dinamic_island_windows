@@ -376,7 +376,7 @@ class NotchHub(QWidget):
         source_button.clicked.connect(self.choose_source)
         bar.addWidget(source_button)
         settings_button = QPushButton("•••")
-        settings_button.setToolTip("Открыть Cloud Hub")
+        settings_button.setToolTip("Открыть Nelviro")
         settings_button.clicked.connect(owner.show_hub)
         bar.addWidget(settings_button)
         root.addLayout(bar)

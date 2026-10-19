@@ -1,3 +1,11 @@
+## v0.8.0
+
+- Nelviro identity: original N mark, Glacier accent, shared dark/light palette and calmer native controls.
+- Two-column module overview with live cover/audio, saved groups, direct search and editable focus timer.
+- Preview audio updates coalesced to 30 fps while visible; no additional capture service.
+- Search and desktop groups follow the selected theme. Keyboard controls and reduced motion retained.
+- Existing installation identity, updater protocol, Telegram pairing and user data paths preserved.
+
 ## v0.7.1
 
 - Public Telegram service on Vercel with PostgreSQL on Neon Free; no Yandex login or payments.

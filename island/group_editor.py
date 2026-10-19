@@ -149,7 +149,7 @@ class GroupEditor(QWidget):
         for button in (self.add_files,self.add_folder,self.remove_links):
             actions.addWidget(button)
         right_layout.addLayout(actions)
-        hint=QLabel("Файлы остаются на диске. Ярлыки хранятся в библиотеке Cloud Hub.")
+        hint=QLabel("Файлы остаются на диске. Ярлыки хранятся в библиотеке Nelviro.")
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         right_layout.addWidget(hint)

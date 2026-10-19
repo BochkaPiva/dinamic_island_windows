@@ -40,9 +40,15 @@ def rounded_art(data, size, radius=7, ratio=1.0):
     p.setClipPath(clip)
     if source.isNull():
         p.fillRect(QRectF(0, 0, size, size), QColor("#1c1d25"))
-        p.setFont(font(round(size * .45), 600))
-        p.setPen(QColor("#9dabc8"))
-        p.drawText(QRectF(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, "♪")
+        # Original vector note: no dependency on a font's music glyph coverage.
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QPen
+        p.setPen(QPen(QColor("#B4DFF2"), max(1., size*.035),
+                      Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.56,size*.65))
+        p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.72,size*.34))
+        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor("#B4DFF2"))
+        p.drawEllipse(QRectF(size*.34,size*.58,size*.24,size*.16))
     else:
         source = source.scaled(round(size * ratio), round(size * ratio),
                                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
@@ -60,18 +66,8 @@ def art_placeholder(size, radius=7, ratio=1.0):
 
 
 def app_icon():
-    pix = QPixmap(64, 64)
-    pix.fill(Qt.GlobalColor.transparent)
-    p = QPainter(pix)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(QColor("#111217"))
-    p.drawRoundedRect(QRectF(2, 2, 60, 60), 18, 18)
-    p.setBrush(QColor("#d5e5ff"))
-    for x, height in ((17, 10), (25, 23), (33, 32), (41, 18)):
-        p.drawRoundedRect(QRectF(x, (64-height)/2, 5, height), 2.5, 2.5)
-    p.end()
-    return QIcon(pix)
+    # Include every size so Windows and Qt choose a crisp native-resolution mark.
+    return QIcon(str(Path(__file__).parent / 'assets' / 'brand' / 'Nelviro.ico'))
 
 
 class TransportButton(QPushButton):

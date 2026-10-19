@@ -17,6 +17,7 @@ from .hub import FileShelf
 from .platform_win import anchor_desktop_panel, disable_window_transitions, exclude_from_peek
 from .motion import DampedValue, smoothstep
 from .style import font
+from .brand import resolved_palette
 from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
 from .shortcut_library import ShortcutLibrary
 from .scrolling import SmoothScroll
@@ -124,7 +125,7 @@ class GroupStore(QObject):
                 try:
                     self.library.collect(path)
                 except OSError:
-                    self.warn("Ярлык сохранён в Cloud Hub, но убрать его с рабочего стола не удалось: "+Path(path).name)
+                    self.warn("Ярлык сохранён в Nelviro, но убрать его с рабочего стола не удалось: "+Path(path).name)
 
     def restore_shortcut(self,path):
         try:
@@ -340,7 +341,7 @@ class GroupItemDelegate(QStyledItemDelegate):
         if icon:
             icon.paint(p,QRect(round(rect.center().x()-20),round(rect.y()+7),40,40))
         p.setFont(font(11,400))
-        p.setPen(QColor(TEXT))
+        p.setPen(QColor(self.parent().panel._brand_colors['text']))
         label=index.data(Qt.ItemDataRole.DisplayRole) or ""
         width=max(10,round(rect.width()-6))
         text_layout=QTextLayout(label,p.font())
@@ -446,26 +447,10 @@ class GroupPanel(QWidget):
         self.texture = QPixmap()
         self.full_height = 112
         self.closed_width = 216
-        self.setWindowTitle("Cloud Hub — группа «"+group["title"]+"»")
+        self.setWindowTitle("Nelviro — группа «"+group["title"]+"»")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
-        self.setStyleSheet("""QWidget {color:#f4f4f6;font:12px 'Golos Text';background:transparent;}
-            QPushButton {border:0;padding:5px;background:transparent;border-radius:7px;}
-            QPushButton:hover {background:rgba(255,255,255,18);}
-            QLabel#groupName {font-weight:500;font-size:15px;}
-            QLabel#groupCount {color:#b2b6bf;font-size:11px;}
-            QLineEdit {background:rgba(255,255,255,7);border:0;padding:7px;border-radius:7px;selection-background-color:#53647a;}
-            QListWidget {border:0;background:transparent;outline:0;padding:2px;}
-            QListWidget::item {padding:3px;border-radius:7px;}
-            QListWidget::item:selected {background:rgba(255,255,255,24);}
-            QScrollBar:vertical {width:4px;background:transparent;}
-            QScrollBar::handle:vertical {background:#657080;border-radius:2px;min-height:24px;}
-            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
-            QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}
-            QMenu {background:#20242c;border:1px solid #414550;border-radius:10px;padding:6px;}
-            QMenu::item {padding:9px 15px;border-radius:5px;}
-            QMenu::item:selected {background:#3c4350;}""")
         self.header = QWidget(self)
         header = QHBoxLayout(self.header)
         header.setContentsMargins(14, 0, 8, 0)
@@ -526,6 +511,20 @@ class GroupPanel(QWidget):
         self._header_state(False)
 
     def configure(self):
+        colors=resolved_palette(self.manager.owner.settings)
+        if getattr(self,'_brand_colors',None)!=colors:
+            from .hub_ui import stylesheet
+            self._brand_colors=colors
+            self.setStyleSheet(stylesheet(colors)+f"""
+                QWidget {{font-size:12px;}}
+                QLabel#groupName {{font-size:15px;font-weight:500;}}
+                QPushButton {{background:transparent;border:0;padding:5px;}}
+                QPushButton:hover {{background:{colors['raised']};}}
+                QLineEdit {{border:0;padding:7px;}}
+                QListWidget {{border:0;background:transparent;padding:2px;}}
+            """)
+            self.texture=QPixmap()
+
         s = self.manager.owner.settings
         old_width, old_grid = getattr(self,"full_width",0), self.shelf.gridSize()
         self.full_width = s.get("group_width")
@@ -535,7 +534,7 @@ class GroupPanel(QWidget):
         self.shelf.setGridSize(QSize((self.full_width-30)//s.get("group_columns"), 96))
         self.header.setGeometry(0, 0, self.width(), 44)
         self.name.setText(self.group["title"])
-        self.setWindowTitle("Cloud Hub — группа «"+self.group["title"]+"»")
+        self.setWindowTitle("Nelviro — группа «"+self.group["title"]+"»")
         self.count_label.setText(str(self.shelf.count()))
         changed = old_width != self.full_width or old_grid != self.shelf.gridSize()
         if self.expanded or self.animation.isActive():
@@ -732,16 +731,17 @@ class GroupPanel(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         progress=max(0.,min(1.,(self.height()-44)/max(1,self.full_height-44)))
-        color = QColor(SURFACE)
+        colors=self._brand_colors
+        color = QColor(colors['surface'])
         color.setAlpha(round((150+90*progress)*self.manager.owner.settings.get("group_opacity")/100))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         path = QPainterPath()
-        radius=10+4*progress
+        radius=16+4*progress
         path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),radius,radius)
         p.fillPath(path,color)
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(QColor(255,255,255,22),1))
+        p.setPen(QPen(QColor(colors['line']),1))
         p.drawPath(path)
         if self.animation.isActive() and not self.texture.isNull():
             p.setClipPath(path)
@@ -796,7 +796,7 @@ class DesktopGroups(QObject):
 
     def notify(self,message):
         if self.owner._services and getattr(self.owner,'tray',None) and not (self.owner.control_center and self.owner.control_center.isVisible()):
-            self.owner.tray.showMessage('Cloud Hub',message)
+            self.owner.tray.showMessage('Nelviro',message)
 
     def screen_added(self,screen):
         screen.availableGeometryChanged.connect(lambda _:self.reposition())
@@ -923,7 +923,7 @@ class DesktopGroups(QObject):
         dialog.setWindowTitle("Удалить группу?")
         dialog.setIcon(QMessageBox.Icon.Question)
         dialog.setTextFormat(Qt.TextFormat.PlainText)
-        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nФайлы и папки на диске останутся.\nСохранённые ярлыки останутся в библиотеке Cloud Hub.")
+        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nФайлы и папки на диске останутся.\nСохранённые ярлыки останутся в библиотеке Nelviro.")
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)
         dialog.button(QMessageBox.StandardButton.Yes).setText("Удалить группу")
         dialog.button(QMessageBox.StandardButton.No).setText("Отмена")

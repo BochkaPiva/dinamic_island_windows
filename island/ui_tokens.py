@@ -58,6 +58,15 @@ def glyph(painter, name, rect, color=TEXT):
     p.restore()
 
 
+def widget_colors(widget):
+    from .brand import resolved_palette, palette
+    window=widget.window()
+    if hasattr(window,'colors'): return window.colors
+    if hasattr(window,'_brand_colors'): return window._brand_colors
+    owner=getattr(window,'owner',None) or getattr(getattr(window,'manager',None),'owner',None)
+    return resolved_palette(owner.settings) if owner else palette()
+
+
 class LineIcon(QWidget):
     def __init__(self,name,size=22,parent=None):
         super().__init__(parent)
@@ -68,7 +77,7 @@ class LineIcon(QWidget):
     def paintEvent(self,event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        glyph(p,self.name,QRectF(self.rect()),MUTED)
+        glyph(p,self.name,QRectF(self.rect()),widget_colors(self)['muted'])
 
 
 class IconButton(QPushButton):
@@ -87,4 +96,4 @@ class IconButton(QPushButton):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(255,255,255,20))
             p.drawRoundedRect(QRectF(self.rect()),7,7)
-        glyph(p,self.icon_name,QRectF(6,6,16,16),TEXT if self.underMouse() else MUTED)
+        glyph(p,self.icon_name,QRectF(6,6,16,16),widget_colors(self)['text' if self.underMouse() else 'muted'])

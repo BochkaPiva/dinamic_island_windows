@@ -5,7 +5,7 @@
   #define AppName "Cloud Hub Verification"
   #define ProductId "33D58E9E-E275-41E8-8BC2-BB9CFD0CF308"
 #else
-  #define AppName "Cloud Hub"
+  #define AppName "Nelviro"
   #define ProductId "FC837952-6ABC-4F61-8A70-1ED23D0FD195"
 #endif
 #define AppUrl "https://github.com/BochkaPiva/dinamic_island_windows"
@@ -57,12 +57,14 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\CloudIsland.exe"; Tasks: desk
 ; Application runtime contains no user data. Never retain plugins from a previous Qt.
 Type: filesandordirs; Name: "{app}\_internal"
 #ifndef ValidationBuild
+Type: files; Name: "{autoprograms}\Cloud Hub.lnk"
+Type: files; Name: "{autodesktop}\Cloud Hub.lnk"
 Type: files; Name: "{autoprograms}\Cloud Island.lnk"
 Type: files; Name: "{autodesktop}\Cloud Island.lnk"
 #endif
 
 [Run]
-Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Cloud Hub}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Nelviro}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CloseIsland;

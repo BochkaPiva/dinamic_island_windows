@@ -15,7 +15,7 @@ $parts = ($version.Split('.') + '0') -join ', '
 @"
 VSVersionInfo(ffi=FixedFileInfo(filevers=($parts), prodvers=($parts), mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0,0)),
  kids=[StringFileInfo([StringTable('040904B0', [StringStruct('CompanyName','BochkaPiva'),
- StringStruct('ProductName','Cloud Hub'), StringStruct('FileDescription','Cloud Hub'),
+ StringStruct('ProductName','Nelviro'), StringStruct('FileDescription','Nelviro'),
  StringStruct('FileVersion','$version'), StringStruct('ProductVersion','$version'),
  StringStruct('OriginalFilename','CloudIsland.exe')])]), VarFileInfo([VarStruct('Translation',[1033,1200])])])
 "@ | Set-Content -LiteralPath 'build/version_info.txt' -Encoding utf8

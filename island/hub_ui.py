@@ -15,13 +15,7 @@ def motion_allowed(widget):
     return bool(not hasattr(window,'owner') or window.owner.settings.get('hub_animations'))
 
 
-def palette(theme='dark'):
-    light=theme=='light'
-    return {'bg':'#f0f1f5' if light else '#111218','side':'#e4e6ed' if light else '#191b24',
-        'surface':'#ffffff' if light else '#20222c','raised':'#f5f6fa' if light else '#2a2d39',
-        'text':'#20232d' if light else '#f3f3f7','muted':'#6e7484' if light else '#9a9ead',
-        'line':'#dce0e9' if light else '#333643','accent':'#526aca' if light else '#afbcff',
-        'selection':'#d4dbf4' if light else '#32384e','field':'#e9ecf3' if light else '#171920'}
+from .brand import palette
 
 
 def icon(name,color='#a6abbc',size=20):
@@ -86,7 +80,7 @@ class ToggleSwitch(QCheckBox):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         p.drawRoundedRect(QRectF(1,2,40,22),11,11)
-        p.setBrush(QColor('#ffffff'))
+        p.setBrush(QColor(colors['onAccent'] if self.isChecked() else colors['text']))
         p.drawEllipse(QRectF(4+18*t,5,16,16))
         if self.hasFocus():
             p.setBrush(Qt.BrushStyle.NoBrush)
@@ -218,51 +212,10 @@ class ModuleCard(QFrame):
         edge=QColor(colors['accent'] if self.hasFocus() else colors['line'])
         edge.setAlpha(255 if self.hasFocus() else round(150+100*self.hover))
         p.setPen(QPen(edge,1))
-        p.drawRoundedRect(rect,16,16)
+        p.drawRoundedRect(rect,20,20)
         if self.hover:
             glow=QColor(colors['accent']); glow.setAlpha(round(8*self.hover))
-            p.setPen(Qt.PenStyle.NoPen); p.setBrush(glow); p.drawRoundedRect(rect,16,16)
-
-
-class IslandPreview(QWidget):
-    def __init__(self,owner,parent=None):
-        super().__init__(parent)
-        self.owner=owner
-        self.setMinimumSize(238,112)
-        self.setMaximumWidth(290)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.cover_key=None
-        self.cover=None
-        self.setAccessibleName('Открыть Dynamic Island')
-        owner.audio.levels_changed.connect(lambda _:self.update() if self.isVisible() else None)
-
-    def mouseReleaseEvent(self,event): self.owner._show_panel()
-
-    def paintEvent(self,event):
-        p=QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect=QRectF(8,12,self.width()-16,70)
-        p.setBrush(QColor('#08090d')); p.setPen(QPen(QColor(255,255,255,25),1))
-        p.drawRoundedRect(rect,24,24)
-        snap=self.owner.snapshot
-        data=snap.thumb if snap and snap.thumb else b''
-        if self.cover is None or self.cover_key!=data:
-            self.cover_key=data
-            self.cover=rounded_art(data,42,12,self.devicePixelRatioF())
-        p.drawPixmap(22,26,self.cover)
-        p.setFont(font(12,600)); p.setPen(QColor('#f3f3f7'))
-        title=snap.title if snap and snap.title else 'Твоя музыка'
-        width=max(50,self.width()-144)
-        p.drawText(QRectF(76,29,width,19),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(title,Qt.TextElideMode.ElideRight,width))
-        p.setFont(font(10)); p.setPen(QColor('#8f94a3'))
-        caption=snap.artist if snap and snap.artist else 'Всегда рядом'
-        p.drawText(QRectF(76,49,width,16),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(caption,Qt.TextElideMode.ElideRight,width))
-        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#c1caff'))
-        for i,level in enumerate(self.owner.status_mark.levels):
-            height=3+min(1.,max(0.,level))*23
-            p.drawRoundedRect(QRectF(self.width()-49+i*5,47-height/2,3,height),1.5,1.5)
-        p.setFont(font(9,500)); p.setPen(QColor(self.window().colors['muted']))
-        p.drawText(QRectF(0,94,self.width(),15),Qt.AlignmentFlag.AlignCenter,'CLOUD ISLAND  ·  У ВЕРХНЕЙ РАМКИ')
+            p.setPen(Qt.PenStyle.NoPen); p.setBrush(glow); p.drawRoundedRect(rect,20,20)
 
 
 class WindowHeader(QWidget):
@@ -277,30 +230,30 @@ def stylesheet(c):
     return f"""
         QWidget {{background:transparent;color:{c['text']};font-family:'Golos Text';font-size:13px;}}
         QDialog,QMessageBox {{background:{c['surface']};color:{c['text']};}}
-        QMenu,QToolTip {{background:{c['raised']};color:{c['text']};border:1px solid {c['line']};border-radius:9px;padding:6px;}}
+        QMenu,QToolTip {{background:{c['raised']};color:{c['text']};border:1px solid {c['line']};border-radius:12px;padding:6px;}}
         QMenu::item {{padding:8px 14px;border-radius:5px;}}
         QMenu::item:selected {{background:{c['selection']};}}
         QLabel#brand {{font-size:17px;font-weight:600;}}
-        QLabel#heading {{font-size:25px;font-weight:600;margin:0 0 4px 0;}}
+        QLabel#heading {{font-size:28px;font-weight:600;margin:0 0 4px 0;}}
         QLabel#heroTitle {{font-size:28px;font-weight:600;}}
-        QLabel#cardTitle {{font-size:15px;font-weight:600;}}
+        QLabel#cardTitle {{font-size:20px;font-weight:600;}}
         QLabel#secondary,QLabel#hint {{color:{c['muted']};font-size:12px;}}
         QLabel#eyebrow {{color:{c['muted']};font-size:10px;letter-spacing:1px;}}
         QLabel#paneTitle {{font-size:14px;font-weight:600;}}
         QLabel#toast {{background:{c['raised']};border:1px solid {c['line']};border-radius:10px;padding:10px 15px;color:{c['text']};}}
         QLabel#resource {{color:{c['muted']};font-size:10px;}}
-        QFrame#card,QFrame#groupPane {{background:{c['surface']};border:1px solid {c['line']};border-radius:16px;}}
-        QFrame#sidebar {{background:{c['side']};border:1px solid {c['line']};border-radius:16px;}}
+        QFrame#card,QFrame#groupPane {{background:{c['surface']};border:1px solid {c['line']};border-radius:20px;}}
+        QFrame#sidebar {{background:{c['side']};border:1px solid {c['line']};border-radius:20px;}}
         QFrame#hero {{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 {c['raised']},stop:1 {c['surface']});border:1px solid {c['line']};border-radius:18px;}}
         QFrame#segments {{background:{c['field']};border:1px solid {c['line']};border-radius:10px;}}
         QFrame#settingRow {{border:0;border-bottom:1px solid {c['line']};}}
-        QPushButton {{background:{c['raised']};border:1px solid {c['line']};border-radius:9px;padding:8px 12px;}}
+        QPushButton {{background:{c['raised']};border:1px solid {c['line']};border-radius:12px;padding:8px 12px;}}
         QPushButton:hover {{background:{c['selection']};}}
         QPushButton:pressed {{background:{c['line']};}}
         QPushButton:checked {{background:{c['selection']};border-color:{c['accent']};}}
         QPushButton:disabled {{color:{c['muted']};}}
         QPushButton:focus {{border-color:{c['accent']};}}
-        QPushButton#primary {{background:{c['accent']};color:{c['bg']};border:0;font-weight:600;}}
+        QPushButton#primary {{background:{c['accent']};color:{c['onAccent']};border:0;font-weight:600;}}
         QPushButton#quiet {{background:transparent;border:0;color:{c['muted']};padding:5px 0;}}
         QPushButton#quiet:hover {{color:{c['text']};}}
         QPushButton#windowButton {{background:transparent;border:0;border-radius:7px;padding:0;font-family:'Segoe UI';font-size:17px;}}
@@ -310,7 +263,7 @@ def stylesheet(c):
         QPushButton#deleteGroup {{color:#dd8a96;}}
         QPushButton#segment {{background:transparent;border:0;padding:7px 10px;color:{c['muted']};}}
         QPushButton#segment:checked {{background:{c['selection']};color:{c['text']};}}
-        QLineEdit,QComboBox,QSpinBox,QKeySequenceEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:9px;padding:8px;selection-background-color:{c['selection']};}}
+        QLineEdit,QComboBox,QSpinBox,QKeySequenceEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:12px;padding:8px;selection-background-color:{c['selection']};}}
         QLineEdit:focus,QComboBox:focus,QSpinBox:focus,QKeySequenceEdit:focus {{border-color:{c['accent']};}}
         QPlainTextEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:12px;padding:12px;selection-background-color:{c['selection']};}}
         QComboBox::drop-down {{border:0;width:22px;}}
@@ -320,7 +273,7 @@ def stylesheet(c):
         QListWidget::item {{padding:8px;border-radius:7px;}}
         QListWidget::item:selected {{background:{c['selection']};color:{c['text']};}}
         QTabWidget::pane {{border:0;}}
-        QTabBar::tab {{background:transparent;color:{c['muted']};padding:9px 12px;margin:0 5px 8px 0;border-radius:9px;}}
+        QTabBar::tab {{background:transparent;color:{c['muted']};padding:9px 12px;margin:0 5px 8px 0;border-radius:12px;}}
         QTabBar::tab:selected {{background:{c['selection']};color:{c['text']};}}
         QSlider::groove:horizontal {{height:4px;background:{c['line']};border-radius:2px;}}
         QSlider::sub-page:horizontal {{background:{c['accent']};border-radius:2px;}}

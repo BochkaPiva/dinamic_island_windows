@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Cloud Hub: native, local module settings and optional PowerToys integration."""
+"""Nelviro: native, local module settings and optional PowerToys integration."""
 import ctypes
 import os
 from pathlib import Path
@@ -82,7 +82,7 @@ class ControlCenter(QWidget, SettingsPages):
         self.setWindowFlags(Qt.WindowType.Window|Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
-        self.setWindowTitle("Cloud Hub")
+        self.setWindowTitle("Nelviro")
         self.setWindowIcon(app_icon())
         self.setMinimumSize(900, 600)
         self.resize(1120, 760)
@@ -101,10 +101,10 @@ class ControlCenter(QWidget, SettingsPages):
         brand_icon=QLabel()
         brand_icon.setPixmap(app_icon().pixmap(24,24))
         header.addWidget(brand_icon)
-        title = text("Cloud Hub")
+        title = text("Nelviro")
         title.setObjectName("brand")
         header.addWidget(title)
-        subtitle = text("РАБОЧЕЕ ПРОСТРАНСТВО", True)
+        subtitle = text("", True)
         subtitle.setObjectName('eyebrow')
         subtitle.setWordWrap(False)
         header.addSpacing(16)
@@ -123,7 +123,7 @@ class ControlCenter(QWidget, SettingsPages):
         body.setSpacing(22)
         sidebar=QFrame()
         sidebar.setObjectName('sidebar')
-        sidebar.setFixedWidth(202)
+        sidebar.setFixedWidth(208)
         side=QVBoxLayout(sidebar)
         side.setContentsMargins(10,14,10,12)
         side.setSpacing(10)
@@ -146,7 +146,7 @@ class ControlCenter(QWidget, SettingsPages):
         side.addWidget(self.search_empty)
         self.pause_button=button('Приостановить',self._pause)
         side.addWidget(self.pause_button)
-        version=button(f'Cloud Hub  {__version__}',lambda:self.navigate('updates'))
+        version=button(f'Nelviro  {__version__}',lambda:self.navigate('updates'))
         version.setObjectName('quiet')
         side.addWidget(version)
         body.addWidget(sidebar)
@@ -180,6 +180,7 @@ class ControlCenter(QWidget, SettingsPages):
         self.resource_label = text("", True)
         self.resource_label.setObjectName('resource')
         self.resource_label.setWordWrap(False)
+        self.resource_label.hide()
         footer.addWidget(self.resource_label)
         footer.addStretch()
         self.shortcut_label = text("Ctrl + Alt + H", True)
@@ -332,7 +333,7 @@ class ControlCenter(QWidget, SettingsPages):
             layout.addWidget(button(name, lambda checked=False, url=target: self._url(QUrl(url))))
             layout.addWidget(text(detail, True))
         layout.addWidget(button("Открыть HONOR PC Manager", self._honor))
-        section(layout, "Оформление панели задач", "Настройки прозрачности панели задач остаются в TranslucentTB. Cloud Hub не заменяет оболочку Windows и не меняет параметры стороннего оформления.")
+        section(layout, "Оформление панели задач", "Настройки прозрачности панели задач остаются в TranslucentTB. Nelviro не заменяет оболочку Windows и не меняет параметры стороннего оформления.")
         layout.addWidget(button("Страница проекта и обновления ↗", lambda: self._url(QUrl(REPO_URL))))
         layout.addStretch()
 
@@ -496,14 +497,8 @@ class ControlCenter(QWidget, SettingsPages):
         super().hideEvent(event)
 
     def _apply_theme(self):
-        theme=self.owner.settings.get('hub_theme')
-        if theme=='system':
-            theme='dark'
-            try:
-                with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize') as key:
-                    theme='light' if winreg.QueryValueEx(key,'AppsUseLightTheme')[0] else 'dark'
-            except OSError: pass
-        self.colors=palette(theme)
+        from .brand import resolved_palette
+        self.colors=resolved_palette(self.owner.settings)
         self.setStyleSheet(stylesheet(self.colors))
         self.setFont(font(13))
         from .timer import TimerReadout

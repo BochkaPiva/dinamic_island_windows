@@ -113,7 +113,7 @@ class SearchPalette(SearchPresentation, QWidget):
         self.pending = None
         self.icon_provider = QFileIconProvider()
         self.icons = {}
-        self.setWindowTitle("Cloud Hub — Поиск")
+        self.setWindowTitle("Nelviro — Поиск")
         self.build_presentation()
         self.debounce = QTimer(self)
         self.debounce.setSingleShot(True)
@@ -162,8 +162,8 @@ class SearchPalette(SearchPresentation, QWidget):
         return future
 
     def _commands(self):
-        return [Result("Открыть Cloud Hub", "Настройки модулей", "hub", "command"),
-                Result("Открыть Dynamic Island", "Музыка и обзор", "island", "command"),
+        return [Result("Открыть Nelviro", "Настройки модулей", "hub", "command"),
+                Result("Открыть Остров", "Музыка и обзор", "island", "command"),
                 Result("Файлы и заметки", "Твои сохранённые материалы", "library", "command"),
                 Result("Таймер", "Своя длительность, пауза и продолжение", "timer", "command"),
                 Result("Группы рабочего стола", "Добавить и настроить группу", "desktop", "command")]

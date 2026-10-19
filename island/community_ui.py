@@ -213,7 +213,7 @@ class CommunityPanel(QWidget):
                 item.widget().deleteLater()
         controller = self.controller
         base = self.card('Работает без входа',
-            'Dynamic Island, поиск, две группы рабочего стола, таймер и локальные заметки. Без оплаты и регистрации.')
+            'Остров, поиск, две группы рабочего стола, таймер и локальные заметки. Без оплаты и регистрации.')
         base.addWidget(text('Ваши файлы и настройки остаются на компьютере.', True))
         permit = controller.permit if controller else None
         active = bool(permit and permit.allows(controller.clock()))
