@@ -8,6 +8,15 @@
 - Rebuilt community comparison using the shared resting silhouette and centered live spectrum; added concrete benefits, connected state and access explanation. Prominent cursor-avoidance toggle, calmer settings headers/type hierarchy, and an actionable empty file shelf.
 - QtMultimedia is packaged with matched PySide6 Addons and external FFmpeg 7.1.5 libraries. Dependency notices/build flags are recorded; unrelated Qt modules remain excluded by the bundle audit.
 
+## 0.10.1 — Сообщество и видео без лишнего меню
+
+- Исправлена ошибка повторного обновления статуса Telegram: карточки больше не удаляются при проверке подписки.
+- Постоянные живые предпросмотры, отдельный статус подключения и понятные действия в каждом состоянии.
+- На странице объяснены бесплатные и расширенные возможности, офлайн-доступ и сохранность групп.
+- Основная кнопка видео работает со встроенным PiP браузера: без захвата страницы, выбора окон и привязки к смене аудиоисточника. Включение PiP выполняется в самом браузере.
+- Видеофайлы и камера перенесены в свёрнутый блок настроек; аудиоменю оформлено под чёрный остров.
+- Добавлена проверка повторных уведомлений и полного локального цикла доступа: подтверждение, льготный период, ограничение, повторная подписка и отключение.
+
 ## v0.9.3
 
 - Floating avoidance morphs into an opaque six-pixel bezel tab instead of disappearing. The complete live artwork/spectrum texture travels upward inside the contracting silhouette.

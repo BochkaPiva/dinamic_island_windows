@@ -11,7 +11,7 @@ import uuid
 from unittest.mock import Mock,patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from PySide6.QtTest import QTest
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, QCoreApplication, QEvent
 from PySide6.QtWidgets import QApplication,QPushButton,QLabel
 from island.community_client import CommunityClient,CommunityError,proof,validate_origin
 from island.community_ui import CommunityController,CommunityPanel
@@ -144,3 +144,64 @@ class DirectCommunityTests(unittest.TestCase):
         self.assertFalse(controller.busy);self.assertGreater(len(ticks),2)
         self.assertEqual(self.access.grant.edition,'free')
         controller.stop();timer.stop();controller.deleteLater()
+
+    def test_panel_survives_repeated_refresh_and_access_notifications(self):
+        controller=CommunityController(self.temp.name,self.access,origin=self.client.origin,keys=self.keys,
+            channel_id=-1004359060579,auto_start=False,clock=lambda:self.clock[0])
+        panel=CommunityPanel(controller);panel.resize(680,850);panel.show()
+        self.addCleanup(controller.stop)
+        self.addCleanup(panel.deleteLater)
+        self.addCleanup(controller.deleteLater)
+        QTest.qWait(20)
+        original=tuple(panel.findChildren(QLabel)+panel.findChildren(QPushButton))
+        for _ in range(12):
+            controller.busy=True;controller.changed.emit()
+            self.assertFalse(panel.primary.isEnabled())
+            controller._complete({'refresh':True})  # access.changed then changed, synchronously
+            QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+            QTest.qWait(1)
+            self.assertEqual(tuple(panel.findChildren(QLabel)+panel.findChildren(QPushButton)),original)
+            self.assertTrue(panel.primary.isVisible())
+            self.assertTrue(panel.benefits.isVisible())
+            self.assertGreater(panel.benefits.height(),100)
+        self.assertEqual(panel.primary.text(),'Подключить Telegram')
+        panel.close()
+
+    def test_visible_membership_cycle_preserves_groups_and_recovers_after_rejoin(self):
+        controller=CommunityController(self.temp.name,self.access,origin=self.client.origin,keys=self.keys,
+            channel_id=-1004359060579,auto_start=False,clock=lambda:self.clock[0])
+        controller.client.session={'credential':'fixture'}
+        panel=CommunityPanel(controller);panel.show()
+        self.addCleanup(controller.stop);self.addCleanup(controller.deleteLater);self.addCleanup(panel.deleteLater)
+        with patch('island.build_config.COMMUNITY_PUBLIC_KEYS',self.keys):
+            groups=GroupStore(self.temp.name,collect_desktop=False,access=self.access)
+            for state,revision in [('active',1),('grace',2),('suspended',3),('active',4)]:
+                signed=self.permit(state,revision)
+                if state=='grace':
+                    payload=json.loads(base64.b64decode(signed['payload']))
+                    payload['access_until']=3000
+                    raw=json.dumps(payload).encode()
+                    signed={'key_id':'fixture','payload':base64.b64encode(raw).decode(),
+                        'signature':base64.b64encode(self.key.sign(b'cloud-hub/community/v1\0'+raw)).decode()}
+                controller.client.store.install(signed)
+                controller._complete({'refresh':True});QTest.qWait(1)
+                self.assertEqual(self.access.feature('island.floating').allowed,state!='suspended')
+                if state=='active' and revision==1:
+                    self.assertIsNotNone(groups.add('Third'))
+                    original=groups.path.read_bytes()
+                self.assertEqual(groups.path.read_bytes(),original)
+                self.assertEqual(len(self.access.active_ids(groups.groups)),2 if state=='suspended' else 3)
+                self.assertTrue(panel.primary.isVisible())
+                self.assertEqual(panel.status.text(),{'active':'Подписка подтверждена',
+                    'grace':'Нужно подтвердить подписку','suspended':'Telegram подключён'}[state])
+            controller._complete({'error':'Нет связи с сервисом'})
+            self.assertTrue(panel.message.isVisible())
+            self.assertTrue(self.access.feature('island.floating').allowed)
+            self.clock[0]=10000;self.access._expire();QTest.qWait(1)
+            self.assertFalse(self.access.feature('island.floating').allowed)
+            self.assertEqual(panel.title.text(),'Подтверди подписку на канал')
+            controller.client.forget_local();controller._complete({'disconnected':True})
+            self.assertEqual(panel.primary.text(),'Подключить Telegram')
+            self.assertFalse(panel.disconnect_button.isVisible())
+            self.assertEqual(groups.path.read_bytes(),original)
+        panel.close()
