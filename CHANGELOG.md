@@ -1,3 +1,12 @@
+## v0.9.0
+
+- Visual section headers, concise grouped settings and animated disclosures; removed Windows/HONOR page.
+- Smooth settings scrolling; native touchpad pixel deltas preserved and reduced-motion preference respected.
+- Floating island with adjustable gap for channel subscribers; free notch and saved data remain available on access expiry.
+- Reversible opacity/position appearance for both forms. Foreground and foreground-geometry events replace waiting for the slow fullscreen poll; no premature content collapse during exit.
+- Community capability comparison, prominent navigation and connected state show actual benefits.
+- Direct native window placement in halves, thirds and 60/40 with size verification and minimum-size checks. PowerToys Shift zones and workspace sets remain separate optional tools.
+
 ## v0.8.0
 
 - Nelviro identity: original N mark, Glacier accent, shared dark/light palette and calmer native controls.

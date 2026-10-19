@@ -20,7 +20,7 @@ class Settings:
                 "search_enabled": True, "layouts_enabled": True, "workspaces_enabled": True,
                 "manage_powertoys": False,
                 "compact_width": 180, "compact_height": 38,
-                "expanded_width": 560, "expanded_height": 170, "island_opacity": 100,
+                "island_style": "notch", "island_gap": 16, "expanded_width": 560, "expanded_height": 170, "island_opacity": 100,
                 "island_files": False,
                 "overview_calendar": True, "overview_focus": True,
                 "hover_delay": 180, "collapse_delay": 600, "cursor_retreat": True,
@@ -30,7 +30,7 @@ class Settings:
                 "groups_locked": False, "group_collect_shortcuts": True, "hub_theme": "dark", "hub_animations": True, "hotkey_hub": "Ctrl+Alt+H",
                 "hotkey_search": "Alt+Space", "hotkey_island": "Ctrl+Alt+I"}
 
-    RANGES = {"compact_width": (140, 360), "compact_height": (32, 64),
+    RANGES = {"island_gap": (8, 48),"compact_width": (140, 360), "compact_height": (32, 64),
               "expanded_width": (520, 1000), "expanded_height": (160, 460),
               "island_opacity": (55, 100), "hover_delay": (80, 1500),
               "collapse_delay": (200, 3000), "timer_minutes": (1, 1440),
@@ -54,6 +54,7 @@ class Settings:
             pass
         if self.values["profile"] not in {"auto", "work", "battery", "game"}:
             self.values["profile"] = "auto"
+        if self.values['island_style'] not in {'notch','floating'}: self.values['island_style']='notch'
         if self.values['hub_theme'] not in {'dark','light','system'}: self.values['hub_theme']='dark'
 
     def get(self, key):
@@ -64,6 +65,7 @@ class Settings:
             raise ValueError("Invalid setting")
         if key == "profile" and value not in {"auto", "work", "battery", "game"}:
             raise ValueError("Unknown profile")
+        if key=='island_style' and value not in {'notch','floating'}: raise ValueError('Unknown island style')
         if key=='hub_theme' and value not in {'dark','light','system'}: raise ValueError('Unknown theme')
         if key in self.RANGES and not self.RANGES[key][0] <= value <= self.RANGES[key][1]:
             raise ValueError("Setting is outside its range")

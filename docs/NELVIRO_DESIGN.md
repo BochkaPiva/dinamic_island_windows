@@ -36,3 +36,33 @@ Run `python -m unittest discover -s tests -q` in the desktop environment and
 audit. Visually inspect the module screen in dark/light modes at 1120 px and
 the minimum 900 px width, plus search and desktop groups. Use the update helper
 for an installation test so rollback and data snapshots remain active.
+
+## Layout and island update (0.9)
+
+Section headers carry live or explanatory previews. Secondary controls use
+collapsible sections; settings pages share inertial wheel scrolling and native
+pixel touchpad input. The Windows/HONOR page is removed. Community navigation
+is prominent and the comparison shows only implemented capabilities.
+
+The free notch remains available. Channel members can choose a floating shape
+and gap. A saved floating choice is retained when access expires, but the
+renderer safely uses the free notch. No group data is removed.
+
+Visibility has a separate, reversible opacity/position timeline. Foreground,
+move/size-end, minimize-end and foreground-location WinEvents trigger state
+checks. Location events are coalesced, and a polling fallback remains. Runtime
+services stop in fullscreen; expanded content is not collapsed halfway through
+its exit. Interrupted timelines preserve their current rendered fraction.
+
+Window placement is an explicit action against a chosen local HWND/PID, with
+monitor work-area/DPI, minimum-size checks and post-placement size verification.
+It does not install global snap/keyboard hooks or replace the separate optional
+PowerToys Shift-drag behavior. Windows with larger minimum sizes cannot fit a
+narrow zone; elevated/nonresponsive windows may reject placement.
+
+Validation: 174 desktop tests, three native fixture placements (halves, thirds,
+60/40), four registered/unregistered native event hooks, packaged Qt/WinRT
+self-test and bundle audit. Dark/light pages were rendered and inspected. An
+attempted live fullscreen fixture could not obtain foreground under Windows'
+focus policy; real browser Alt-Tab is not claimed as manually verified. Reversal,
+hide/show and reduced-motion behavior are covered by GUI tests.

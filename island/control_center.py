@@ -276,7 +276,8 @@ class ControlCenter(QWidget, SettingsPages):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 12, 4)
         layout.setSpacing(12)
-        scroll = QScrollArea()
+        from .scrolling import SmoothScrollArea
+        scroll = SmoothScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(page)
@@ -301,53 +302,32 @@ class ControlCenter(QWidget, SettingsPages):
         layout.addWidget(frame)
 
     def _workspaces_page(self):
-        layout = self._page()
-        section(layout, "Рабочие наборы", "Расставь нужные окна, открой редактор Workspaces и сохрани набор. Он появится здесь. Набор запускается только по нажатию кнопки.")
-        row = QHBoxLayout()
-        row.addWidget(button("Создать или изменить набор", self._workspace_editor))
-        row.addWidget(button("Обновить список", self._refresh_workspaces))
-        layout.addLayout(row)
-        self.workspaces = QListWidget()
+        from .window_layout_ui import WindowLayoutPanel
+        layout=self._page()
+        self.visual_header(layout,'Окна и наборы','Выбери приложение и место на экране. Положение и размер меняются вместе.', 'workspaces')
+        frame,inside=self.card('Разместить окно')
+        self.window_layout=WindowLayoutPanel()
+        inside.addWidget(self.window_layout)
+        layout.addWidget(frame)
+        frame,inside=self.fold('Сохранённые наборы · PowerToys')
+        row=QHBoxLayout()
+        row.addWidget(button('Создать набор',self._workspace_editor))
+        row.addWidget(button('Обновить',self._refresh_workspaces))
+        inside.addLayout(row)
+        self.workspaces=QListWidget()
         self.workspaces.setMinimumHeight(140)
-        self.workspaces.itemDoubleClicked.connect(lambda _: self._launch_workspace())
-        layout.addWidget(self.workspaces)
-        self.launch_button = button("Запустить выбранный набор", self._launch_workspace)
-        layout.addWidget(self.launch_button)
-        self.workspace_empty = text("", True)
-        layout.addWidget(self.workspace_empty)
-        section(layout, "Раскладки окон", "Открой редактор FancyZones, чтобы сделать схему 60/40 или большое окно и два вспомогательных. Сохранённые окна раскладывает PowerToys.")
-        layout.addWidget(button("Настроить зоны окон", self._zones_editor))
-        layout.addWidget(text("Workspaces размещает окна после запуска. Некоторые приложения могут открыть новое окно; программы с правами администратора имеют ограничения размещения.", True))
+        self.workspaces.itemDoubleClicked.connect(lambda _:self._launch_workspace())
+        inside.addWidget(self.workspaces)
+        self.launch_button=button('Запустить выбранный набор',self._launch_workspace)
+        inside.addWidget(self.launch_button)
+        self.workspace_empty=text('',True);inside.addWidget(self.workspace_empty)
+        layout.addWidget(frame)
+        frame,inside=self.fold('Зоны при перетаскивании · PowerToys')
+        inside.addWidget(text('Shift при перетаскивании включает FancyZones. Окно занимает выбранную зону, если его минимальный размер это позволяет.',True))
+        inside.addWidget(button('Открыть редактор зон',self._zones_editor))
+        inside.addWidget(button('Подключение PowerToys →',lambda:self.navigate('integrations')))
+        layout.addWidget(frame)
         layout.addStretch()
-
-    def _windows_page(self):
-        layout = self._page()
-        section(layout, "Windows и HONOR", "Быстрый доступ к штатным настройкам. Они меняются в соответствующем приложении.")
-        for name, detail, target in (
-            ("Панель задач и Пуск", "Закрепления, расположение и поведение панели", "ms-settings:taskbar"),
-            ("Цвета и прозрачность", "Тема Windows, акцентный цвет и системные эффекты", "ms-settings:colors"),
-            ("Тачпад", "Жесты тремя и четырьмя пальцами", "ms-settings:devices-touchpad"),
-            ("Экран", "Масштаб, разрешение и частота обновления", "ms-settings:display"),
-            ("Звук", "Выходное устройство, микрофон и громкость приложений", "ms-settings:sound"),
-            ("Питание и батарея", "Системный режим питания и энергосбережение", "ms-settings:powersleep")):
-            layout.addWidget(button(name, lambda checked=False, url=target: self._url(QUrl(url))))
-            layout.addWidget(text(detail, True))
-        layout.addWidget(button("Открыть HONOR PC Manager", self._honor))
-        section(layout, "Оформление панели задач", "Настройки прозрачности панели задач остаются в TranslucentTB. Nelviro не заменяет оболочку Windows и не меняет параметры стороннего оформления.")
-        layout.addWidget(button("Страница проекта и обновления ↗", lambda: self._url(QUrl(REPO_URL))))
-        layout.addStretch()
-
-    def _honor(self):
-        from PySide6.QtCore import QProcess
-        roots = [Path(os.environ.get("ProgramFiles", ""))/"HONOR/PCManager",
-                 Path(os.environ.get("ProgramFiles(x86)", ""))/"HONOR/PCManager"]
-        for root in roots:
-            for name in ("PCManager.exe", "PCManagerMain.exe", "PCManagerTray.exe"):
-                if (root/name).is_file():
-                    ok, _ = QProcess.startDetached(str(root/name), [])
-                    self._message("" if ok else "Не удалось открыть HONOR PC Manager")
-                    return
-        self._message("HONOR PC Manager не найден в стандартной папке установки")
 
     def _setting(self, key, value):
         if self.owner._toggle_setting(key, value):
@@ -452,6 +432,12 @@ class ControlCenter(QWidget, SettingsPages):
         self.pause_button.setText("Возобновить" if w.settings.get("paused") else "Приостановить")
         self.policy_label.setText('Модули на паузе' if w.settings.get('paused') else 'Сейчас: '+PROFILES[w._policy.profile])
         self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
+        if hasattr(self,'style_choices'):
+            for style,(tile,status) in self.style_choices.items():
+                chosen=style==('floating' if w.floating_mode() else 'notch')
+                tile.setProperty('selected',chosen)
+                status.setText(('Выбрано · ' if chosen else '')+('У верхней рамки · для всех' if style=='notch' else 'Отдельно от рамки · подписчикам'))
+                tile.update()
         bridge = w.powertoys
         bridge.root = powertoys_root()
         self.integration_status.setText(bridge.status if w.settings.get("manage_powertoys") or bridge.busy else "Не подключён · изменения PowerToys не применяются")

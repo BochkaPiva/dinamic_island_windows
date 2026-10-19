@@ -2,12 +2,12 @@
 """Quiet native surfaces, switches, navigation and short-lived transitions."""
 from PySide6.QtCore import Qt,QRectF,QSize,QVariantAnimation,QEasingCurve,QAbstractAnimation
 from PySide6.QtGui import QColor,QPainter,QPen,QLinearGradient,QIcon,QPixmap
-from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame
+from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame,QVBoxLayout,QPushButton
 from .ui_tokens import glyph
 from .style import font,rounded_art
 
 NAV_ICONS={'hub':'hub','island':'island','search':'search','desktop':'folder','library':'note',
-    'timer':'timer','shortcuts':'keyboard','workspaces':'windows','integrations':'settings','updates':'download','windows':'windows'}
+    'timer':'timer','shortcuts':'keyboard','workspaces':'windows','integrations':'settings','updates':'download','windows':'windows','account':'community'}
 
 
 def motion_allowed(widget):
@@ -102,7 +102,7 @@ class NavDelegate(QStyledItemDelegate):
         if selected or hovered:
             p.setBrush(QColor(colors['selection'] if selected else colors['raised']))
             p.drawRoundedRect(rect,10,10)
-        color=colors['text'] if selected else colors['muted']
+        color=colors['text'] if selected else colors['accent'] if index.data(Qt.ItemDataRole.UserRole)=='account' else colors['muted']
         glyph(p,NAV_ICONS.get(index.data(Qt.ItemDataRole.UserRole),'hub'),QRectF(rect.x()+12,rect.y()+10,16,16),color)
         p.setFont(font(12,500 if selected else 400))
         p.setPen(QColor(color))
@@ -209,8 +209,9 @@ class ModuleCard(QFrame):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5)
         p.setBrush(QColor(colors['surface']))
-        edge=QColor(colors['accent'] if self.hasFocus() else colors['line'])
-        edge.setAlpha(255 if self.hasFocus() else round(150+100*self.hover))
+        selected=self.hasFocus() or bool(self.property('selected'))
+        edge=QColor(colors['accent'] if selected else colors['line'])
+        edge.setAlpha(255 if selected else round(150+100*self.hover))
         p.setPen(QPen(edge,1))
         p.drawRoundedRect(rect,20,20)
         if self.hover:
@@ -224,6 +225,62 @@ class WindowHeader(QWidget):
     def mouseDoubleClickEvent(self,event):
         window=self.window()
         window.showNormal() if window.isMaximized() else window.showMaximized()
+
+
+class SettingsSection(QFrame):
+    def __init__(self,title,opened=False):
+        super().__init__()
+        self.setObjectName('card')
+        self.opened=opened
+        root=QVBoxLayout(self)
+        root.setContentsMargins(20,12,20,12)
+        self.title=title
+        self.button=QPushButton(title+('  −' if opened else '  +'))
+        self.button.setObjectName('disclosure')
+        self.button.setCheckable(True)
+        self.button.setChecked(opened)
+        self.button.setAccessibleName(title)
+        root.addWidget(self.button)
+        self.body=QWidget()
+        self.content=QVBoxLayout(self.body)
+        self.content.setContentsMargins(0,8,0,8)
+        self.content.setSpacing(12)
+        root.addWidget(self.body)
+        self.body.setVisible(opened)
+        self.animation=QVariantAnimation(self)
+        self.animation.setDuration(220)
+        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.animation.valueChanged.connect(lambda v:self.body.setMaximumHeight(round(v)))
+        self.animation.finished.connect(self.done)
+        self.button.toggled.connect(self.toggle)
+
+    def toggle(self,value):
+        self.opened=value
+        self.button.setText(self.title+('  −' if value else '  +'))
+        self.animation.stop()
+        start=self.body.height() if self.body.isVisible() else 0
+        self.body.setMaximumHeight(16777215)
+        target=self.body.sizeHint().height() if value else 0
+        self.body.show()
+        if not self.isVisible() or not motion_allowed(self):
+            self.done()
+            return
+        self.body.setMaximumHeight(start)
+        self.animation.blockSignals(True)
+        self.animation.setStartValue(float(start))
+        self.animation.setEndValue(float(target))
+        self.animation.setCurrentTime(0)
+        self.animation.blockSignals(False)
+        self.animation.start()
+
+    def done(self):
+        self.body.setVisible(self.opened)
+        self.body.setMaximumHeight(16777215)
+
+    def hideEvent(self,event):
+        self.animation.stop()
+        self.done()
+        super().hideEvent(event)
 
 
 def stylesheet(c):
@@ -254,6 +311,8 @@ def stylesheet(c):
         QPushButton:disabled {{color:{c['muted']};}}
         QPushButton:focus {{border-color:{c['accent']};}}
         QPushButton#primary {{background:{c['accent']};color:{c['onAccent']};border:0;font-weight:600;}}
+        QPushButton#disclosure {{background:transparent;border:0;text-align:left;font-size:15px;font-weight:500;padding:8px 0;}}
+        QPushButton#disclosure:hover {{color:{c['accent']};}}
         QPushButton#quiet {{background:transparent;border:0;color:{c['muted']};padding:5px 0;}}
         QPushButton#quiet:hover {{color:{c['text']};}}
         QPushButton#windowButton {{background:transparent;border:0;border-radius:7px;padding:0;font-family:'Segoe UI';font-size:17px;}}

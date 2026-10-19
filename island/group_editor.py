@@ -95,7 +95,7 @@ class GroupEditor(QWidget):
         self.count=QLabel()
         self.count.setObjectName("paneTitle")
         left_layout.addWidget(self.count)
-        self.create=self.button("＋ Создать группу",self.create_group)
+        self.create=self.button("+ Создать группу",self.create_group)
         left_layout.addWidget(self.create)
         self.groups=QListWidget()
         self.groups.setAccessibleName("Все созданные группы рабочего стола")

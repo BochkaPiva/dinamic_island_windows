@@ -101,6 +101,12 @@ class SpringGeometry(QObject):
             axis.velocity = 0.0
 
     def start(self, target):
+        if not self.owner.settings.get('hub_animations'):
+            self.stop()
+            self.target=QRect(target)
+            self.owner._geo_anim_step(self.target)
+            self.owner._after_geo_anim()
+            return
         if not self.timer.isActive():
             for axis, value in zip(self.axes, (self.owner.width(), self.owner.height())):
                 axis.value, axis.velocity = float(value), 0.0
@@ -117,7 +123,7 @@ class SpringGeometry(QObject):
         width, height = [max(1, round(v)) for v in values]
         screen = self.owner.screen().geometry()
         x = screen.x() + (screen.width() - width) // 2
-        self.owner._geo_anim_step(QRect(x, screen.top(), width, height))
+        self.owner._geo_anim_step(QRect(x, self.owner._island_top(), width, height))
         if all(abs(a.value - t) < 0.04 and abs(a.velocity) < 0.8 for a, t in zip(self.axes, targets)):
             self.stop()
             self.owner._geo_anim_step(self.target)
@@ -255,7 +261,7 @@ class PointerController:
             # Use final bounds during expansion, so following the new panel
             # downward does not cancel an animation halfway through.
             tw, th = w._scale_window_size(100)
-            panel = QRect(screen.x() + (screen.width() - tw) // 2, screen.top(), tw, th)
+            panel = QRect(screen.x() + (screen.width() - tw) // 2, w._island_top(), tw, th)
             inside = panel.adjusted(-5, 0, 5, 8).contains(point)
             w._hovering = inside
             if inside or now - self.opened_at < 0.35:

@@ -39,6 +39,8 @@ def glyph(painter, name, rect, color=TEXT):
         p.drawLine(12,5,12,19); p.drawLine(5,12,19,12)
     elif name in {"hub","app","store"}:
         for x,y in ((4,4),(14,4),(4,14),(14,14)): p.drawRoundedRect(QRectF(x,y,6,6),1.5,1.5)
+    elif name=='community':
+        p.drawEllipse(QRectF(8,3,8,8)); p.drawArc(QRectF(4,13,16,12),0,180*16)
     elif name=='download':
         p.drawLine(12,3,12,15); p.drawLine(7,10,12,15); p.drawLine(12,15,17,10)
         p.drawLine(4,16,4,21); p.drawLine(4,21,20,21); p.drawLine(20,21,20,16)

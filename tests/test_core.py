@@ -131,6 +131,7 @@ class WindowTests(unittest.TestCase):
              patch("island.app.desktop_is_foreground", return_value=True), \
              patch("island.app.keep_desktop_visible") as restore:
             w._sync_visibility()
+            QTest.qWait(260)
             self.assertFalse(w.isVisible())
             self.assertTrue(w._fs_hidden)
             restore.assert_not_called()
@@ -142,6 +143,7 @@ class WindowTests(unittest.TestCase):
             restore.reset_mock()
             w._hide_user()
             w._sync_visibility()
+            QTest.qWait(260)
             self.assertFalse(w.isVisible())
             restore.assert_not_called()
 

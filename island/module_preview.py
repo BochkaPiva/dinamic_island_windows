@@ -2,7 +2,7 @@
 """Lightweight previews over the existing models; no independent media services."""
 from datetime import date, timedelta
 from pathlib import Path
-from PySide6.QtCore import Qt, QRectF, QTimer
+from PySide6.QtCore import Qt, QRectF, QTimer, QVariantAnimation, QEasingCurve
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 from .style import font, rounded_art
@@ -15,10 +15,16 @@ class ModulePreview(QWidget):
         self.owner, self.kind, self.callback = owner, kind, callback
         self.setFixedHeight(132)
         self.setMinimumWidth(240)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName({'island':'Открыть остров', 'desktop':'Настроить группы',
-            'search':'Открыть быстрый поиск'}[kind])
+        self.setCursor(Qt.CursorShape.PointingHandCursor if callback else Qt.CursorShape.ArrowCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus if callback else Qt.FocusPolicy.NoFocus)
+        self.setAccessibleName({'island':'Открыть остров', 'desktop':'Наведи, чтобы раскрыть группу',
+            'search':'Открыть быстрый поиск'}.get(kind,'Предпросмотр раздела'))
+        self.display_style=None
+        self.reveal=0.
+        self.hover_animation=QVariantAnimation(self)
+        self.hover_animation.setDuration(320)
+        self.hover_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.hover_animation.valueChanged.connect(self.reveal_frame)
         self.cover_key = None
         self.cover = None
         self.pending = False
@@ -28,6 +34,31 @@ class ModulePreview(QWidget):
         self.clock.timeout.connect(self.frame)
         if kind == 'island':
             owner.audio.levels_changed.connect(self.audio_changed)
+
+    def reveal_frame(self,value):
+        self.reveal=float(value)
+        self.update()
+
+    def enterEvent(self,event):
+        self.animate_hover(1.)
+        super().enterEvent(event)
+
+    def leaveEvent(self,event):
+        self.animate_hover(0.)
+        super().leaveEvent(event)
+
+    def animate_hover(self,target):
+        if self.kind!='desktop': return
+        self.hover_animation.stop()
+        if not self.owner.settings.get('hub_animations'):
+            self.reveal_frame(target)
+            return
+        self.hover_animation.blockSignals(True)
+        self.hover_animation.setStartValue(self.reveal)
+        self.hover_animation.setEndValue(target)
+        self.hover_animation.setCurrentTime(0)
+        self.hover_animation.blockSignals(False)
+        self.hover_animation.start()
 
     def audio_changed(self, _):
         if self.isVisible():
@@ -43,14 +74,16 @@ class ModulePreview(QWidget):
 
     def hideEvent(self, event):
         self.clock.stop()
+        self.hover_animation.stop()
+        self.reveal=0.
         self.pending = False
         super().hideEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton: self.callback()
+        if event.button() == Qt.MouseButton.LeftButton and self.callback: self.callback()
 
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter): self.callback()
+        if self.callback and event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter): self.callback()
         else: super().keyPressEvent(event)
 
     def paintEvent(self, event):
@@ -66,14 +99,16 @@ class ModulePreview(QWidget):
             p.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),14,14)
         if self.kind == 'island': self.island(p,c)
         elif self.kind == 'desktop': self.groups(p,c)
-        else: self.search(p,c)
+        elif self.kind=='search': self.search(p,c)
+        else: self.illustration(p,c)
         p.end()
 
     def island(self, p, c):
         w = self.width()
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor('#000000'))
-        p.drawRoundedRect(QRectF(12,-22,w-24,130),22,22)
+        floating=self.display_style=='floating' if self.display_style else self.owner.floating_mode()
+        p.drawRoundedRect(QRectF(12,12 if floating else -22,w-24,102 if floating else 130),22,22)
         snap = self.owner.snapshot
         data = snap.thumb if snap and snap.thumb else b''
         if self.cover is None or data != self.cover_key:
@@ -112,11 +147,14 @@ class ModulePreview(QWidget):
         records=self.owner.modules.desktop.store.groups
         group=records[0] if records else {'title':'Создай свою группу','items':[]}
         p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(c['raised']))
-        p.drawRoundedRect(QRectF(20,16,self.width()-40,100),12,12)
+        p.drawRoundedRect(QRectF(20,16,self.width()-40,40+60*self.reveal),12,12)
         glyph(p,'folder',QRectF(34,28,18,18),c['muted'])
         p.setPen(QColor(c['text']));p.setFont(font(12,500))
         p.drawText(QRectF(62,27,self.width()-104,22),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(group['title'],Qt.TextElideMode.ElideRight,self.width()-104))
+        p.setClipRect(QRectF(20,56,self.width()-40,60*self.reveal))
+        p.setOpacity(self.reveal)
+        p.translate(0,-8*(1-self.reveal))
         items=group['items'][:3]
         for i,item in enumerate(items):
             cell=(self.width()-60)/3; x=30+i*cell
@@ -127,6 +165,34 @@ class ModulePreview(QWidget):
         if not items:
             p.setFont(font(11));p.setPen(QColor(c['muted']))
             p.drawText(QRectF(30,63,self.width()-60,35),Qt.AlignmentFlag.AlignCenter,'Приложения и файлы — вместе')
+
+    def illustration(self,p,c):
+        if self.kind=='shortcuts':
+            keys=self.owner.settings.get('hotkey_search') or 'Alt+Space'
+            p.setFont(font(18,500));p.setPen(QColor(c['text']))
+            p.drawText(QRectF(12,20,self.width()-24,60),Qt.AlignmentFlag.AlignCenter,keys.replace('+','  +  '))
+            p.setFont(font(11));p.setPen(QColor(c['muted']))
+            p.drawText(QRectF(12,80,self.width()-24,30),Qt.AlignmentFlag.AlignCenter,'Поиск — одним сочетанием')
+            return
+        if self.kind=='application':
+            for i,color in enumerate((c['side'],c['surface'],c['raised'])):
+                p.setPen(QPen(QColor(c['line']),1));p.setBrush(QColor(color))
+                p.drawRoundedRect(QRectF(30+i*55,20+i*12,self.width()-160,65),12,12)
+            return
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['raised']))
+        if self.kind=='workspaces':
+            for i in range(3): p.drawRoundedRect(QRectF(24+i*(self.width()-48)/3,24,(self.width()-60)/3,84),8,8)
+            return
+        # A note and file shelf: an illustration, never generated user content.
+        p.drawRoundedRect(QRectF(24,18,90,96),12,12)
+        glyph(p,'note',QRectF(42,34,26,26),c['accent'])
+        p.setPen(QPen(QColor(c['muted']),2))
+        for y,length in ((76,46),(86,32)): p.drawLine(42,y,42+length,y)
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['surface']))
+        p.drawRoundedRect(QRectF(100,42,self.width()-124,60),12,12)
+        glyph(p,'folder',QRectF(116,60,22,22),c['accent'])
+        p.setPen(QColor(c['text']));p.setFont(font(11))
+        p.drawText(QRectF(150,49,self.width()-175,42),Qt.AlignmentFlag.AlignVCenter,'Под рукой')
 
     def search(self,p,c):
         p.setPen(QPen(QColor(c['line']),1));p.setBrush(QColor(c['surface']))

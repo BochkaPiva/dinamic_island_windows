@@ -125,6 +125,9 @@ class IslandWindow(QWidget):
         self._notch_stage = NotchStage(self)
         self._geometry = SpringGeometry(self)
         self._notch_pointer = PointerController(self)
+        from .presentation import IslandVisibility
+        self._visibility = IslandVisibility(self)
+        self._window_events = None
         self._notch_pointer_timer = QTimer(self)
         self._notch_pointer_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._notch_pointer_timer.timeout.connect(self._notch_pointer.tick)
@@ -148,6 +151,11 @@ class IslandWindow(QWidget):
         self.modules = ModuleRuntime(self)
         if services:
             self.tray.show()
+        if services:
+            from .window_events import WindowEvents
+            self._window_events=WindowEvents(self)
+            self._window_events.changed.connect(self._foreground_changed)
+        self.access.changed.connect(self._presentation_changed)
         self._notch_stage.enter()
         self.notch_hub.update_snapshot(self.snapshot)
         self._place()
@@ -185,13 +193,34 @@ class IslandWindow(QWidget):
         return (min(self.settings.get(prefix+"_width"),screen.width()),
                 min(self.settings.get(prefix+"_height"),screen.height()))
 
+    def floating_mode(self):
+        return self.settings.get('island_style')=='floating' and self.access.feature('island.floating').allowed
+
+    def _island_top(self):
+        screen=next((s for s in QApplication.screens() if s.name()==self.settings.get('monitor')),QApplication.primaryScreen())
+        gap=self.settings.get('island_gap') if self.floating_mode() else 0
+        fraction=self._visibility.fraction if hasattr(self,'_visibility') else 1.
+        return screen.geometry().top()+gap-round(12*(1-fraction))
+
+    def _presentation_changed(self):
+        if not hasattr(self,'_visibility'): return
+        self._notch_stage._signature=None
+        self._place()
+        self.card.update()
+        if self.control_center: self.control_center.refresh()
+
+    def _foreground_changed(self):
+        if self._closed: return
+        self._sync_visibility()
+        self._update_services()
+
     def _place(self):
         app = QApplication.instance()
         screen = next((s for s in app.screens() if s.name() == self.settings.get("monitor")), app.primaryScreen())
         self._geometry.stop()
         width, height = self._scale_window_size(100 if self._island_expanded else 50)
         bounds = screen.geometry()
-        self.setGeometry(bounds.x()+(bounds.width()-width)//2, bounds.top(), width, height)
+        self.setGeometry(bounds.x()+(bounds.width()-width)//2, self._island_top(), width, height)
         self._notch_stage.sync()
 
     def _screens_changed(self):
@@ -199,6 +228,7 @@ class IslandWindow(QWidget):
         self._build_menu()
 
     def _geo_anim_step(self, rect):
+        rect.moveTop(self._island_top())
         self.setGeometry(rect)
         self._notch_stage.sync()
 
@@ -218,7 +248,7 @@ class IslandWindow(QWidget):
             self._notch_pointer.route_input(False)
         width, height = self._scale_window_size(100 if expanded else 50)
         screen = self.screen().geometry()
-        self._geometry.start(QRect(screen.x()+(screen.width()-width)//2, screen.top(), width, height))
+        self._geometry.start(QRect(screen.x()+(screen.width()-width)//2, self._island_top(), width, height))
         self._apply_policy()
         self._update_services()
 
@@ -406,7 +436,7 @@ class IslandWindow(QWidget):
         if active and not self._notch_pointer_timer.isActive():
             self._notch_pointer.last_time = time.monotonic()
             self._notch_pointer_timer.start(16)
-        elif not active:
+        elif not active and not self._visibility.moving:
             self._notch_pointer_timer.stop()
             self._notch_pointer.route_input(False)
             self._geometry.stop()
@@ -415,7 +445,7 @@ class IslandWindow(QWidget):
             if self._island_expanded or (self.width(), self.height()) != self._scale_window_size(50):
                 self._island_expanded = False
                 self._place()
-        self._system_timer.setInterval(500 if active else 2000)
+        self._system_timer.setInterval(500 if active else 750)
         clock = self.notch_hub.clock
         if (active and self._island_expanded) or self.notch_hub._timer_end:
             if not clock.isActive():
@@ -426,23 +456,17 @@ class IslandWindow(QWidget):
     def _sync_visibility(self):
         if self._closed:
             return
-        if self._hidden_by_user or not self._policy.island:
-            self.hide()
-            return
-        fullscreen = self.settings.get("hide_fullscreen") and is_fullscreen(self)
-        if fullscreen:
-            self._fs_hidden = True
-            self.hide()
-            return
-        if self._fs_hidden:
-            self._fs_hidden = False
-            self.show()
-        if desktop_is_foreground():
-            if not self.isVisible():
-                self.show()
-            keep_desktop_visible(self)
+        self._fs_hidden=bool(self.settings.get('hide_fullscreen') and is_fullscreen(self))
+        wanted=not self._hidden_by_user and self._policy.island and not self._fs_hidden
+        self._visibility.set_visible(wanted)
+        if wanted and desktop_is_foreground(): keep_desktop_visible(self)
 
     def _toggle_setting(self, key, enabled):
+        if key=='island_style' and enabled=='floating' and not self.access.feature('island.floating').allowed:
+            if self.control_center:
+                self.control_center.navigate('account')
+                self.control_center._message('Плавающий остров открывается после подписки на канал')
+            return False
         if key.startswith("hotkey_"):
             from .hotkey import parse_shortcut
             try:
@@ -474,7 +498,9 @@ class IslandWindow(QWidget):
             self._notch_stage._signature = None
             self._place()
         if key == "island_opacity":
-            self.setWindowOpacity(enabled/100)
+            self._visibility.apply()
+        if key in {"island_style","island_gap"}:
+            self._presentation_changed()
         if key == "timer_minutes":
             self.notch_hub.set_timer_minutes(enabled)
         if key == "monitor":
@@ -493,15 +519,8 @@ class IslandWindow(QWidget):
         if key == "manage_powertoys":
             self._external_policy = None
         self._apply_policy()
-        if key == "hide_fullscreen" and not enabled and self._fs_hidden:
-            self._fs_hidden = False
-            self.show()
         if self._services:
             self._sync_visibility()
-            # A module can be enabled while a previously hidden window has no
-            # desktop foreground: explicitly restore it, then check full-screen.
-            if self._policy.island and not self._hidden_by_user and not self._fs_hidden:
-                self.show()
             self._update_services()
         self._notch_stage.sync()
         if self.control_center:
@@ -563,7 +582,7 @@ class IslandWindow(QWidget):
 
     def _hide_user(self):
         self._hidden_by_user = True
-        self.hide()
+        self._visibility.set_visible(False)
         self._update_services()
 
     def _show_panel(self):
@@ -572,7 +591,7 @@ class IslandWindow(QWidget):
             self.control_center._message("Включи чёлку и выбери рабочий профиль или сними паузу.")
             return
         self._hidden_by_user = self._fs_hidden = False
-        self.show()
+        self._visibility.set_visible(True)
         self._set_island_expanded(True)
         self.raise_()
         self._update_services()
@@ -628,6 +647,8 @@ class IslandWindow(QWidget):
         if self.account:
             self.account.stop()
         self.community.stop()
+        self._visibility.close()
+        if self._window_events: self._window_events.close()
         self._wheel_source.close()
         for binding in self.hotkeys.values():
             binding.close()

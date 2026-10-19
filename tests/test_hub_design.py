@@ -82,6 +82,10 @@ class HubDesignTests(unittest.TestCase):
     def test_refresh_keeps_uncommitted_number_input(self):
         c=self.center
         c.navigate('island')
+        from island.hub_ui import SettingsSection
+        section=next(s for s in c.findChildren(SettingsSection) if s.title=='Размер и прозрачность')
+        section.button.setChecked(True)
+        QTest.qWait(250)
         spin=c.values['compact_width']
         c.pages.currentWidget().ensureWidgetVisible(spin)
         spin.setFocus()
