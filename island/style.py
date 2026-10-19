@@ -167,8 +167,14 @@ class NotchCard(QWidget):
     def notch_path(self):
         w, h = self.width(), self.height()
         if self.parentWidget().floating_mode():
+            t=self._retreat*self._retreat*(3-2*self._retreat)
+            inset=w*.20*t
+            bottom=h+(6-h)*t
+            radius=min(24.,h/2)+(6-min(24.,h/2))*t
             path=QPainterPath()
-            path.addRoundedRect(QRectF(0,0,w,h),min(24.,h/2),min(24.,h/2))
+            # Extend the top above the clip as the capsule docks, leaving a
+            # flat attachment and soft lower corners instead of a floating line.
+            path.addRoundedRect(QRectF(inset,-6*t,w-2*inset,bottom+6*t),radius,radius)
             return path
         flare = min(18., max(8., h*.1))
         radius = min(30., (h-flare)*.65)

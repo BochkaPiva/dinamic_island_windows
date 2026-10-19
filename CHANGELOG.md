@@ -1,3 +1,10 @@
+## v0.9.3
+
+- Floating avoidance morphs into an opaque six-pixel bezel tab instead of disappearing. The complete live artwork/spectrum texture travels upward inside the contracting silhouette.
+- Hovering the visible tab opens controls; the physical top-edge gesture still works. Browser tabs below retain click-through input.
+- Fullscreen visibility remains independent; avoidance does not cancel the fullscreen fade or move the native window onto another monitor.
+- Added a staged media/activity proposal with explicit video capture limitations and acceptance criteria in docs/island-media-roadmap.md.
+
 ## v0.9.2
 
 - Floating cursor avoidance now lifts and fades the intact capsule; artwork and spectrum move together without dents or strip warping.

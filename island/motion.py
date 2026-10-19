@@ -7,7 +7,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
 from PySide6.QtGui import QCursor, QPainter, QPixmap, QRegion
 from PySide6.QtWidgets import QWidget
 from .platform_win import is_desktop_window
@@ -245,8 +245,14 @@ class PointerController:
             self.covered, self.context_at = self.context_provider(), now
         width = w._scale_window_size(50)[0]
         intent = pointer_intent(screen, width, point, self.covered and w.settings.get("cursor_retreat"))
+        # The tucked silhouette itself is an entry point, not just the last
+        # physical pixel of the screen. Outside it, browser tabs keep all input.
+        tab_entry = (w.floating_mode() and (self.spring.value > .85 or self.edge_since is not None)
+                     and 0 <= point.y()-screen.top() <= 6
+                     and abs(point.x()-screen.center().x()) <= width*.30-6)
+        entry = intent.edge or tab_entry
         expanded = w._island_expanded
-        if intent.edge and not self.edge_blocked:
+        if entry and not self.edge_blocked:
             self.edge_since = self.edge_since or now
             if not expanded and now - self.edge_since >= 0.09:
                 self.route_input(False)
@@ -255,14 +261,14 @@ class PointerController:
                 expanded = True
         else:
             self.edge_since = None
-            if not intent.edge:
+            if not entry:
                 self.edge_blocked = False
         if expanded:
             # Use final bounds during expansion, so following the new panel
             # downward does not cancel an animation halfway through.
             tw, th = w._scale_window_size(100)
             panel = QRect(screen.x() + (screen.width() - tw) // 2, w._island_top(), tw, th)
-            inside = intent.edge or panel.adjusted(-5, 0, 5, 8).contains(point)
+            inside = entry or panel.adjusted(-5, 0, 5, 8).contains(point)
             w._hovering = inside
             if inside or now - self.opened_at < 0.35:
                 w._island_auto_timer.stop()
@@ -270,12 +276,10 @@ class PointerController:
                 w._island_auto_timer.start(w.settings.get("collapse_delay"))
             target = 0.0
         else:
-            target = intent.retreat
+            target = 0.0 if entry else intent.retreat
             if self.covered and w.settings.get("cursor_retreat"):
                 w._notch_hover_timer.stop()
-            # Restore hit testing only after retreat is visually over. Edge
-            # activation is global and works even while fully transparent.
-            yielding = self.covered and not intent.edge and (target > 0.015 or self.spring.value > 0.04)
+            yielding = self.covered and not entry and (target > 0.015 or self.spring.value > 0.04)
             self.route_input(yielding)
         # Outside the interaction zone retain the final dent location while it
         # relaxes, instead of pulling every exit toward an arbitrary center.
@@ -295,13 +299,12 @@ def smoothstep(value):
 
 
 def floating_retreat(amount, gap, height):
-    """Rigid lift and a gentle dissolve; never bend the floating capsule.
+    """Attach to the bezel without dissolving the visible six-pixel tab.
 
-    Keep most of the native window on its monitor, even at full retreat, so
-    MonitorFromWindow and Qt don't switch to a display above it. Opacity finishes
-    the exit while global edge activation and click-through remain available.
+    Geometry inside the card contracts; the HWND stays on the chosen monitor.
+    Fullscreen visibility owns opacity independently of cursor avoidance.
     """
-    return (gap + height*.4)*smoothstep(amount), 1-smoothstep((amount-.25)/.75)
+    return gap*smoothstep(amount), 1.0
 
 
 class CompactSurface(QWidget):
@@ -316,8 +319,6 @@ class CompactSurface(QWidget):
         stage = self.stage
         if not stage.active:
             return
-        if stage.owner.floating_mode() and stage.retreat>=.9999:
-            return
         image = stage.compact.grab()
         ratio = image.devicePixelRatioF()
         card = stage.owner.card
@@ -326,7 +327,12 @@ class CompactSurface(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         p.setClipPath(card.notch_path().translated(-self.x(), -self.y()))
         p.setOpacity(stage.compact_alpha)
-        if stage.owner.floating_mode() or card._retreat <= 0.0005:
+        if stage.owner.floating_mode():
+            # Transport the complete live texture upward through the shrinking
+            # silhouette, rather than leaving artwork in place with a fade.
+            shift = (card.height()-6)*smoothstep(card._retreat)
+            p.drawPixmap(QPointF(0, -shift), image)
+        elif card._retreat <= 0.0005:
             p.drawPixmap(0, 0, image)
         else:
             # One-pixel strips carry the whole live texture upward along the

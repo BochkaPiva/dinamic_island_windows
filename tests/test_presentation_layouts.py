@@ -32,7 +32,7 @@ class PresentationTests(unittest.TestCase):
 
     def supporter(self): self.w.access.grant=Grant('supporter',PRO_FEATURES,dict(PRO_LIMITS))
 
-    def test_floating_retreat_preserves_capsule_and_its_content(self):
+    def test_floating_retreat_contracts_to_visible_tab_and_carries_content(self):
         from island.media import Snapshot
         from PySide6.QtCore import QBuffer,QIODevice
         from PySide6.QtGui import QImage,QColor
@@ -43,13 +43,19 @@ class PresentationTests(unittest.TestCase):
         w.art_label._anim.stop();w.art_label.fraction=1.
         w.status_mark.set_spectrum((.2,.8,.5,.7,.3))
         self.app.processEvents()
-        path=w.card.notch_path()
-        reference=w.card.grab().toImage()
+        previous=w.card.notch_path().boundingRect().bottom()
         for amount,x in ((.4,0),(.7,.5),(1.,1)):
             w.card.set_retreat(amount,x,1-x,.8)
+            w._notch_set_compact_retreat(amount)
             w._notch_stage.surface.update()
-            self.assertEqual(w.card.notch_path(),path)
-            self.assertEqual(w.card.grab().toImage(),reference)
+            bounds=w.card.notch_path().boundingRect()
+            self.assertLess(bounds.bottom(),previous)
+            previous=bounds.bottom()
+        self.assertAlmostEqual(previous,6)
+        frame=w.card.grab().toImage()
+        self.assertGreater(frame.pixelColor(frame.width()//2,2).alpha(),240)
+        self.assertEqual(frame.pixelColor(frame.width()//2,12).alpha(),0)
+        self.assertEqual(w.y(),w.screen().geometry().top())
 
     def test_floating_avoidance_yields_clicks_and_edge_reopens(self):
         w=self.w;self.supporter();w._toggle_setting('island_style','floating')
@@ -63,10 +69,10 @@ class PresentationTests(unittest.TestCase):
             for i in range(1,101): pointer.tick(1000+i*.016)
             self.assertTrue(pointer.passthrough)
             self.assertTrue(w.isVisible())  # global edge sensor remains alive
-            self.assertLess(w.windowOpacity(),.01)
+            self.assertAlmostEqual(w.windowOpacity(),w.settings.get('island_opacity')/100,delta=.01)
             self.assertGreaterEqual(w.geometry().center().y(),screen.top())
             self.assertGreaterEqual(w.mask().boundingRect().top(),screen.top()-w.y())
-            point=QPoint(screen.center().x(),screen.top())
+            point=QPoint(screen.center().x(),screen.top()+4)
             for i in range(101,201): pointer.tick(1000+i*.016)
             QTest.qWait(750)
             self.assertTrue(w._island_expanded)
@@ -77,7 +83,7 @@ class PresentationTests(unittest.TestCase):
         w=self.w;self.supporter();w._toggle_setting('island_style','floating')
         w._visibility.fraction=.4
         w._notch_set_compact_retreat(.6)
-        self.assertLess(w.windowOpacity(),.4)
+        self.assertAlmostEqual(w.windowOpacity(),.4,delta=.01)
         w._notch_set_compact_retreat(0)
         self.assertAlmostEqual(w.windowOpacity(),.4,delta=.01)
 
