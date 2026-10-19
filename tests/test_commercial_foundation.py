@@ -117,12 +117,19 @@ class CommercialFoundationTests(unittest.TestCase):
         self.assertTrue(preview.feature('island.focus').allowed)
         self.assertTrue(preview.capacity('desktop.groups.active',30).allowed)
 
-    def test_preview_never_polls_legacy_release_channel(self):
-        checker=UpdateChecker(directory=self.folder)
+    def test_unconfigured_private_build_never_polls_public_release_channel(self):
+        checker=UpdateChecker(directory=self.folder,channel_url='')
         with patch('island.update_manager.open_release') as request:
             self.assertFalse(checker.check())
             request.assert_not_called()
         self.assertEqual(checker.state,'current')
+
+    def test_community_build_uses_the_public_release_channel(self):
+        from island import build_config
+        checker=UpdateChecker(directory=self.folder)
+        self.assertEqual(build_config.DISTRIBUTION,'community')
+        self.assertEqual(checker.channel_url,
+            'https://github.com/BochkaPiva/dinamic_island_windows/releases/latest/download/update.json')
 
     def test_sales_release_fails_closed_until_keys_and_legal_configuration_exist(self):
         self.assertEqual(problems(),[])

@@ -1,3 +1,11 @@
+## v0.7.1
+
+- Public Telegram service on Vercel with PostgreSQL on Neon Free; no Yandex login or payments.
+- Public membership API embedded in Windows; public GitHub update channel restored.
+- Preserve groups on read failure, retry loading, retain the last valid file before changes.
+- Fixed a PostgreSQL table/index name collision in the original community migration.
+- PostgreSQL tests now run, including concurrent ledger checks; added safe readiness endpoint.
+
 # v0.7.0 (community preview)
 
 - Free base: current island, search, local utilities and two active desktop groups.

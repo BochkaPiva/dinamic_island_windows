@@ -2,8 +2,8 @@
 """Build-time distribution policy. Never read commercial mode or keys from settings."""
 PRODUCT_ID = "cloud-hub"
 DISTRIBUTION = "community"  # Free base; optional membership unlocks additional groups.
-UPDATE_CHANNEL_URL = ""  # Commercial releases must use their own signed channel.
-PUBLIC_RELEASE_REPOSITORY = ""  # Separate binary release repository, not legacy GPL latest.
+UPDATE_CHANNEL_URL = "https://github.com/BochkaPiva/dinamic_island_windows/releases/latest/download/update.json"
+PUBLIC_RELEASE_REPOSITORY = "BochkaPiva/dinamic_island_windows"
 LICENSE_API_URL = ""
 ACCOUNT_API_ORIGIN = ""  # Our HTTPS account service origin; no provider secret in a desktop build.
 LICENSE_PUBLIC_KEYS = {}  # key id -> base64 Ed25519 public key; private keys never ship.
