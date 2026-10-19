@@ -97,6 +97,19 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(w.worker.commands.empty())
         self.assertFalse(w.notch_hub.seek.isEnabled())
 
+    def test_system_sound_without_metadata_does_not_show_stale_title_or_controls(self):
+        w=self.w
+        w._handle_snapshot(Snapshot(has_session=True,aumid='telegram',title='Yesterday',can_play=True))
+        w._handle_snapshot(Snapshot(sources=('telegram',),source_states=(('telegram','Stopped'),)))
+        w._audio_levels((.6,)*5)
+        self.assertEqual(w.notch_hub.title.toolTip(),'Звук Windows')
+        self.assertEqual(w.notch_hub.artist.toolTip(),'Без данных о треке')
+        self.assertFalse(any(button.isEnabled() for button in w.notch_hub.buttons))
+        self.assertFalse(w.notch_hub.seek.isEnabled())
+        self.assertFalse(w.art_label.isVisible())
+        w._last_audio=0;w._audio_levels((0.,)*5)
+        self.assertEqual(w.notch_hub.title.toolTip(),'Ничего не играет')
+
     def test_bezel_does_not_form_detached_corner(self):
         card = self.w.card
         for x in (0, .08, .5, .92, 1):

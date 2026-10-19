@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Independent Windows SMTC adapter. Commands always target the displayed source."""
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import queue
 import threading
@@ -29,6 +29,48 @@ class Snapshot:
     can_seek: bool = False
 
 
+def playback_status(value):
+    # WinRT: Closed=0, Opened=1, Changing=2, Stopped=3, Playing=4, Paused=5.
+    # Stopped is not Paused: Telegram retains old voice-message metadata here.
+    return {4: 'Playing', 5: 'Paused', 0: 'Stopped', 3: 'Stopped'}.get(int(value), 'Changing')
+
+
+def choose_source(states, current='', preferred='', previous='', updated=None, now=None):
+    """A playing session outranks Windows' stale current-session pointer.
+
+    Keep an explicit source choice, but never turn its stopped metadata into a
+    paused player. In auto mode, only retain a recently updated paused session.
+    """
+    if preferred:
+        return preferred if states.get(preferred) in ('Playing', 'Paused') else ''
+    playing = [source for source, status in states.items() if status == 'Playing']
+    if playing:
+        return current if current in playing else previous if previous in playing else playing[0]
+    updated = updated or {}
+    now = time.time() if now is None else now
+    paused = [source for source, status in states.items() if status == 'Paused'
+              and 0 <= now - updated.get(source, 0) <= 30*60]
+    return current if current in paused else previous if previous in paused else max(paused, key=lambda s: updated[s], default='')
+
+
+def session_map(items):
+    """Some browsers publish multiple sessions with the same application ID.
+
+    Don't let the last stopped tab overwrite a playing tab in a dict
+    comprehension. A disappearing tab is isolated from healthy sessions.
+    """
+    result={}; ranks={}
+    for item in items:
+        try:
+            source=item.source_app_user_model_id
+            rank={'Playing':3,'Paused':2,'Changing':1,'Stopped':0}[playback_status(item.get_playback_info().playback_status)]
+            if source not in result or rank>ranks[source]:
+                result[source]=item;ranks[source]=rank
+        except Exception:
+            continue
+    return result
+
+
 class MediaWorker(QThread):
     snapshot_updated = Signal(object)
     failure = Signal(str)
@@ -44,6 +86,9 @@ class MediaWorker(QThread):
         self.commands = queue.SimpleQueue()
         self._cover_key = None
         self._cover = b""
+        self._cover_at = 0.
+        self._displayed_session = None
+        self._displayed_source = ''
 
     def command(self, source, action, value=None):
         self.commands.put((source, action, value))
@@ -88,10 +133,10 @@ class MediaWorker(QThread):
                 manager = await GlobalSystemMediaTransportControlsSessionManager.request_async()
                 while not self.stopped.is_set() and self.enabled.is_set():
                     self.poll_active.set()
-                    sessions = {s.source_app_user_model_id: s for s in manager.get_sessions()}
+                    sessions = session_map(manager.get_sessions())
                     while not self.commands.empty():
                         source, action, value = self.commands.get()
-                        session = sessions.get(source)
+                        session = self._displayed_session if source==self._displayed_source else None
                         if session is None:
                             continue
                         try:
@@ -104,23 +149,32 @@ class MediaWorker(QThread):
                                     await getattr(session, method)()
                         except Exception:
                             pass
-                    session = sessions.get(self.preferred_source) if self.preferred_source else manager.get_current_session()
-                    if session is None and not self.preferred_source and sessions:
-                        session = next(iter(sessions.values()))
                     source_states=[]
+                    updated={}
                     for identifier,item in sessions.items():
                         try:
                             status=item.get_playback_info().playback_status
-                            label=('Playing' if status==Status.PLAYING else 'Paused' if status==Status.PAUSED
-                                   else 'Stopped' if status in (Status.STOPPED,Status.CLOSED) else 'Changing')
-                            source_states.append((identifier,label))
+                            source_states.append((identifier,playback_status(status)))
+                            if status==Status.PAUSED:
+                                updated[identifier]=item.get_timeline_properties().last_updated_time.timestamp()
                         except Exception:
                             pass  # a disappearing session must not break all playback controls
                     source_states=tuple(source_states)
+                    current=manager.get_current_session()
+                    selected=choose_source(dict(source_states),
+                        current.source_app_user_model_id if current else '',self.preferred_source,
+                        previous.aumid if previous else '',updated)
+                    session=sessions.get(selected)
                     snap = Snapshot(sources=tuple(sessions),source_states=source_states)
                     if session is not None:
                         props = await session.try_get_media_properties_async()
                         info = session.get_playback_info()
+                        if playback_status(info.playback_status) not in ('Playing','Paused'):
+                            self._displayed_session=None;self._displayed_source=''
+                            self._cover_key=None;self._cover=b''
+                            self.snapshot_updated.emit(snap);previous=snap
+                            await asyncio.sleep(.2)
+                            continue
                         timeline = session.get_timeline_properties()
                         playing = info.playback_status == Status.PLAYING
                         start = timeline.start_time.total_seconds()
@@ -132,8 +186,9 @@ class MediaWorker(QThread):
                         controls = info.controls
                         key = (session.source_app_user_model_id, props.title, props.artist)
                         # Retry missing art: some players publish metadata before the image.
-                        if key != self._cover_key or not self._cover:
+                        if key != self._cover_key or not self._cover or time.monotonic()-self._cover_at>=10 or not props.thumbnail:
                             self._cover_key, self._cover = key, b""
+                            self._cover_at=time.monotonic()
                             if props.thumbnail:
                                 try:
                                     stream = await props.thumbnail.open_read_async()
@@ -153,18 +208,28 @@ class MediaWorker(QThread):
                                 except Exception:
                                     pass
                         snap = Snapshot(title=props.title or "", artist=props.artist or "",
-                                        status="Playing" if playing else "Paused", has_session=True,
+                                        status=playback_status(info.playback_status), has_session=True,
                                         aumid=session.source_app_user_model_id, thumb=self._cover,
                                         pos_sec=min(position, duration) if duration else 0,
                                         dur_sec=duration, start_sec=start, sources=tuple(sessions),source_states=source_states,
                                         can_play=controls.is_play_enabled, can_pause=controls.is_pause_enabled,
                                         can_prev=controls.is_previous_enabled, can_next=controls.is_next_enabled,
                                         can_seek=controls.is_playback_position_enabled)
+                    else:
+                        self._cover_key=None;self._cover=b''
+                    self._displayed_session=session
+                    self._displayed_source=snap.aumid
                     if snap != previous:
                         self.snapshot_updated.emit(snap)
                         previous = snap
                     await asyncio.sleep(.35 if snap.has_session else 1.0)
             except Exception as error:
+                # A failed read must not leave yesterday's cover and controls
+                # on screen indefinitely while the worker retries.
+                self._cover_key=None;self._cover=b''
+                self._displayed_session=None;self._displayed_source=''
+                previous=Snapshot()
+                self.snapshot_updated.emit(previous)
                 self.failure.emit(str(error))
                 for _ in range(20):
                     if self.stopped.is_set():

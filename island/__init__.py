@@ -1,5 +1,5 @@
 """Cloud Island for Windows."""
-__version__ = "0.10.1"
+__version__ = "0.10.2"
 APP_NAME = "Nelviro"
 from .build_config import PUBLIC_RELEASE_REPOSITORY
 REPOSITORY = PUBLIC_RELEASE_REPOSITORY or "BochkaPiva/dinamic_island_windows"

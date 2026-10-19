@@ -389,11 +389,8 @@ class NotchHub(QWidget):
         source_button.setToolTip("Выбрать плеер")
         source_button.clicked.connect(self.choose_source)
         bar.addWidget(source_button)
-        media_button=QPushButton('▷')
-        media_button.setToolTip('Видео поверх окон браузера')
-        media_button.setAccessibleName('Видео поверх окон браузера')
-        media_button.clicked.connect(lambda:owner.media_stage.browser_video())
-        bar.addWidget(media_button)
+        # Browser video cannot be extracted by SMTC. Do not expose an
+        # instruction page as a working player in the island's primary bar.
         settings_button = QPushButton("•••")
         settings_button.setToolTip("Открыть Nelviro")
         settings_button.clicked.connect(owner.show_hub)
@@ -564,22 +561,6 @@ class NotchHub(QWidget):
             file_actions.addWidget(btn)
         files_layout.addLayout(file_actions)
         self.stack.addWidget(files_page)
-        self.browser_page = QWidget()
-        video = QVBoxLayout(self.browser_page)
-        video.setContentsMargins(6, 2, 6, 2);video.setSpacing(6)
-        title = QLabel('Видео поверх окон')
-        title.setFont(gs.font(14, 600));video.addWidget(title)
-        detail = QLabel('Наведи на видео в Opera GX и нажми значок выноса в отдельное окно.\nВ окне останется только видео — без вкладок и страницы.')
-        detail.setWordWrap(True);detail.setFont(gs.font(10));detail.setStyleSheet('color:#a1a1aa;')
-        video.addWidget(detail)
-        self.browser_hint = QLabel('Nelviro не закрывает это окно при смене источника звука.')
-        self.browser_hint.setWordWrap(True);self.browser_hint.setFont(gs.font(9));self.browser_hint.setStyleSheet('color:#858591;')
-        video.addWidget(self.browser_hint);video.addStretch()
-        actions = QHBoxLayout()
-        go = QPushButton('К видео в браузере');go.clicked.connect(lambda:owner.media_stage.open_browser_video())
-        back = QPushButton('Назад');back.clicked.connect(lambda:self.select_tab(0))
-        actions.addWidget(go);actions.addWidget(back);actions.addStretch();video.addLayout(actions)
-        self.stack.addWidget(self.browser_page)
         self.select_tab(0)
         self.clock = QTimer(self)
         self.clock.timeout.connect(self.tick)
@@ -634,8 +615,6 @@ class NotchHub(QWidget):
         self.snap = snap
         self._position_at = time.monotonic()
         self._refresh_text()
-        title = snap.title or ("Неизвестный трек" if snap.has_session else "Ничего не играет")
-        artist = snap.artist or ("" if snap.has_session else "Запусти музыку или видео")
         if snap.thumb != self._art_data:
             self._art_data = snap.thumb
             pix = QPixmap()
@@ -665,8 +644,9 @@ class NotchHub(QWidget):
 
     def _refresh_text(self):
         snap = self.snap
-        title = snap.title or ("Неизвестный трек" if snap.has_session else "Ничего не играет")
-        artist = snap.artist or ("" if snap.has_session else "Запусти музыку или видео")
+        system_audio = not snap.has_session and self.owner._notch_audio_active
+        title = snap.title or ("Неизвестный трек" if snap.has_session else "Звук Windows" if system_audio else "Ничего не играет")
+        artist = snap.artist or ("" if snap.has_session else "Без данных о треке" if system_audio else "Запусти музыку или видео")
         width = max(100, min(186, round((self.width()-44)*.43)-74))
         self.title.setText(self.title.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, width))
         self.title.setToolTip(title)
