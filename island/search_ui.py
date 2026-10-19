@@ -35,7 +35,7 @@ class ResultDelegate(QStyledItemDelegate):
         else:
             glyph(p,result.target if result.kind=="command" else result.kind,icon_rect,c['muted'])
         left=rect.left()+50
-        width=max(20,round(rect.right()-left-42))
+        width=max(20,round(rect.right()-left-110))
         p.setFont(font(14,500))
         p.setPen(QColor(c['text']))
         p.drawText(QRectF(left,rect.top()+7,width,21),Qt.AlignmentFlag.AlignVCenter,
@@ -45,9 +45,10 @@ class ResultDelegate(QStyledItemDelegate):
         detail="Приложение" if result.kind=="app" else result.detail
         p.drawText(QRectF(left,rect.top()+29,width,17),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(detail,Qt.TextElideMode.ElideMiddle,width))
-        if selected:
-            p.setFont(font(15,400)); p.setPen(QColor(c['muted']))
-            p.drawText(QRectF(rect.right()-30,rect.top(),20,rect.height()),Qt.AlignmentFlag.AlignCenter,"↵")
+        p.setFont(font(10));p.setPen(QColor(c['muted']))
+        kind={'command':'Команда','app':'Приложение','store':'Приложение'}.get(result.kind,'Файл')
+        p.drawText(QRectF(rect.right()-104,rect.top(),92,rect.height()),Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter,kind)
+
         p.restore()
 
 
@@ -127,7 +128,7 @@ class SearchPresentation:
             return
         self._height_target=height
         self.height_animation.stop()
-        if self.isVisible():
+        if self.isVisible() and self.owner.settings.get("hub_animations"):
             self.height_animation.setStartValue(float(self.height()))
             self.height_animation.setEndValue(float(height))
             self.height_animation.start()
@@ -136,7 +137,7 @@ class SearchPresentation:
 
     def shape(self):
         path=QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()),24,24)
+        path.addRoundedRect(QRectF(self.rect()),12,12)
         return path
 
     def paintEvent(self,event):
@@ -149,7 +150,7 @@ class SearchPresentation:
         p.fillPath(path,color)
         p.setPen(QPen(QColor(c['line']),1))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),24,24)
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),12,12)
         if self.results.isVisible():
             p.setPen(QPen(QColor(c['line']),1))
             p.drawLine(22,67,self.width()-22,67)

@@ -24,24 +24,15 @@ from .scrolling import SmoothScroll
 from .group_icons import group_icons
 
 
-DIALOG_STYLE="""
-    QDialog,QMessageBox {background:#202227;color:#f4f4f6;}
-    QLabel {background:transparent;color:#f4f4f6;font:13px 'Golos Text';}
-    QLineEdit {background:#292c33;color:#f4f4f6;border:1px solid #41454e;
-        border-radius:7px;padding:9px;min-width:240px;selection-background-color:#4b637a;selection-color:white;}
-    QPushButton {background:#2b2e36;color:#f4f4f6;border:1px solid #41454e;
-        border-radius:7px;padding:8px 15px;min-width:70px;}
-    QPushButton:hover {background:#3a414e;}
-    QPushButton:disabled {color:#747985;}
-"""
-
-
 def group_dialog_style(parent):
+    from .brand import palette
+    from .hub_ui import stylesheet
     window=parent.window() if parent is not None else None
-    if window is not None and hasattr(window,'colors'):
-        from .hub_ui import stylesheet
-        return stylesheet(window.colors)
-    return DIALOG_STYLE
+    colors=getattr(window,'colors',None)
+    manager=getattr(window,'manager',None)
+    if colors is None and manager is not None:
+        colors=resolved_palette(manager.owner.settings)
+    return stylesheet(colors or palette())
 
 
 def ask_group_title(parent,caption,value,verb):
@@ -737,7 +728,7 @@ class GroupPanel(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         path = QPainterPath()
-        radius=16+4*progress
+        radius=10+2*progress
         path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),radius,radius)
         p.fillPath(path,color)
         p.setBrush(Qt.BrushStyle.NoBrush)

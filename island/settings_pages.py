@@ -3,9 +3,9 @@
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QMenu,
     QLabel, QPushButton, QSpinBox, QSlider, QComboBox, QKeySequenceEdit, QLineEdit,
-    QListWidget, QTabWidget, QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog)
+    QListWidget, QSizePolicy, QStackedWidget, QButtonGroup, QTabWidget, QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog)
 from .modules import MODULES
 from .policy import PROFILES
 from .hub import FileShelf, fmt
@@ -14,16 +14,16 @@ from .timer import TimerReadout
 
 
 PAGES = (("hub","Модули","overview_page"),
-         ("account","Сообщество","account_page"),
          ("island","Остров","island_page"),
          ("search","Поиск","search_page"),
          ("desktop","Рабочий стол","desktop_page"),
          ("library","Заметки и файлы","library_page"),
          ("timer","Фокус","timer_page"),
-         ("shortcuts","Горячие клавиши","shortcuts_page"),
          ("workspaces","Окна и наборы","_workspaces_page"),
+         ("shortcuts","Горячие клавиши","shortcuts_page"),
          ("integrations","Приложение","application_page"),
-         ("updates","Обновления","updates_page"))
+         ("updates","Обновления","updates_page"),
+         ("account","Сообщество","account_page"))
 
 
 class ShortcutRecorder(QKeySequenceEdit):
@@ -47,33 +47,30 @@ class SettingsPages:
     def account_page(self):
         from .community_ui import CommunityPanel
         layout = self._page()
-        self.heading(layout, 'Сообщество', 'Развиваем Nelviro вместе')
+        self.heading(layout, 'Сообщество', 'Nelviro развивается вместе с тобой')
         self.account_panel = CommunityPanel(getattr(self.owner, 'community', None))
         layout.addWidget(self.account_panel)
 
     def visual_header(self, layout, title, detail, kind, callback=None):
         from .control_center import text
         from .module_preview import ModulePreview,FocusPreview
-        frame=QFrame()
-        frame.setObjectName('hero')
-        row=QHBoxLayout(frame)
-        row.setContentsMargins(24,20,20,20)
+        # Useful live previews only; ordinary settings do not need illustrations.
+        if kind not in {'island','desktop','search','timer'}:
+            self.heading(layout,title,detail)
+            return None
+        row=QHBoxLayout()
         row.setSpacing(20)
-        words=QVBoxLayout()
-        label=text(title);label.setObjectName('heading')
-        words.addWidget(label)
-        words.addWidget(text(detail,True))
-        words.addStretch()
-        row.addLayout(words,1)
+        row.addWidget(text(detail,True),1)
         preview=FocusPreview(self.owner.notch_hub) if kind=='timer' else ModulePreview(self.owner,kind,callback)
         preview.setFixedWidth(280)
         row.addWidget(preview)
-        layout.addWidget(frame)
+        layout.addLayout(row)
         return preview
 
     def heading(self, layout, title, detail=""):
-        from .control_center import section
-        section(layout,title,detail)
+        from .control_center import text
+        # The shell already names the active section.
+        if detail: layout.addWidget(text(detail,True))
 
     def action(self, title, callback):
         btn = QPushButton(title)
@@ -85,7 +82,7 @@ class SettingsPages:
         frame = QFrame()
         frame.setObjectName("card")
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(18,14,18,16)
+        layout.setContentsMargins(14,10,14,12)
         layout.setSpacing(9)
         label = text(title)
         label.setObjectName("paneTitle")
@@ -128,119 +125,112 @@ class SettingsPages:
 
     def overview_page(self):
         from .control_center import text
-        from .hub_ui import ModuleCard,ToggleSwitch,icon
+        from .hub_ui import ToggleSwitch,icon,CatalogRow
         from .module_preview import ModulePreview,FocusPreview
-        layout = self._page()
-        self.heading(layout,"Модули", "Настрой пространство под себя")
-        row = QHBoxLayout()
-        self.policy_label=text('',True)
-        row.addWidget(self.policy_label)
-        segmented=QFrame()
-        segmented.setObjectName('segments')
-        segment_row=QHBoxLayout(segmented)
-        segment_row.setContentsMargins(3,3,3,3)
-        segment_row.setSpacing(2)
-        self.profile_buttons = {}
-        for key,title in PROFILES.items():
-            btn = self.action('Авто' if key=='auto' else title,lambda _,k=key:self._setting("profile",k))
-            btn.setObjectName('segment')
-            btn.setCheckable(True)
-            segment_row.addWidget(btn)
-            self.profile_buttons[key] = btn
-        row.addStretch()
-        row.addWidget(segmented)
-        layout.addLayout(row)
-        grid = QGridLayout()
-        grid.setSpacing(16)
-        self.module_status = {}
+        layout=self._page()
+        layout.addWidget(text('Инструменты твоего рабочего пространства',True))
+        body=QHBoxLayout();body.setSpacing(22)
+        catalog=QVBoxLayout();catalog.setSpacing(2)
+        self.module_status={}
         self.module_switches={}
-        specs=(('island','Остров','Музыка и звук у верхней рамки','island_enabled','island'),
-            ('desktop','Группы','Приложения и файлы в одном месте','desktop_enabled','folder'),
-            ('search','Быстрый поиск','Найти и открыть одной строкой','search_enabled','search'),
+        self.catalog_buttons={}
+        self.catalog_group=QButtonGroup(self)
+        self.catalog_stack=QStackedWidget()
+        self.catalog_stack.setMinimumWidth(280)
+        self.catalog_stack.setMaximumWidth(320)
+        self.catalog_stack.setMinimumHeight(230)
+        specs=(('island','Остров','Музыка, календарь и звук','island_enabled','island'),
+            ('desktop','Группы','Файлы и приложения','desktop_enabled','folder'),
+            ('search','Быстрый поиск','Открыть одной строкой','search_enabled','search'),
             ('timer','Фокус','Время для важного',None,'timer'),
-            ('library','Заметки и файлы','Мысли и материалы под рукой',None,'note'),
-            ('workspaces','Окна и наборы','Рабочие раскладки PowerToys',None,'windows'))
+            ('library','Заметки и файлы','Всё под рукой',None,'note'),
+            ('workspaces','Окна и наборы','Порядок на экране',None,'windows'))
         for index,(key,title,detail,setting,glyph_name) in enumerate(specs):
-            frame=ModuleCard(lambda k=key:self.navigate(k))
-            inside=QVBoxLayout(frame)
-            inside.setContentsMargins(20,18,20,20)
-            inside.setSpacing(8)
-            top=QHBoxLayout()
-            emblem=QLabel()
-            emblem.setProperty('glyph',glyph_name)
-            emblem.setPixmap(icon(glyph_name,self.colors['accent'],24).pixmap(24,24))
-            top.addWidget(emblem)
-            top.addStretch()
+            row=QHBoxLayout();row.setSpacing(4)
+            select=CatalogRow(title,detail,lambda _,i=index:self.select_catalog(i))
+            select.setObjectName('catalogRow');select.setCheckable(True)
+            select.setIcon(icon(glyph_name,self.colors['muted'],20))
+            select.setMinimumHeight(56)
+            self.catalog_group.addButton(select,index)
+            self.catalog_buttons[key]=select
+            row.addWidget(select,1)
             if setting:
                 toggle=ToggleSwitch(title)
                 toggle.toggled.connect(lambda value,k=setting:self._setting(k,value))
-                top.addWidget(toggle)
+                row.addWidget(toggle)
                 self.module_switches[setting]=toggle
-            else:
-                arrow=self.action('↗',lambda _,k=key:self.navigate(k))
-                arrow.setObjectName('quiet')
-                arrow.setFixedSize(26,26)
-                arrow.setAccessibleName('Открыть '+title)
-                top.addWidget(arrow)
-            inside.addLayout(top)
-            label=text(title)
-            label.setObjectName('cardTitle')
-            inside.addWidget(label)
-            inside.addWidget(text(detail,True))
+            catalog.addLayout(row)
+            panel=QWidget();inside=QVBoxLayout(panel)
+            inside.setContentsMargins(0,8,0,0);inside.setSpacing(10)
             if key in ('island','desktop','search'):
-                # Search uses its normal launcher, including focus and hotkey handling.
-                callback=(self.owner._show_panel if key=='island' else
-                          self.owner.modules.search.toggle if key=='search' else lambda:self.navigate('desktop'))
+                callback=(self.owner._show_panel if key=='island' else self.owner.show_search if key=='search' else lambda:self.navigate('desktop'))
                 preview=ModulePreview(self.owner,key,callback)
                 inside.addWidget(preview)
                 if key=='island': self.hero_preview=preview
-            if setting:
-                status=text('',True)
-                inside.addWidget(status)
-                self.module_status[key]=status
             elif key=='timer':
                 self.focus_preview=FocusPreview(self.owner.notch_hub)
                 self.overview_timer=self.focus_preview.readout
                 inside.addWidget(self.focus_preview)
-                self.overview_start=self.action('Начать / пауза',self.owner.notch_hub.toggle_timer)
-                self.overview_start.setObjectName('primary')
-                inside.addWidget(self.overview_start)
-            elif key=='workspaces':
-                for external in ('layouts','workspaces'):
-                    status=text('',True)
-                    status.setStyleSheet('font-size:10px')
-                    inside.addWidget(status)
-                    self.module_status[external]=status
-            else:
-                inside.addWidget(text('Открыть заметки →',True))
-            grid.addWidget(frame,index//2,index%2)
-        layout.addLayout(grid)
+                self.overview_start=self.action('Начать',self.owner.notch_hub.toggle_timer)
+                self.overview_start.setObjectName('primary');inside.addWidget(self.overview_start)
+            label=text(title);label.setObjectName('paneTitle');inside.addWidget(label)
+            inside.addWidget(text(detail,True))
+            for status_key in ([key] if setting else ['layouts','workspaces'] if key=='workspaces' else []):
+                status=text('',True);inside.addWidget(status);self.module_status[status_key]=status
+            inside.addWidget(self.action('Настроить →',lambda _,k=key:self.navigate(k)))
+            inside.addStretch()
+            self.catalog_stack.addWidget(panel)
+        catalog.addStretch()
+        body.addLayout(catalog,1);body.addWidget(self.catalog_stack,1,Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(body)
+        self.policy_label=text('',True);layout.addWidget(self.policy_label)
+        profiles=QHBoxLayout();profiles.setSpacing(4)
+        profiles.addWidget(text('Рабочий профиль',True));profiles.addStretch()
+        self.profile_buttons={}
+        for key,title in PROFILES.items():
+            btn=self.action('Авто' if key=='auto' else title,lambda _,k=key:self._setting('profile',k))
+            btn.setObjectName('segment');btn.setCheckable(True)
+            profiles.addWidget(btn);self.profile_buttons[key]=btn
+        layout.addLayout(profiles)
         layout.addStretch()
+        self.select_catalog(0)
+
+    def select_catalog(self,index):
+        self.catalog_stack.setCurrentIndex(index)
+        self.catalog_group.button(index).setChecked(True)
+        if hasattr(self,"focus_tick"): self.sync_focus_timer()
+        # QStackedWidget uses the tallest child by default; keep the selection compact.
+        for i in range(self.catalog_stack.count()):
+            self.catalog_stack.widget(i).setSizePolicy(
+                self.catalog_stack.widget(i).sizePolicy().horizontalPolicy(),
+                QSizePolicy.Policy.Preferred
+                if i==index else QSizePolicy.Policy.Ignored)
 
     def island_page(self):
         layout = self._page()
         from .hub_ui import ModuleCard
         from .module_preview import FormPreview
-        self.heading(layout,'Остров','Выбери формат. Музыка, календарь и фокус остаются рядом.')
-        self._module(layout,'island_enabled','Показывать остров','Выбранный вариант появляется по центру экрана')
-        choices=QHBoxLayout()
+        self.heading(layout,'Остров','Музыка и инструменты всегда рядом.')
+        main,base=self.card('Отображение')
+        layout.addWidget(main)
+        self._module(base,'island_enabled','Показывать остров','Выбранный вариант появляется по центру экрана')
         self.style_choices={}
-        for style,title,caption in (('notch','Чёлка','У верхней рамки · для всех'),('floating','Остров','Отдельно от рамки · подписчикам')):
-            choose=lambda k=style:self._setting('island_style',k)
-            tile=ModuleCard(choose)
-            inside=QVBoxLayout(tile);inside.setContentsMargins(16,12,16,12)
-            label=QLabel(title);label.setObjectName('cardTitle');inside.addWidget(label)
-            preview=FormPreview(self.owner,style,choose)
-            inside.addWidget(preview)
-            status=QLabel(caption);status.setObjectName('secondary');inside.addWidget(status)
-            choices.addWidget(tile,1)
-            self.style_choices[style]=(tile,status)
-        layout.addLayout(choices)
-        self._module(layout,'cursor_retreat','Уклоняться от курсора','Приближаешься к вкладкам — остров оставляет тонкий язычок. Наведи на него, чтобы раскрыть управление.')
+        style_row=QHBoxLayout()
+        style_row.addWidget(QLabel('Форма острова'),1)
+        self.style_picker=QComboBox()
+        self.style_picker.addItem('Чёлка · для всех','notch')
+        self.style_picker.addItem('Плавающий · подписчикам','floating')
+        self.style_picker.currentIndexChanged.connect(lambda _:self._setting('island_style',self.style_picker.currentData()))
+        style_row.addWidget(self.style_picker)
+        base.addLayout(style_row)
+        self.island_preview=FormPreview(self.owner,'notch',self.owner._show_panel)
+        self.island_preview.setFixedWidth(360)
+        base.addWidget(self.island_preview,0,Qt.AlignmentFlag.AlignCenter)
+        self._module(base,'cursor_retreat','Уклоняться от курсора','Приближаешься к вкладкам — остров оставляет тонкий язычок. Наведи на него, чтобы раскрыть управление.')
         row=QHBoxLayout()
         row.addWidget(self.action('Открыть остров',self.owner._show_panel))
         row.addWidget(self.action('Сбросить оформление',self.reset_island))
-        layout.addLayout(row)
+        base.addLayout(row)
         frame,inside = self.fold("Размер и прозрачность")
         for key,label in (("compact_width","Ширина свёрнутой"),("compact_height","Высота свёрнутой"),
                           ("expanded_width","Ширина раскрытой"),("expanded_height","Высота раскрытой")):
@@ -288,7 +278,7 @@ class SettingsPages:
 
     def search_page(self):
         layout=self._page()
-        self.visual_header(layout,'Быстрый поиск','Приложение, файл, путь или команда. Введи название и нажми Enter.', 'search',self.owner.show_search)
+        self.heading(layout,'Быстрый поиск','Приложения, файлы и команды — в одной строке.')
         frame,inside=self.card('Источники поиска')
         self._module(inside,'search_enabled','Включить поиск','Открывается сочетанием клавиш или из модулей')
         self._module(inside,'search_apps','Приложения и ярлыки','Из меню «Пуск» и рабочего стола')
@@ -301,6 +291,11 @@ class SettingsPages:
         row.addWidget(self.action('Папки в индексе Windows ↗',lambda:self._url(QUrl('ms-settings:search'))))
         inside.addLayout(row)
         layout.addWidget(frame)
+        frame,inside=self.fold('Предпросмотр поиска')
+        from .module_preview import ModulePreview
+        inside.addWidget(ModulePreview(self.owner,'search',self.owner.show_search))
+        inside.addWidget(self.action('Открыть поиск',self.owner.show_search))
+        layout.addWidget(frame)
         layout.addStretch()
 
     def desktop_page(self):
@@ -309,10 +304,11 @@ class SettingsPages:
         layout=self._page()
         layout.setContentsMargins(0,0,0,0)
         layout.setSpacing(10)
-        self.visual_header(layout,'Группы','Собери приложения и файлы. Наведи на заголовок — группа раскроется.', 'desktop')
+        self.heading(layout,'Группы','Собери приложения и файлы в группы на рабочем столе.')
         self._module(layout,"desktop_enabled","Показывать группы","Они остаются на рабочем столе под окнами приложений")
         self.group_tabs=QTabWidget()
         self.group_editor=GroupEditor(self.owner.modules.desktop,self._message)
+        self.group_editor.setMinimumHeight(320)
         self.group_tabs.addTab(self.group_editor,"Мои группы")
         appearance=QWidget()
         inside=QVBoxLayout(appearance)
@@ -328,12 +324,12 @@ class SettingsPages:
         inside.addWidget(self.action("Открыть библиотеку ярлыков ↗",lambda:self._url(QUrl.fromLocalFile(str(self.owner.modules.desktop.store.library.root)))))
         inside.addWidget(self.action("Выровнять группы на рабочем столе",self.owner.modules.desktop.arrange))
         inside.addStretch()
-        scroll=SmoothScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(appearance)
-        self.group_tabs.addTab(scroll,"Оформление и поведение")
+        self.group_tabs.addTab(appearance,"Оформление и поведение")
         layout.addWidget(self.group_tabs,1)
+        preview_section,preview_layout=self.fold('Как выглядит группа')
+        from .module_preview import ModulePreview
+        preview_layout.addWidget(ModulePreview(self.owner,'desktop',None))
+        layout.addWidget(preview_section)
 
     def library_page(self):
         layout = self._page()
@@ -362,21 +358,28 @@ class SettingsPages:
     def timer_page(self):
         from .control_center import text
         layout = self._page()
-        self.timer_header=self.visual_header(layout,'Фокус','Введи минуты или прокрути цифры. Пауза сохраняет оставшееся время.', 'timer')
-        frame,inside = self.card("Твой интервал")
-        self.timer_label = self.timer_header.readout
-        self.number(inside,"timer_minutes","Длительность"," мин")
-        row = QHBoxLayout()
-        self.focus_start = self.action("Начать",self.owner.notch_hub.toggle_timer)
+        self.heading(layout,'Фокус','Один интервал для важного. Пауза сохраняет оставшееся время.')
+        frame,inside=self.card('Сеанс фокуса')
+        from .module_preview import FocusPreview
+        controls=QHBoxLayout();controls.setSpacing(20)
+        self.timer_header=FocusPreview(self.owner.notch_hub)
+        self.timer_header.setFixedWidth(150)
+        controls.addWidget(self.timer_header)
+        settings=QVBoxLayout();settings.setSpacing(10)
+        self.timer_label=self.timer_header.readout
+        self.number(settings,'timer_minutes','Длительность',' мин')
+        row=QHBoxLayout()
+        self.focus_start=self.action('Начать',self.owner.notch_hub.toggle_timer)
         self.focus_start.setObjectName('primary')
         row.addWidget(self.focus_start)
-        row.addWidget(self.action("Сбросить",self.owner.notch_hub.reset_timer))
-        row.addWidget(self.action("Показать в чёлке",self.open_focus))
-        inside.addLayout(row)
-        quick = QHBoxLayout()
+        row.addWidget(self.action('Сбросить',self.owner.notch_hub.reset_timer))
+        row.addWidget(self.action('В чёлке',self.open_focus))
+        settings.addLayout(row)
+        quick=QHBoxLayout()
         for minutes in (5,15,25,45,60):
-            quick.addWidget(self.action(str(minutes)+" мин",lambda _,n=minutes:self._setting("timer_minutes",n)))
-        inside.addLayout(quick)
+            quick.addWidget(self.action(str(minutes)+' мин',lambda _,n=minutes:self._setting('timer_minutes',n)))
+        settings.addLayout(quick)
+        controls.addLayout(settings,1);inside.addLayout(controls)
         layout.addWidget(frame)
         frame,inside = self.fold('Завершение таймера')
         self._module(inside,"timer_sound","Звуковой сигнал","Повторяется ограниченное время; громкость определяется обычной громкостью Windows")
@@ -395,7 +398,8 @@ class SettingsPages:
         self.owner.notch_hub.select_tab(1)
 
     def sync_focus_timer(self):
-        if self.isVisible() and self.navigation.currentRow() in {self.page_indices["timer"],self.page_indices['hub']}:
+        if self.isVisible() and (self.navigation.currentRow()==self.page_indices['timer'] or
+                self.navigation.currentRow()==self.page_indices['hub'] and self.catalog_stack.currentIndex()==3):
             self.focus_tick.start()
             self.refresh_timer_display()
         else:
@@ -404,7 +408,7 @@ class SettingsPages:
     def refresh_timer_display(self):
         hub = self.owner.notch_hub
         self.timer_label.refresh()
-        if hasattr(self,'overview_timer'): self.overview_timer.refresh()
+        if hasattr(self,'overview_timer') and self.overview_timer.isVisible(): self.overview_timer.refresh()
         if hasattr(self,'focus_preview'): self.focus_preview.update()
         if hasattr(self,'timer_header'): self.timer_header.readout.refresh(); self.timer_header.update()
         self.focus_start.setText("Остановить сигнал" if hub.alarm.active else "Пауза" if hub._timer_end else "Продолжить" if 0 < hub.timer_seconds() < self.owner.settings.get("timer_minutes")*60 else "Начать")
@@ -422,25 +426,39 @@ class SettingsPages:
     def shortcuts_page(self):
         from .control_center import text
         layout = self._page()
-        self.visual_header(layout,'Горячие клавиши','Выбери действие, нажми своё сочетание и примени.', 'shortcuts')
+        self.visual_header(layout,'Горячие клавиши','Нажми на сочетание, чтобы назначить своё.', 'shortcuts')
         self.key_editors, self.key_status = {},{}
+        frame,inside=self.card('Сочетания клавиш')
+        from .shortcut_ui import ShortcutButton
         for key,title in (("hotkey_search","Быстрый поиск"),("hotkey_island","Открыть чёлку"),("hotkey_hub","Открыть Nelviro")):
-            frame,inside = self.card(title)
-            row = QHBoxLayout()
-            editor = ShortcutRecorder(self.owner,self.owner.settings.get(key))
-            editor.setMaximumSequenceLength(1)
-            self.key_editors[key] = editor
-            row.addWidget(editor,1)
-            row.addWidget(self.action("Применить",lambda _,k=key:self.apply_shortcut(k)))
-            row.addWidget(self.action("Вручную…",lambda _,k=key:self.manual_shortcut(k)))
-            row.addWidget(self.action("Отключить",lambda _,k=key:self._setting(k,"")))
+            row=QHBoxLayout();row.setSpacing(8)
+            words=QVBoxLayout();words.setSpacing(2)
+            words.addWidget(text(title))
+            status=text('',True);words.addWidget(status);self.key_status[key]=status
+            row.addLayout(words,1)
+            editor=ShortcutButton(self.owner.settings.get(key))
+            editor.setFixedWidth(230)
+            editor.setAccessibleName('Изменить сочетание: '+title)
+            editor.clicked.connect(lambda _,k=key,t=title:self.open_shortcut(k,t))
+            self.key_editors[key]=editor
+            row.addWidget(editor)
+            more=QPushButton('…');more.setObjectName('iconButton');more.setFixedWidth(30)
+            more.setAccessibleName('Другие действия: '+title)
+            menu=QMenu(more)
+            menu.addAction('Ввести вручную…',lambda _,k=key:self.manual_shortcut(k))
+            menu.addAction('Отключить',lambda _,k=key:self._setting(k,''))
+            more.setMenu(menu);row.addWidget(more)
             inside.addLayout(row)
-            status = text("",True)
-            inside.addWidget(status)
-            self.key_status[key] = status
-            layout.addWidget(frame)
+        layout.addWidget(frame)
         layout.addWidget(text("Используй Ctrl, Alt или Win с буквой, цифрой, Space или F1–F24. Системные зарезервированные сочетания могут быть недоступны. Трей остаётся доступен при отключённых клавишах.",True))
         layout.addStretch()
+
+    def open_shortcut(self,key,title):
+        from .shortcut_ui import ShortcutDialog
+        dialog=ShortcutDialog(self,key,title)
+        dialog.exec()
+        dialog.deleteLater()
+        self.refresh()
 
     def apply_shortcut(self,key):
         self._setting(key,self.key_editors[key].keySequence().toString(QKeySequence.SequenceFormat.PortableText))
@@ -449,12 +467,12 @@ class SettingsPages:
         value,ok = QInputDialog.getText(self,"Горячая клавиша","Например Alt+Space или Ctrl+Alt+Space",text=self.owner.settings.get(key))
         if ok:
             self._setting(key,value.strip())
-            self.key_editors[key].setKeySequence(QKeySequence(self.owner.settings.get(key)))
+            self.key_editors[key].setKeySequence(QKeySequence(self.owner.settings.get(key).replace('Win+','Meta+')))
 
     def application_page(self):
         layout = self._page()
         self.visual_header(layout,'Приложение','Оформление и запуск — как удобно тебе.', 'application')
-        frame,inside=self.card('Твой Nelviro')
+        frame,inside=self.card('Общие')
         row=QHBoxLayout()
         row.addWidget(QLabel('Оформление'),1)
         self.theme_picker=QComboBox()

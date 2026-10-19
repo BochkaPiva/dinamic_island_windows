@@ -118,6 +118,8 @@ class HubDesignTests(unittest.TestCase):
         self.assertEqual(before,store.path.read_bytes())
 
     def test_focus_preview_edits_shared_timer_and_starts_it(self):
+        self.center.catalog_buttons["timer"].click()
+        QTest.qWait(20)
         self.center.overview_timer.setFocus()
         self.center.overview_timer.selectAll()
         QTest.keyClicks(self.center.overview_timer,'7')
@@ -139,6 +141,28 @@ class HubDesignTests(unittest.TestCase):
         self.assertFalse(c.transition.isVisible())
         self.assertIsNone(c.transition.old)
         self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+
+    def test_collapsed_navigation_has_keyboard_escape_and_keeps_page_ids(self):
+        c=self.center
+        c.toggle_sidebar()
+        self.assertEqual(c.sidebar.width(),54)
+        c.navigate('desktop')
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['desktop'])
+        c.focus_settings_search()
+        self.assertFalse(c.sidebar_collapsed)
+        self.assertTrue(c.settings_search.hasFocus())
+        self.assertTrue(all(c.navigation.item(i).toolTip() for i in range(c.navigation.count())))
+
+    def test_catalog_shows_one_preview_and_stops_hidden_audio_and_focus_ticks(self):
+        from island.module_preview import ModulePreview
+        c=self.center
+        c.catalog_buttons['timer'].click()
+        self.assertTrue(c.overview_timer.isVisible())
+        self.assertTrue(c.focus_tick.isActive())
+        c.catalog_buttons['search'].click()
+        self.assertFalse(c.focus_tick.isActive())
+        self.assertFalse(c.hero_preview.clock.isActive())
+        self.assertLessEqual(sum(p.isVisible() for p in c.catalog_stack.findChildren(ModulePreview)),1)
 
     def test_update_install_flushes_notes_and_supplies_remaining_timer(self):
         hub=self.w.notch_hub

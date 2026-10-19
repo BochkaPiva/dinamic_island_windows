@@ -4,7 +4,7 @@ import threading
 import time
 from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QLabel, QPushButton
 from .community_client import CommunityClient, CommunityError
 from . import build_config
 
@@ -174,23 +174,41 @@ def text(value, secondary=False):
 
 
 class CommunityBenefits(QWidget):
-    """Show the capabilities that actually exist, without promises or upsell tiers."""
+    """One selectable preview plus a literal comparison of existing features."""
     def __init__(self,owner=None,parent=None):
         super().__init__(parent)
         self.owner=owner
         from .module_preview import FormPreview
-        row=QHBoxLayout(self);row.setContentsMargins(0,0,0,0);row.setSpacing(16)
-        for style,title,detail in (
-            ('notch','Для каждого','Чёлка у рамки\nДве группы на рабочем столе\nПоиск, заметки и таймер'),
-            ('floating','С подпиской на канал','Плавающий остров\nБольше групп и закрепление карточек\nВидеофайлы и зеркало камеры')):
-            card=QFrame();card.setObjectName('card')
-            inside=QVBoxLayout(card);inside.setContentsMargins(18,16,18,18);inside.setSpacing(12)
-            label=text(title);label.setObjectName('cardTitle');inside.addWidget(label)
-            if owner:inside.addWidget(FormPreview(owner,style))
-            inside.addWidget(text(detail,True));inside.addStretch()
-            row.addWidget(card,1)
+        root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0);root.setSpacing(12)
+        grid=QGridLayout();grid.setHorizontalSpacing(20);grid.setVerticalSpacing(12)
+        for column,title in enumerate(('Возможности','Без входа','С подпиской')):
+            label=text(title);label.setObjectName('paneTitle');grid.addWidget(label,0,column)
+        for row,values in enumerate((('Форма','Чёлка','Чёлка и остров'),
+            ('Группы на рабочем столе','2 активные','Без ограничения'),
+            ('Поиск, заметки, таймер','Доступны','Доступны'),
+            ('Видео, камера, закрепление','—','Доступны')),1):
+            for column,value in enumerate(values):
+                grid.addWidget(text(value,column>0),row,column)
+        grid.setColumnStretch(0,1)
+        root.addLayout(grid)
+        if owner:
+            controls=QHBoxLayout()
+            self.preview=FormPreview(owner,'floating')
+            self.preview.setFixedHeight(100)
+            self.preview_buttons=[]
+            for style,title in (('notch','Чёлка'),('floating','Остров')):
+                button=QPushButton(title);button.setObjectName('segment');button.setCheckable(True)
+                button.setChecked(style=='floating')
+                button.clicked.connect(lambda _,s=style:self.select_preview(s))
+                controls.addWidget(button);self.preview_buttons.append((style,button))
+            controls.addStretch()
+            root.addLayout(controls);root.addWidget(self.preview)
         self.setAccessibleName('Без входа: чёлка и две группы. С подпиской: плавающий остров и дополнительные группы.')
 
+    def select_preview(self,style):
+        self.preview.display_style=style
+        self.preview.update()
+        for key,button in self.preview_buttons: button.setChecked(style==key)
 
 
 class CommunityPanel(QWidget):
@@ -205,7 +223,7 @@ class CommunityPanel(QWidget):
         self.controller = controller
         self.layout_ = QVBoxLayout(self)
         self.layout_.setContentsMargins(0, 0, 0, 0)
-        self.layout_.setSpacing(16)
+        self.layout_.setSpacing(14)
         owner = controller.parent() if controller else None
         if not owner or not hasattr(owner, 'snapshot'):
             owner = None
@@ -213,13 +231,13 @@ class CommunityPanel(QWidget):
         hero = QFrame(self)
         hero.setObjectName('hero')
         inside = QVBoxLayout(hero)
-        inside.setContentsMargins(24, 22, 24, 22)
+        inside.setContentsMargins(16, 14, 16, 14)
         inside.setSpacing(12)
         self.status = text('')
         self.status.setObjectName('secondary')
         self.status.setAccessibleName('Состояние подключения Telegram')
         self.title = text('')
-        self.title.setObjectName('heading')
+        self.title.setObjectName('paneTitle')
         self.detail = text('', True)
         self.message = text('', True)
         for label in (self.status, self.title, self.detail, self.message):
@@ -241,8 +259,12 @@ class CommunityPanel(QWidget):
         self.layout_.addWidget(hero)
         self.benefits = CommunityBenefits(owner, self)
         self.layout_.addWidget(self.benefits)
-        help_card = self.card('Как это работает',
-            'Один раз подключи Telegram через бота. Дальше Nelviro проверяет подписку автоматически.')
+        from .hub_ui import SettingsSection
+        help_section = SettingsSection('Как работает подключение')
+        self.layout_.addWidget(help_section)
+        help_card = help_section.content
+        help_card.addWidget(text(
+            'Один раз подключи Telegram через бота. Дальше Nelviro проверяет подписку автоматически.', True))
         help_card.addWidget(text(
             'Проверка — раз в 6 часов. Без интернета последнее подтверждение действует до 72 часов. '
             'После отписки — 24 часа, чтобы вернуться в канал.', True))
@@ -270,7 +292,7 @@ class CommunityPanel(QWidget):
 
     def button(self, title, callback, *, active=True):
         button = QPushButton(title)
-        button.setMinimumHeight(40)
+        button.setMinimumHeight(32)
         if title in {'Подключить Telegram','Настроить остров','Открыть канал'}: button.setObjectName('primary')
         button.setEnabled(active and not (self.controller and self.controller.busy))
         button.clicked.connect(callback)
@@ -321,7 +343,7 @@ class CommunityPanel(QWidget):
             status, title = 'Ожидаем подтверждение', 'Продолжи в Telegram'
             detail = 'В боте нажми «Проверить подписку». После подтверждения возможности откроются автоматически.'
         else:
-            status, title = 'Без оплаты · без пароля', 'Больше свободы для рабочего стола'
+            status, title = 'Без оплаты · без пароля', 'Расширенные возможности'
             detail = 'Подпишись на Nelviro в Telegram, чтобы открыть дополнительные инструменты. Подключение займёт пару шагов.'
         if controller and controller.candidate is not None:
             status = 'Подключаем расширенные возможности…'

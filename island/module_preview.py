@@ -116,7 +116,7 @@ class ModulePreview(QWidget):
             self.cover=rounded_art(data,40,10,self.devicePixelRatioF())
         p.drawPixmap(24,24,self.cover)
         p.setPen(QColor('#F5F6F8')); p.setFont(font(12,500))
-        calendar=w>=320
+        calendar=w>=400
         width=max(35,int(w*.48)-75) if calendar else w-105
         title=snap.title if snap and snap.title else 'Нет воспроизведения'
         p.drawText(QRectF(74,25,width,20),Qt.AlignmentFlag.AlignVCenter,
@@ -235,7 +235,7 @@ class FormPreview(ModulePreview):
     """Compact, live form demonstration with the same outline as the HWND."""
     def __init__(self,owner,style,callback=None):
         super().__init__(owner,'island',callback)
-        self.display_style=style;self.setFixedHeight(112);self.setMinimumWidth(180)
+        self.display_style=style;self.setFixedHeight(80);self.setMinimumWidth(180)
 
     def paintEvent(self,event):
         from .style import island_outline
@@ -248,7 +248,7 @@ class FormPreview(ModulePreview):
         p.drawRoundedRect(QRectF(self.rect()),14,14)
         p.setClipRect(self.rect().adjusted(8,8,-8,-8))
         p.setBrush(QColor(c['raised']))
-        for i in range(3):p.drawRoundedRect(QRectF(18+i*42,78,32,4),2,2)
+
         width=min(210,self.width()-40);height=38
         x=(self.width()-width)/2;y=23 if self.display_style=='floating' else 8
         p.save();p.translate(x,y)

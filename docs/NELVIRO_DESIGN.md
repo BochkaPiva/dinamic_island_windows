@@ -1,83 +1,94 @@
-# Nelviro interface
+# Nelviro interface · 0.11
 
-The original continuous N mark and Glacier/Graphite palette come from the
-approved Nelviro brandbook v1.0. Brand assets live in `island/assets/brand`;
-`island/brand.py` is the shared desktop color source. Golos Text remains the
-bundled, licensed font. The installer and running application use the same ICO.
+## Approved direction
 
-## Interface rules
+The latest user clarification takes precedence over Brandbook v1.0's Glacier UI
+accent: settings, search and desktop groups use neutral black/gray surfaces and
+selection, visually guided by the supplied Raycast screenshots. Preserve the
+original N identity and licensed Golos Text. Do not copy Raycast assets or code.
+Reference: https://manual.raycast.com/settings .
 
-- One quiet application title; no Pro labels, promotional hero or permanent load counters.
-- Two columns of actionable modules. The island, groups and search have previews;
-  focus uses the existing editable timer and its real remaining-time ring.
-- Use existing models. Never create a second audio capture, file index or timer
-  just to animate a preview. Audio repaint requests are coalesced to 30 fps and
-  cancelled when the preview page hides. No synthetic equalizer activity.
-- All settings remain reachable through navigation and setting search. Existing
-  keyboard activation, animation preference and native timer editing remain available.
-- Dark and light palettes share semantic roles. Floating search uses one rounded
-  translucent surface, with an opaque option. Native blur is not claimed: the
-  existing Windows layered-window fallback intentionally disables DWM material
-  because it draws an unwanted rectangular backplate.
-- Small preview widths show media only rather than squeezing seven calendar dates.
+`island/brand.py` owns semantic colors. Dark: background #161616, sidebar #1C1C1C,
+settings sections #242424, raised controls #303030, selection #343434, text #F2F2F2.
+The light palette is neutral too. No blue/teal selection, gradients, glow or fake blur. The original logo may retain
+its color. The later shortcut-sheet reference adds real acrylic on transient
+panels and the settings chrome; reading surfaces stay opaque.
 
-## Compatibility boundary
+## Composition
 
-Nelviro is the visible product name. Keep the legacy `CloudIsland.exe`, installer
-AppId, `%LOCALAPPDATA%/Cloud Island`, autostart registry value, IPC identity,
-DPAPI context and subscription installation ID. Renaming these is a separate
-data migration, not a visual change. This update does not change the Telegram
-service, permissions or membership policy.
+- A quiet, thin title bar. Integrated sidebar with 36 px navigation rows; a separate
+  Parameters group for shortcuts, application, updates and community.
+- The sidebar folds to icons. Every icon retains a tooltip and accessible name.
+  Ctrl+F unfolds it and focuses settings search. Page IDs remain stable.
+- The shell names the current section once. Descriptions are short and subordinate.
+- Modules form one compact catalog, with a single selected inspector. Only the
+  selected preview is visible; no grid of simultaneously animated cards.
+- Settings group related rows on one charcoal surface. Label left, control right.
+  Additional settings use the common disclosure. No cards nested in cards.
+- Useful previews use real existing models. Do not invent illustrations for ordinary
+  application settings, hotkeys, notes or window management. The group editor comes
+  before its optional preview. Focus keeps its editable, live timer.
+- Community shows real connection status, one primary action, a literal feature
+  comparison and one selectable form preview. Keep its widget tree persistent on
+  controller/access notifications; never rebuild the UI on each refresh.
 
-## Validation
+## Components and tokens
 
-Run `python -m unittest discover -s tests -q` in the desktop environment and
-`packaging/build.ps1` for the packaged self-test, license collection and bundle
-audit. Visually inspect the module screen in dark/light modes at 1120 px and
-the minimum 900 px width, plus search and desktop groups. Use the update helper
-for an installation test so rollback and data snapshots remain active.
+Reuse `hub_ui.py`: Navigation/NavDelegate, CatalogRow, ToggleSwitch,
+SettingsSection, WindowHeader, ContentTransition, icon and stylesheet.
+shortcut_ui.py provides ShortcutButton, ShortcutCapture and ShortcutDialog.
+SettingsPages
+card/number and ControlCenter._module build consistent groups and setting rows.
+Use existing vector glyphs from ui_tokens.py; no emoji or new icon package.
 
-## Layout and island update (0.9)
+Body text 13 px, supporting text 11–12 px, group title 14 px, page title 19 px.
+Rows ~56 px for a two-line catalog; 36 px navigation. Settings/controls use 6–8 px
+radii. Use 4/8 px spacing increments; no giant promotional hero.
+`brand.MOTION`: response 120 ms, toggle 180 ms, groups 320 ms, island 380 ms.
+Respect hub_animations; do not poll a second media source to animate a preview.
+No hidden preview clocks or permanent decorative motion.
 
-Section headers carry live or explanatory previews. Secondary controls use
-collapsible sections; settings pages share inertial wheel scrolling and native
-pixel touchpad input. The Windows/HONOR page is removed. Community navigation
-is prominent and the comparison shows only implemented capabilities.
+## Compatibility
 
-The free notch remains available. Channel members can choose a floating shape
-and gap. A saved floating choice is retained when access expires, but the
-renderer safely uses the free notch. No group data is removed.
+Keep CloudIsland.exe, installer AppId, Cloud Island data/autostart/IPC identities,
+DPAPI context, installation binding, stored keys/data formats and Telegram protocol.
+The membership model remains free plus channel-member capabilities, without payment.
+The video feature is local files and camera, not a promised browser video stream.
+Search has one optionally translucent rounded surface; native blur is not claimed.
 
-Visibility has a separate, reversible opacity/position timeline. Foreground,
-move/size-end, minimize-end and foreground-location WinEvents trigger state
-checks. Location events are coalesced, and a polling fallback remains. Runtime
-services stop in fullscreen; expanded content is not collapsed halfway through
-its exit. Interrupted timelines preserve their current rendered fraction.
+## Verification and maintenance
 
-Window placement is an explicit action against a chosen local HWND/PID, with
-monitor work-area/DPI, minimum-size checks and post-placement size verification.
-It does not install global snap/keyboard hooks or replace the separate optional
-PowerToys Shift-drag behavior. Windows with larger minimum sizes cannot fit a
-narrow zone; elevated/nonresponsive windows may reject placement.
+Run desktop unittest discovery, `tools/check_hub_design.py`, and
+`tools/check_raycast_ui.py OUTPUT` in fresh Windows processes at actual DPR 1/1.5/2.
+Inspect every page in dark/light at logical widths 900/1120, keyboard actions,
+empty/long text, reduced motion and hidden timers. A scale factor multiplies Windows
+native scale: record devicePixelRatioF, not only QT_SCALE_FACTOR.
+Run packaging/build.ps1 for packaged self-test and dependency/license audit.
+The complete function/access map and verification limits are in
+[NELVIRO_RAYCAST_UI.md](NELVIRO_RAYCAST_UI.md).
+New pages must reuse these components. Do not reintroduce blue selection, giant
+preview grids, decorative headers or duplicate labels as features are added.
 
-Validation: 175 desktop tests, three native fixture placements (halves, thirds,
-60/40), four registered/unregistered native event hooks, packaged Qt/WinRT
-self-test and bundle audit. Dark/light pages were rendered and inspected. An
-attempted live fullscreen fixture could not obtain foreground under Windows'
-focus policy; real browser Alt-Tab is not claimed as manually verified. Reversal,
-hide/show and reduced-motion behavior are covered by GUI tests.
+## Shortcut interaction and materials
 
-The final 0.9.1 packaging isolates window-placement Win32 function signatures
-in a private DLL interface. A real-API regression test now opens the window
-catalog before invoking cursor/fullscreen geometry, covering shared ctypes
-signature conflicts that separate mocked tests missed in 0.9.0.
+The latest cropped Raycast reference is a behavior reference too: clicking a
+keycap opens a 474 px floating recorder, with large separate keys and a quiet
+footer containing the action, Save/Return and Cancel/Escape. No row of native
+text input + Apply + Manual + Disable buttons. Advanced manual/disable actions
+remain in the row menu. Validation and conflicts stay inside the sheet.
+Suspend only Nelviro's registered hotkeys while capturing; restore them on cancel,
+close or deactivation. Restore before atomic rebind so existing conflict/rollback
+logic remains authoritative. Support Cyrillic layouts via native virtual letter keys.
 
-## Floating cursor avoidance (0.9.2)
-
-The floating capsule uses rigid upward movement with a short dissolve. Its path
-and compact texture never deform; notch-specific cloud warping is limited to
-the bezel form. Cursor damping remains continuous on reversals. A screen-local
-mask prevents display bleed, while the native HWND center stays on the selected
-monitor. Visibility and retreat opacity multiply. The invisible island remains
-a Qt-visible input sensor for top-edge activation and uses click-through over
-tabs. The physical edge also counts as inside the expanded panel across its gap.
+native_material.py isolates the optional Windows 11 composition accent API in a
+private WinDLL. It is undocumented and may be unavailable: the interface must work
+with a fully opaque fallback. Respect Windows transparency and high-contrast
+preferences. Native blur is used, never captured pixels/blurred wallpaper assets.
+Main content is opaque; only title/sidebar chrome and the shortcut sheet expose
+the material. Rounded native masks clip the accent to the actual window contour.
+A positive DWM HRESULT alone is insufficient proof: the layered-window transient
+backdrop was visually opaque in the checker/band fixture and is not used.
+Inspect the composed native sheet over an owned fixture, because QWidget.grab()
+does not include compositor blur. tools/check_shortcut_ui.py checks cancel, save,
+duplicate preservation and records native composition. The opaque fallback is
+covered by offscreen GUI tests; no global keyboard hook is installed.

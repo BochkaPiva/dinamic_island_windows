@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import winreg
 from PySide6.QtCore import Qt, QTimer, QUrl, QRectF,QEvent
-from PySide6.QtGui import QDesktopServices,QPainter,QColor,QLinearGradient,QPen,QShortcut,QKeySequence
+from PySide6.QtGui import QDesktopServices,QPainter,QPainterPath,QRegion,QColor,QPen,QShortcut,QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox,QLineEdit)
 from . import __version__, REPO_URL
@@ -91,13 +91,13 @@ class ControlCenter(QWidget, SettingsPages):
         self._apply_theme()
         self.outer=QVBoxLayout(self)
         layout=self.outer
-        layout.setContentsMargins(18, 10, 18, 16)
-        layout.setSpacing(10)
+        layout.setContentsMargins(6,6,6,6)
+        layout.setSpacing(0)
         titlebar=WindowHeader(self)
-        titlebar.setFixedHeight(44)
+        titlebar.setFixedHeight(38)
         header = QHBoxLayout()
         titlebar.setLayout(header)
-        header.setContentsMargins(8,0,0,0)
+        header.setContentsMargins(12,0,6,0)
         brand_icon=QLabel()
         brand_icon.setPixmap(app_icon().pixmap(24,24))
         header.addWidget(brand_icon)
@@ -120,23 +120,32 @@ class ControlCenter(QWidget, SettingsPages):
             header.addWidget(control)
         layout.addWidget(titlebar)
         body = QHBoxLayout()
-        body.setSpacing(22)
+        body.setSpacing(0)
         sidebar=QFrame()
+        self.sidebar=sidebar
+        self.sidebar_collapsed=False
         sidebar.setObjectName('sidebar')
-        sidebar.setFixedWidth(208)
+        sidebar.setFixedWidth(194)
         side=QVBoxLayout(sidebar)
-        side.setContentsMargins(10,14,10,12)
+        side.setContentsMargins(10,14,10,10)
         side.setSpacing(10)
+        self.collapse_navigation=button('',self.toggle_sidebar)
+        self.collapse_navigation.setIcon(icon('windows',self.colors['muted'],16))
+        self.collapse_navigation.setFixedSize(28,28)
+        self.collapse_navigation.setObjectName('quiet')
+        self.collapse_navigation.setAccessibleName('Свернуть боковую панель')
+        header.insertWidget(0,self.collapse_navigation)
         self.settings_search=QLineEdit()
         self.settings_search.setPlaceholderText('Найти настройку…')
         self.settings_search.setAccessibleName('Поиск раздела настроек')
-        self.settings_search.addAction(icon('search'),QLineEdit.ActionPosition.LeadingPosition)
+        self.search_action=self.settings_search.addAction(icon('search'),QLineEdit.ActionPosition.LeadingPosition)
         self.settings_search.setClearButtonEnabled(True)
         side.addWidget(self.settings_search)
         self.navigation = Navigation()
         for key,label,_ in PAGES:
             self.navigation.addItem(label)
             self.navigation.item(self.navigation.count()-1).setData(Qt.ItemDataRole.UserRole,key)
+            self.navigation.item(self.navigation.count()-1).setToolTip(label)
         self.navigation.setObjectName("navigation")
         self.pages = QStackedWidget()
         self.transition=ContentTransition(self.pages)
@@ -147,12 +156,16 @@ class ControlCenter(QWidget, SettingsPages):
         self.pause_button=button('Приостановить',self._pause)
         side.addWidget(self.pause_button)
         version=button(f'Nelviro  {__version__}',lambda:self.navigate('updates'))
+        self.version_button=version
         version.setObjectName('quiet')
         side.addWidget(version)
         body.addWidget(sidebar)
         content=QVBoxLayout()
-        content.setContentsMargins(0,10,5,0)
+        content.setContentsMargins(24,20,18,8)
         content.setSpacing(12)
+        self.section_title=text('Модули')
+        self.section_title.setObjectName('heading')
+        content.addWidget(self.section_title)
         content.addWidget(self.pages,1)
         body.addLayout(content,1)
         layout.addLayout(body, 1)
@@ -175,7 +188,7 @@ class ControlCenter(QWidget, SettingsPages):
         self.navigation.setCurrentRow(0)
         self.settings_search.textChanged.connect(self.filter_pages)
         self.settings_search.returnPressed.connect(self.open_first_match)
-        QShortcut(QKeySequence('Ctrl+F'),self,activated=self.settings_search.setFocus)
+        QShortcut(QKeySequence('Ctrl+F'),self,activated=self.focus_settings_search)
         footer = QHBoxLayout()
         self.resource_label = text("", True)
         self.resource_label.setObjectName('resource')
@@ -195,6 +208,21 @@ class ControlCenter(QWidget, SettingsPages):
         owner.updates.changed.connect(lambda _:self.navigation.viewport().update())
         self._apply_theme()
 
+    def focus_settings_search(self):
+        if self.sidebar_collapsed: self.toggle_sidebar()
+        self.settings_search.setFocus()
+
+    def toggle_sidebar(self):
+        self.sidebar_collapsed=not self.sidebar_collapsed
+        self.sidebar.setFixedWidth(54 if self.sidebar_collapsed else 194)
+        self.navigation.setProperty('collapsed',self.sidebar_collapsed)
+        self.navigation.viewport().update()
+        self.settings_search.setVisible(not self.sidebar_collapsed)
+        self.pause_button.setVisible(not self.sidebar_collapsed)
+        self.version_button.setVisible(not self.sidebar_collapsed)
+        self.collapse_navigation.setToolTip('Развернуть меню' if self.sidebar_collapsed else 'Свернуть меню')
+        self.collapse_navigation.setAccessibleName('Развернуть боковую панель' if self.sidebar_collapsed else 'Свернуть боковую панель')
+
     def navigate(self,key):
         if self.settings_search.text(): self.settings_search.clear()
         self.navigation.setCurrentRow(self.page_indices.get(key,0))
@@ -204,6 +232,7 @@ class ControlCenter(QWidget, SettingsPages):
         old=self.pages.grab() if self.isVisible() else None
         self.transition.animation.stop()
         self.transition.hide()
+        self.section_title.setText(PAGES[index][1])
         self.pages.setCurrentIndex(index)
         self.pages.currentWidget().ensurePolished()
         if self.pages.currentWidget().layout(): self.pages.currentWidget().layout().activate()
@@ -235,17 +264,38 @@ class ControlCenter(QWidget, SettingsPages):
         p=QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect=QRectF(self.rect()) if self.isMaximized() else QRectF(self.rect()).adjusted(5,5,-5,-5)
-        radius=0 if self.isMaximized() else 22
-        for spread in range(4,0,-1):
-            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(0,0,0,10))
-            p.drawRoundedRect(rect.adjusted(-spread,-spread,spread,spread),radius+spread,radius+spread)
-        gradient=QLinearGradient(rect.topLeft(),rect.bottomRight())
-        gradient.setColorAt(0,QColor(self.colors['side'])); gradient.setColorAt(1,QColor(self.colors['bg']))
-        p.setBrush(gradient); p.setPen(QPen(QColor(self.colors['line']),1))
+        radius=0 if self.isMaximized() else 12
+        outline=QPainterPath();outline.addRoundedRect(rect,radius,radius)
+        p.setClipPath(outline)
+        p.fillPath(outline,QColor(self.colors['bg']))
+        if getattr(self,'material',False):
+            # Only chrome is frosted. Reading and settings surfaces stay opaque.
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+            tint=QColor(self.colors['side']);tint.setAlpha(180)
+            p.fillRect(0,0,self.width(),44,tint)
+            if hasattr(self,'sidebar'):
+                p.fillRect(self.sidebar.geometry(),tint)
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(self.colors['line']),1))
         p.drawRoundedRect(rect,radius,radius)
+        p.drawLine(6,44,self.width()-6,44)
+
+    def refresh_material(self):
+        from .native_material import apply_acrylic
+        self.material=apply_acrylic(self,light=self.colors['bg']!='#161616')
+        self.setStyleSheet(stylesheet(self.colors,glass=self.material))
+        self.clip_material()
+        self.update()
+
+    def clip_material(self):
+        if getattr(self,'material',False) and not self.isMaximized():
+            path=QPainterPath();path.addRoundedRect(QRectF(self.rect()).adjusted(5,5,-5,-5),12,12)
+            self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        else:self.clearMask()
 
     def resizeEvent(self,event):
         super().resizeEvent(event)
+        self.clip_material()
         if hasattr(self,'transition'): self.transition.animation.stop(); self.transition.done()
         if hasattr(self,'feedback') and self.feedback.isVisible(): self.place_toast()
 
@@ -288,11 +338,11 @@ class ControlCenter(QWidget, SettingsPages):
         frame=QFrame()
         frame.setObjectName('settingRow')
         row = QHBoxLayout(frame)
-        row.setContentsMargins(2,10,2,12)
+        row.setContentsMargins(0,8,0,8)
         description = QVBoxLayout()
         description.setSpacing(2)
         description.addWidget(text(name))
-        description.addWidget(text(detail, True))
+        if detail: description.addWidget(text(detail, True))
         row.addLayout(description, 1)
         checkbox = ToggleSwitch(name)
         checkbox.setObjectName(key)
@@ -432,6 +482,12 @@ class ControlCenter(QWidget, SettingsPages):
         self.pause_button.setText("Возобновить" if w.settings.get("paused") else "Приостановить")
         self.policy_label.setText('Модули на паузе' if w.settings.get('paused') else 'Сейчас: '+PROFILES[w._policy.profile])
         self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
+        if hasattr(self,'style_picker'):
+            self.style_picker.blockSignals(True)
+            self.style_picker.setCurrentIndex(self.style_picker.findData(w.settings.get('island_style')))
+            self.style_picker.blockSignals(False)
+            self.island_preview.display_style='floating' if w.floating_mode() else 'notch'
+            self.island_preview.update()
         if hasattr(self,'style_choices'):
             for style,(tile,status) in self.style_choices.items():
                 chosen=style==('floating' if w.floating_mode() else 'notch')
@@ -457,8 +513,10 @@ class ControlCenter(QWidget, SettingsPages):
         for key,status in self.key_status.items():
             binding = w.hotkeys.get(key)
             value = w.settings.get(key)
-            status.setText("Отключена" if not value else (value+" · работает") if binding and binding.registered else
-                           ((binding.error or "Редактирование сочетания…") if binding else value+" · доступна при запуске приложения"))
+            status.setText("Не назначено" if not value else (binding.error if binding else ""))
+            status.setVisible(bool(status.text()))
+            if hasattr(self,'key_editors'):
+                self.key_editors[key].setKeySequence(QKeySequence(value.replace('Win+','Meta+')))
         self.refresh_timer_display()
         if self.isVisible():
             self.resource_label.setText(self.usage.sample())
@@ -468,6 +526,7 @@ class ControlCenter(QWidget, SettingsPages):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self.refresh_material()
         self.refresh()
         self.refresh_timer.start()
         self.sync_focus_timer()
@@ -487,6 +546,11 @@ class ControlCenter(QWidget, SettingsPages):
         self.colors=resolved_palette(self.owner.settings)
         self.setStyleSheet(stylesheet(self.colors))
         self.setFont(font(13))
+        if hasattr(self,'search_action'): self.search_action.setIcon(icon('search',self.colors['muted']))
+        if hasattr(self,'collapse_navigation'): self.collapse_navigation.setIcon(icon('windows',self.colors['muted'],16))
+        from .hub_ui import NAV_ICONS
+        for key,select in getattr(self,'catalog_buttons',{}).items():
+            select.setIcon(icon(NAV_ICONS[key],self.colors['muted'],20))
         from .timer import TimerReadout
         for readout in self.findChildren(TimerReadout):
             base=getattr(readout,'_hub_original_style',readout.styleSheet())
@@ -495,4 +559,5 @@ class ControlCenter(QWidget, SettingsPages):
         for emblem in self.findChildren(QLabel):
             if emblem.property('glyph'):
                 emblem.setPixmap(icon(emblem.property('glyph'),self.colors['accent'],24).pixmap(24,24))
+        if self.isVisible(): self.refresh_material()
         self.update()

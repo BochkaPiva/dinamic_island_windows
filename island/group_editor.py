@@ -21,6 +21,11 @@ class GroupFiles(FileShelf):
         self.itemSelectionChanged.connect(editor.update_actions)
         group_icons().changed.connect(self.refresh_icon)
 
+    def paintEvent(self,event):
+        # The group-specific empty label replaces FileShelf's generic message.
+        from PySide6.QtWidgets import QListWidget
+        QListWidget.paintEvent(self,event)
+
     def icon_for(self,path):
         return group_icons().icon(path)
 
@@ -167,7 +172,7 @@ class GroupEditor(QWidget):
         frame=QFrame()
         frame.setObjectName("groupPane")
         layout=QVBoxLayout(frame)
-        layout.setContentsMargins(14,14,14,14)
+        layout.setContentsMargins(0,8,0,0)
         layout.setSpacing(9)
         return frame,layout
 
