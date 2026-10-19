@@ -1,0 +1,7 @@
+[project]
+name = "nelviro-community"
+version = "0.7.1"
+requires-python = ">=3.14,<3.15"
+
+[tool.vercel]
+entrypoint = "cloud_accounts.wsgi:application"

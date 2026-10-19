@@ -20,3 +20,5 @@ notch-files.json
 server/staticfiles/
 server/telegram-poll-state.json
 .vercel/
+.agents/
+skills-lock.json

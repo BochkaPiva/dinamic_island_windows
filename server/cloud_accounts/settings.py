@@ -13,6 +13,11 @@ if PRODUCTION and len(SECRET_KEY) < 50:
 SECRET_KEY = SECRET_KEY or 'local-development-only-never-deploy-this-key'
 DEBUG = False
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost,testserver').split(',')
+if os.environ.get('VERCEL'):
+    import re
+    deployment_host = os.environ.get('VERCEL_URL', '')
+    if re.fullmatch(r'[a-z0-9-]+\.vercel\.app', deployment_host):
+        ALLOWED_HOSTS.append(deployment_host)
 PUBLIC_ORIGIN = os.environ.get('PUBLIC_ORIGIN', 'http://127.0.0.1:8000').rstrip('/')
 origin = urlsplit(PUBLIC_ORIGIN)
 if origin.path or origin.query or origin.fragment or not origin.hostname or origin.username:
@@ -27,6 +32,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', 'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware', 'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware', 'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middleware.NoStoreMiddleware',
 ]
 ROOT_URLCONF = 'cloud_accounts.urls'
@@ -61,7 +67,9 @@ if os.environ.get('PGHOST'):
         'HOST': os.environ['PGHOST'], 'PORT': os.environ.get('PGPORT', '5432'),
         'NAME': os.environ.get('PGDATABASE', 'cloud_accounts'),
         'USER': os.environ.get('PGUSER', 'cloud_accounts'), 'PASSWORD': os.environ.get('PGPASSWORD', ''),
-        'CONN_MAX_AGE': 60, 'OPTIONS': {'sslmode': os.environ.get('PGSSLMODE', 'require')}}}
+        'CONN_MAX_AGE': 0 if os.environ.get('VERCEL') else 60,
+        'CONN_HEALTH_CHECKS': True, 'DISABLE_SERVER_SIDE_CURSORS': True,
+        'OPTIONS': {'sslmode': os.environ.get('PGSSLMODE', 'require'), 'connect_timeout': 10}}}
 else:
     if PRODUCTION:
         raise ImproperlyConfigured('Production requires PostgreSQL')
@@ -81,6 +89,10 @@ OAUTH2_PROVIDER = {
     'COMPLIANT_BCP_RFC9700_PASSWORD_GRANT': True,
     'DCR_ENABLED': False, 'CIMD_ENABLED': False,
 }
+if PRODUCTION:
+    OAUTH2_PROVIDER.update({'COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS': True,
+                           'COMPLIANT_BCP_RFC9700_REDIRECT_URI_SCHEME': True,
+                           'ALLOWED_REDIRECT_URI_SCHEMES': ['https']})
 YANDEX_CLIENT_ID = os.environ.get('YANDEX_CLIENT_ID', '')
 YANDEX_CLIENT_SECRET = os.environ.get('YANDEX_CLIENT_SECRET', '')
 YOOKASSA_SHOP_ID = os.environ.get('YOOKASSA_SHOP_ID', '')

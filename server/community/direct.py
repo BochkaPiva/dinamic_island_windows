@@ -67,6 +67,17 @@ def configuration(request):
         'check_interval_seconds': 21600, 'offline_seconds': 259200, 'leave_grace_seconds': 86400})
 
 
+@require_GET
+@experiment
+def health(request):
+    from django.db import DatabaseError
+    try:
+        MemberDevice.objects.exists()
+    except DatabaseError:
+        return error('database_unavailable', 503)
+    return JsonResponse({'status': 'ok', 'schema': 2})
+
+
 def pairing_from(request, identifier):
     value = body(request)
     verifier = value.get('verifier')

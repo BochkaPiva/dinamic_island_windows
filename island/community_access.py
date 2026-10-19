@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Opt-in membership client foundation. No desktop modules are blocked by this file.
+"""Signed optional membership permissions; legacy account adapter retained for tests.
 
-Network methods must run on a worker. First-party account authentication is a
-separate prerequisite; Telegram is only a community-membership factor.
+The active desktop flow pairs directly through community_client. Network methods
+must run on a worker; free local tools remain usable without connecting.
 """
 from dataclasses import dataclass
 import json

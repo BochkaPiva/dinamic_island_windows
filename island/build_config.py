@@ -8,8 +8,8 @@ LICENSE_API_URL = ""
 ACCOUNT_API_ORIGIN = ""  # Our HTTPS account service origin; no provider secret in a desktop build.
 LICENSE_PUBLIC_KEYS = {}  # key id -> base64 Ed25519 public key; private keys never ship.
 UPDATE_PUBLIC_KEYS = {}
-# Open-source transition: opt-in infrastructure only, no public gate or network requests.
-COMMUNITY_API_ORIGIN = ''
+# Optional Telegram membership service; free tools remain usable without connecting.
+COMMUNITY_API_ORIGIN = 'https://nelviro-community.vercel.app'
 COMMUNITY_CHANNEL_ID = -1004359060579
 COMMUNITY_CHANNEL_URL = 'https://t.me/Nelviro'
 COMMUNITY_BOT_USERNAME = 'nelviro_bot'

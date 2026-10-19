@@ -3,6 +3,7 @@ from django.urls import path
 from community import direct as community
 
 urlpatterns = [
+    path('api/v2/community/health', community.health),
     path('api/v2/community/config', community.configuration),
     path('api/v2/community/pairings', community.pairing_start),
     path('api/v2/community/pairings/<uuid:pairing_id>/status', community.pairing_status),

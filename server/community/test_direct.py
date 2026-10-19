@@ -10,12 +10,30 @@ import uuid
 from unittest.mock import Mock, patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
-from django.test import TestCase, override_settings
+from django.test import TestCase, SimpleTestCase, override_settings
 from django.utils import timezone
 from accounts.models import User, Payment
 from .models import CommunityMember, MemberDevice, MemberStatus, DevicePairing
 from .provider import TelegramUnavailable
 from . import direct
+from django.db import DatabaseError
+
+
+@override_settings(COMMUNITY_EXPERIMENT_ENABLED=True, COMMUNITY_CHANNEL_ID=-1004359060579,
+    TELEGRAM_BOT_USERNAME='fixture_bot', TELEGRAM_BOT_TOKEN='123:fixture',
+    COMMUNITY_SIGNING_KEY_PATH='fixture.pem', COMMUNITY_SIGNING_KEY_ID='fixture')
+class HealthTests(SimpleTestCase):
+    def test_health_checks_database_without_exposing_details(self):
+        with patch.object(MemberDevice.objects, 'exists', return_value=False):
+            response=self.client.get('/api/v2/community/health')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json(),{'status':'ok','schema':2})
+
+    def test_database_failure_returns_safe_retryable_status(self):
+        with patch.object(MemberDevice.objects, 'exists', side_effect=DatabaseError('private detail')):
+            response=self.client.get('/api/v2/community/health')
+        self.assertEqual(response.status_code,503)
+        self.assertNotIn(b'private detail',response.content)
 
 
 @override_settings(COMMUNITY_EXPERIMENT_ENABLED=True, COMMUNITY_CHANNEL_ID=-1004359060579,

@@ -32,7 +32,7 @@ class Membership(models.Model):
     last_event_id = models.BigIntegerField(null=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['link', 'channel_id'], name='community_membership')]
+        constraints = [models.UniqueConstraint(fields=['link', 'channel_id'], name='community_link_channel_unique')]
 
 
 class CommunityMember(models.Model):

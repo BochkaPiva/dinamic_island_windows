@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 ('link', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='community.telegramlink')),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('link', 'channel_id'), name='community_membership')],
+                'constraints': [models.UniqueConstraint(fields=('link', 'channel_id'), name='community_link_channel_unique')],
             },
         ),
     ]
