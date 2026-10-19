@@ -1,6 +1,6 @@
 {
   "original_commit": "ecba420357a89cb4a6f6dd43aa6759c17c16fa73",
-  "application_baseline": "887b7a3c57a83166277189e1809536dfda4373dd",
+  "application_baseline": "953f1032278e31182b593299ae78c8ce1c261cb2",
   "comparison": "Exact AST matches of functions of at least 21 lines; exact binary asset hashes",
   "large_function_matches": [],
   "asset_matches": [
@@ -28,11 +28,19 @@
   "files": [
     {
       "path": "island/__init__.py",
-      "sha256": "085164fc9e6685af7210a27fdcd437bdd02470cee2c7a1ff621cbb26c30d5b03"
+      "sha256": "2740a36c2449465b3ca7d0b537c02359a5e09d66db8dc7ee231dca8dabffcb52"
+    },
+    {
+      "path": "island/account_client.py",
+      "sha256": "c78588c8f062ccf7c4054b00375e9afbc02ab71daaadccb7bfa4da7f294e73e0"
+    },
+    {
+      "path": "island/account_ui.py",
+      "sha256": "fa9d7ad3d48cf2d74a780d758818f065940eb8aa425d0c45d63d601d30399022"
     },
     {
       "path": "island/app.py",
-      "sha256": "e3fbc716d1ddbfb7c835f1915aa9a31ee817c9f9bb4e86648c50ff8bd541aff9"
+      "sha256": "c2eeefbe4bca2c53d7897662d6d3b8e1a8a56479f0828f801d5a9c1425acc43e"
     },
     {
       "path": "island/assets/fonts/GolosText-400.ttf",
@@ -68,7 +76,19 @@
     },
     {
       "path": "island/build_config.py",
-      "sha256": "4c3004fa174a756e15aee33b559e1539ac772463fc4e91f9db73c3784ba986bb"
+      "sha256": "2d161a30a8b0ccf10c575e3ac2c401489d047f03a16fae4ef664742a07ae3440"
+    },
+    {
+      "path": "island/community_access.py",
+      "sha256": "ede45ea92bc370d087dc00ef49081d686c04049a72d386e8a3c8f8ef789bf0fb"
+    },
+    {
+      "path": "island/community_client.py",
+      "sha256": "6c21cc2f7e70a50ceb3d83064693dd41237187aaf41e4a246eb19f3c3f5e2a1b"
+    },
+    {
+      "path": "island/community_ui.py",
+      "sha256": "b4c52f5d7e92f547711ba347f8b3dfdc3afa6f6b6d13c9d005d3c45d0d873b5c"
     },
     {
       "path": "island/control_center.py",
@@ -76,15 +96,15 @@
     },
     {
       "path": "island/desktop_groups.py",
-      "sha256": "547aa80eb859ace488826c6e40df54b24be5149835cb31cc8bf82ba911875347"
+      "sha256": "9a12c6cd69f814dc2476b57fb03217469626db4a1fcdd2b8f623eb8e944d3f32"
     },
     {
       "path": "island/entitlements.py",
-      "sha256": "50083959cd5c71dbe73ab2161fbaae79e93280456dad4563a261a6c1e2617d4a"
+      "sha256": "58a4b9d76c169e2fa786802d439cf0c798e36bde4129a27323257fb583b04ed3"
     },
     {
       "path": "island/group_editor.py",
-      "sha256": "968c7e8c46dc1ad3b57d7274e893774f14f87185501580d14ec517d05893ea67"
+      "sha256": "14b569d4f0ab89c2ec0e23ca4a565c21d74add702ac214095c6bed5c90381cee"
     },
     {
       "path": "island/group_icons.py",
@@ -152,7 +172,7 @@
     },
     {
       "path": "island/settings_pages.py",
-      "sha256": "73bbb5947e60c71a85a9033f37eeebcb0af525aa4d694dd3de090099b26248f1"
+      "sha256": "517848497b91e10041319d0d84ee9bd56e6e09075958721ddba04a5adba21e21"
     },
     {
       "path": "island/shortcut_library.py",
@@ -208,7 +228,7 @@
     },
     {
       "path": "packaging/cloud-island.spec",
-      "sha256": "f6ce9a4d3f99912b2792ebd146b374920dc0eb3384a799875225654f223a1e7e"
+      "sha256": "ea1201e154f1b64656f56f0de9e519450508aab9e97ee67eab68f8a5837d0118"
     },
     {
       "path": "packaging/cloud.ico",

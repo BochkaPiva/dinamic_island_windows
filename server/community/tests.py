@@ -201,7 +201,7 @@ class MembershipTests(TestCase):
         self.assertEqual(permit.state, 'grace')
 
 
-@override_settings(COMMUNITY_EXPERIMENT_ENABLED=True, TELEGRAM_WEBHOOK_SECRET='fixture-webhook',
+@override_settings(ROOT_URLCONF='cloud_accounts.legacy_urls', COMMUNITY_EXPERIMENT_ENABLED=True, TELEGRAM_WEBHOOK_SECRET='fixture-webhook',
                    COMMUNITY_CHANNEL_ID=-100123456, TELEGRAM_BOT_USERNAME='fixture_bot',
                    COMMUNITY_CHANNEL_URL='https://t.me/fixture_channel')
 class CommunityApiTests(TestCase):

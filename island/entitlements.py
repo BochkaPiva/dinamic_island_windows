@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Central local capabilities; licensing is independent of power/runtime policy."""
 from dataclasses import dataclass
 import json
@@ -15,6 +15,8 @@ PRO_FEATURES=FREE_FEATURES | frozenset({'island.focus','island.notes','island.mi
     'island.pin','files.bridge','desktop.widgets','workspaces.scenes'})
 FREE_LIMITS={'desktop.groups.active':2,'desktop.widgets.active':1}
 PRO_LIMITS={'desktop.groups.active':None,'desktop.widgets.active':None}
+# Preserve current island utilities; membership adds groups and future optional modules.
+COMMUNITY_BASE_FEATURES = PRO_FEATURES - frozenset({'island.mirror','island.video','desktop.widgets'})
 
 
 @dataclass(frozen=True)
@@ -89,8 +91,16 @@ class FeatureAccess(QObject):
     def reload(self):
         self.reason=''
         self.grant=free_grant()
-        if self.distribution in ('preview','community'):
-            self.grant=Grant(self.distribution,PRO_FEATURES,dict(PRO_LIMITS))
+        if self.distribution=='preview':
+            self.grant=Grant('preview',PRO_FEATURES,dict(PRO_LIMITS))
+        elif self.distribution=='community':
+            self.grant=Grant('free',COMMUNITY_BASE_FEATURES,dict(FREE_LIMITS))
+            from .community_access import PermitStore
+            permit = PermitStore(self.directory, build_config.COMMUNITY_PUBLIC_KEYS,
+                self.installation_id, build_config.COMMUNITY_CHANNEL_ID, clock=self.clock).load()
+            if permit and permit.allows(self.clock()):
+                self.grant=Grant('supporter',PRO_FEATURES,dict(PRO_LIMITS),
+                                 min(permit.expires_at,permit.access_until))
         elif not self.storage_available:
             self.reason='Защищённое хранилище Windows недоступно'
         else:
@@ -111,13 +121,14 @@ class FeatureAccess(QObject):
 
     def _expire(self):
         if self.grant.valid_until and self.clock()>=self.grant.valid_until:
-            self.grant=free_grant()
+            self.grant=Grant('free',COMMUNITY_BASE_FEATURES,dict(FREE_LIMITS)) if self.distribution=='community' else free_grant()
             self.reason='Срок офлайн-разрешения истёк'
             self.changed.emit()
 
     def feature(self,key):
         self._expire()
-        return Decision(key in self.grant.features,'' if key in self.grant.features else 'Нужна лицензия Pro')
+        return Decision(key in self.grant.features,'' if key in self.grant.features else
+            'Доступно подписчикам канала' if self.distribution=='community' else 'Нужна лицензия Pro')
 
     def capacity(self,key,current,addition=1):
         self._expire()
@@ -125,7 +136,9 @@ class FeatureAccess(QObject):
             return Decision(False,'Неизвестное ограничение')
         limit=self.grant.limits[key]
         allowed=limit is None or current+addition<=limit
-        return Decision(allowed,'' if allowed else 'Достигнут лимит активных групп',limit)
+        return Decision(allowed,'' if allowed else
+            'В базовом доступе две группы. Дополнительные доступны через раздел «Сообщество».'
+            if self.distribution=='community' else 'Достигнут лимит активных групп',limit)
 
     def active_ids(self,records):
         self._expire()

@@ -23,6 +23,8 @@ class GroupManagementTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.w=IslandWindow(Settings(self.temp.name),services=False)
+        self.w.access.distribution='preview'  # Editing/identity tests are independent of membership policy.
+        self.w.access.reload()
         self.manager=self.w.modules.desktop
         self.store=self.manager.store
         for group in list(self.store.groups):

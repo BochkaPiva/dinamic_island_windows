@@ -22,7 +22,7 @@ DefaultDirName={localappdata}\Programs\Cloud Island
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
-LicenseFile=..\legal\COMMERCIAL-LICENSE-DRAFT.txt
+LicenseFile=..\LICENSE
 SetupIconFile=cloud.ico
 UninstallDisplayIcon={app}\CloudIsland.exe
 ArchitecturesAllowed=x64compatible
@@ -47,7 +47,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 Source: "..\dist\CloudIsland\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE"; DestDir: "{app}"
 Source: "..\THIRD_PARTY.md"; DestDir: "{app}"
-Source: "..\legal\COMMERCIAL-LICENSE-DRAFT.txt"; DestDir: "{app}"
 Source: "..\build\licenses\*"; DestDir: "{app}\licenses"; Flags: recursesubdirs createallsubdirs
 
 [Icons]

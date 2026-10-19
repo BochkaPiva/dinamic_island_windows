@@ -1,3 +1,11 @@
+# v0.7.0 (community preview)
+
+- Free base: current island, search, local utilities and two active desktop groups.
+- Telegram directly opens additional groups; no Yandex ID or checkout in the active flow.
+- Background membership checks, offline allowance and safe downgrade without deleting groups.
+- Community page and explicit selection of which saved groups are active.
+- GPL v3 project licensing restored by owner request. Public service is not deployed yet.
+
 # Changelog
 
 ## Unreleased — private account foundation

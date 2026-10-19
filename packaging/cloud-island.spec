@@ -10,6 +10,7 @@ analysis = Analysis([str(root / "main.py")], pathex=[str(root)],
            (str(root / "build" / "licenses"), "licenses")],
     hiddenimports=collect_submodules("winrt"),
     excludes=["PIL", "tkinter", "PyQt5", "PyQt6", "PySide2", "PySide6.QtTest",
+              "island.account_ui", "island.account_client",
               "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtWebEngineCore"], noarchive=False)
 # Never take incompatible, unversioned ICU DLLs from unrelated tools on PATH.
 analysis.binaries = [b for b in analysis.binaries

@@ -1,5 +1,11 @@
 # Development and releases
 
+> Current policy (0.7): free GPL v3 community project. The optional community API
+> is documented in server/COMMUNITY.md; old account/payment code is archived and
+> excluded from the active routes and desktop build. CI builds on public or private
+> repositories but never publishes a release automatically. Historical commercial
+> instructions below are superseded by docs/community-release-0.7.md.
+
 Cloud Island is a Windows x64 desktop application. Keep the UI thread free of
 blocking media, network and audio work. Personal notes, file references, logs,
 credentials, settings and build outputs must never be committed.

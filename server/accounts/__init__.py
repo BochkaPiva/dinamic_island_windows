@@ -1,1 +1,1 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only

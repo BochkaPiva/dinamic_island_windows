@@ -201,6 +201,17 @@ class GroupStore(QObject):
         group["title"]=previous
         return False
 
+    def make_active(self,identifier):
+        group=self.find(identifier)
+        if not group:
+            return False
+        previous=list(self.groups)
+        self.groups=[group]+[item for item in self.groups if item['id']!=identifier]
+        if self.save():
+            return True
+        self.groups=previous
+        return False
+
     def remove(self, identifier):
         previous=self.groups
         self.groups = [g for g in self.groups if g["id"] != identifier]
@@ -709,6 +720,8 @@ class DesktopGroups(QObject):
         self.store.error.connect(self.notify)
         self.panels = {}
         self.store.changed.connect(self.reconcile)
+        if self.store.access:
+            self.store.access.changed.connect(self.reconcile)
         self.timer = QTimer(self)
         self.timer.setInterval(2000)  # Shell recovery only; foreground changes never hide/show tiles.
         self.timer.timeout.connect(self.tick)
@@ -811,7 +824,11 @@ class DesktopGroups(QObject):
     def tick(self):
         if not self.enabled:
             return
-        for panel in self.panels.values():
+        active = self.store.access.active_ids(self.store.groups) if self.store.access else set(self.panels)
+        for identifier,panel in self.panels.items():
+            if identifier not in active:
+                panel.hide()
+                continue
             shown = not panel.isVisible()
             if shown:
                 if not anchor_desktop_panel(panel):

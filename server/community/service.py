@@ -149,6 +149,11 @@ def permit_for(device, now=None, provider=None):
     if not link:
         raise ValueError('telegram_not_linked')
     row = reconcile(link, provider, now)
+    return sign_membership(row, device.installation_id, now)
+
+
+def sign_membership(row, installation_id, now):
+    """Shared signed decision format; account and direct transports are independent."""
     if not row.verified_at or row.state not in ('member', 'left'):
         raise TelegramUnavailable('membership_not_verified')
     if row.state == 'member':
@@ -163,11 +168,12 @@ def permit_for(device, now=None, provider=None):
     payload = {'schema': 1, 'product': 'cloud-hub', 'policy': 'telegram-membership-v1',
                'revision': row.revision,
                'channel_id': settings.COMMUNITY_CHANNEL_ID,
-               'installation_id': str(device.installation_id), 'state': state,
+               'installation_id': str(installation_id), 'state': state,
                'issued_at': int(now.timestamp()), 'expires_at': int(expires.timestamp()),
                'access_until': int(until.timestamp()),
                'refresh_after': int(min(now + CHECK_INTERVAL, expires).timestamp())}
-    key = load_pem_private_key(Path(settings.COMMUNITY_SIGNING_KEY_PATH).read_bytes(), None)
+    key_data = settings.COMMUNITY_SIGNING_KEY_PEM.encode() if settings.COMMUNITY_SIGNING_KEY_PEM else Path(settings.COMMUNITY_SIGNING_KEY_PATH).read_bytes()
+    key = load_pem_private_key(key_data, None)
     if not isinstance(key, Ed25519PrivateKey) or not settings.COMMUNITY_SIGNING_KEY_ID:
         raise ValueError('community_signing_not_configured')
     raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()

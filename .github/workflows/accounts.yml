@@ -1,4 +1,4 @@
-name: Private account service
+name: Community service checks
 on:
   workflow_dispatch:
   pull_request:
@@ -7,7 +7,6 @@ permissions:
   contents: read
 jobs:
   accounts:
-    if: github.event.repository.private == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -35,4 +34,4 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install --only-binary=:all: -r server/requirements.txt
       - run: python server/manage.py makemigrations --check --dry-run
-      - run: python server/manage.py test accounts --verbosity 2
+      - run: python server/manage.py test accounts community --verbosity 2

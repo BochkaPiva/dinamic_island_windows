@@ -128,10 +128,11 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertIsNone(self.store.load())
         self.assertEqual(notes.read_text(), 'preserve')
 
-    def test_community_distribution_has_no_paid_function_or_group_limits(self):
-        from island.entitlements import FeatureAccess, PRO_FEATURES
+    def test_community_base_preserves_current_tools_and_has_two_groups(self):
+        from island.entitlements import FeatureAccess, COMMUNITY_BASE_FEATURES
         access = FeatureAccess(self.folder.name, distribution='community')
-        for feature in PRO_FEATURES:
+        for feature in COMMUNITY_BASE_FEATURES:
             self.assertTrue(access.feature(feature).allowed)
-        self.assertTrue(access.capacity('desktop.groups.active', 100).allowed)
-        self.assertEqual(access.grant.edition, 'community')
+        self.assertTrue(access.capacity('desktop.groups.active', 1).allowed)
+        self.assertFalse(access.capacity('desktop.groups.active', 2).allowed)
+        self.assertEqual(access.grant.edition, 'free')

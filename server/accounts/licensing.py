@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 import base64
 import json
 from datetime import timedelta

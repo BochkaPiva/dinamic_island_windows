@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 from django.core.management.base import BaseCommand
 from oauth2_provider.models import Application
 

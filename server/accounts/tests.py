@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 import base64
 import hashlib
 import json
@@ -22,7 +22,7 @@ from .models import User, Device, Plan, Payment, GrantPeriod, Subscription, Rece
 from .provider import ProviderUnavailable
 
 
-@override_settings(YOOKASSA_SHOP_ID='fixture-shop', YOOKASSA_SECRET_KEY='fixture-only',
+@override_settings(ROOT_URLCONF='cloud_accounts.legacy_urls', YOOKASSA_SHOP_ID='fixture-shop', YOOKASSA_SECRET_KEY='fixture-only',
     YOOKASSA_TEST=True, SALES_ENABLED=True, RENEWALS_ENABLED=True, CONSENT_VERSION='fixture-v1')
 class BillingTests(TestCase):
     def setUp(self):
@@ -203,6 +203,7 @@ class BillingTests(TestCase):
             checkout(self.user, self.plan.pk)
 
 
+@override_settings(ROOT_URLCONF='cloud_accounts.legacy_urls')
 class OAuthTests(TestCase):
     def setUp(self):
         call_command('bootstrap_desktop', verbosity=0)

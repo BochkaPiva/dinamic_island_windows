@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models

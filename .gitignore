@@ -18,3 +18,5 @@ notch-files.json
 *.pem
 *.key
 server/staticfiles/
+server/telegram-poll-state.json
+.vercel/

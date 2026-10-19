@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Candidate checks are executable; sales gates remain explicit until configured."""
 import argparse
 import base64

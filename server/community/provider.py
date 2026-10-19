@@ -33,10 +33,12 @@ class Telegram:
         self.session.trust_env = False
 
     def call(self, method, **payload):
-        if method not in ('getChatMember', 'sendMessage', 'answerCallbackQuery'):
+        if method not in ('getChatMember', 'sendMessage', 'answerCallbackQuery', 'getUpdates',
+                          'getWebhookInfo', 'setWebhook', 'getMe', 'getChat'):
             raise ValueError('Unsupported bot method')
         try:
-            with self.session.post(self.root + method, json=payload, timeout=(5, 10),
+            with self.session.post(self.root + method, json=payload,
+                                   timeout=(5, 35 if method == 'getUpdates' else 10),
                                    allow_redirects=False, stream=True) as response:
                 if response.status_code != 200:
                     raise TelegramUnavailable('telegram_unavailable')

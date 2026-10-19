@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Durable payment ledger. Network I/O never runs inside a database transaction."""
 import calendar
 from datetime import timedelta

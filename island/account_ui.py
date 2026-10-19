@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Small native account surface; network and browser authorization run off the GUI thread."""
 import platform
 import threading

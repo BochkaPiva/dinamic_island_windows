@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 import os
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 import tempfile
@@ -46,7 +46,7 @@ class AccountUiTests(unittest.TestCase):
 
     def test_worker_does_not_block_gui_and_transient_error_keeps_access(self):
         with tempfile.TemporaryDirectory() as folder:
-            access = FeatureAccess(folder)
+            access = FeatureAccess(folder, distribution='preview')
             controller = AccountController('https://accounts.example.test', folder, access)
             controller.timer.stop()
             ticks = []

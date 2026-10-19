@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Real YooKassa transport. Offline fixtures belong only in tests."""
 import re
 from decimal import Decimal, InvalidOperation

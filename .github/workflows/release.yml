@@ -1,4 +1,4 @@
-name: Private commercial candidate
+name: Community Windows build
 
 on:
   workflow_dispatch:
@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   candidate:
-    if: github.event.repository.private == true
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -35,7 +34,7 @@ jobs:
           ./packaging/build.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: private-windows-candidate
+          name: community-windows-candidate
           path: dist/release/*
           retention-days: 14
           if-no-files-found: error

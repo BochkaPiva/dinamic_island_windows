@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Reject accidental proprietary-source/development or disallowed Qt payloads."""
 import json
 from pathlib import Path

@@ -12,9 +12,9 @@ from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 
 
 class LaunchTests(TestCase):
-    def check_settings(self, directory, approvals):
+    def check_settings(self, directory, changes=None):
         path = Path(directory) / 'approvals.json'
-        path.write_text(json.dumps(approvals))
+        path.write_text('{}')
         key_path = Path(directory) / 'fixture.pem'
         key = Ed25519PrivateKey.generate()
         key_path.write_bytes(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
@@ -28,18 +28,17 @@ class LaunchTests(TestCase):
             'TELEGRAM_BOT_USERNAME': 'fixture_bot', 'TELEGRAM_BOT_TOKEN': '12345:fixture_token',
             'TELEGRAM_WEBHOOK_SECRET': 'fixture-webhook-secret-' * 3,
             'COMMUNITY_SIGNING_KEY_PATH': str(key_path), 'COMMUNITY_SIGNING_KEY_ID': 'fixture'})
+        env.update(changes or {})
         return subprocess.run([sys.executable, '-c', 'import cloud_accounts.settings'],
             cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, timeout=15).returncode
 
-    def test_production_rejects_unreviewed_membership_experiment(self):
+    def test_production_requires_real_technical_configuration(self):
         with tempfile.TemporaryDirectory() as folder:
-            self.assertNotEqual(self.check_settings(folder, {}), 0)
+            for changes in ({'TELEGRAM_BOT_TOKEN': ''}, {'COMMUNITY_CHANNEL_ID': '0'},
+                            {'TELEGRAM_WEBHOOK_SECRET': 'short'}, {'COMMUNITY_SIGNING_KEY_PATH': ''}):
+                with self.subTest(changes=changes):
+                    self.assertNotEqual(self.check_settings(folder, changes), 0)
 
-    def test_production_requires_each_review_and_a_complete_config(self):
-        fields = ('authentication_review', 'personal_data_review', 'code_rights', 'operational_checks')
+    def test_production_does_not_require_yandex_credentials(self):
         with tempfile.TemporaryDirectory() as folder:
-            for missing in fields:
-                with self.subTest(missing=missing):
-                    self.assertNotEqual(self.check_settings(folder, {k: k != missing for k in fields}), 0)
-            # Fixture acknowledgements verify the import guard; they are NOT legal approvals.
-            self.assertEqual(self.check_settings(folder, {k: True for k in fields}), 0)
+            self.assertEqual(self.check_settings(folder, {'YANDEX_CLIENT_ID':'','YANDEX_CLIENT_SECRET':''}), 0)

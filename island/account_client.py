@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """First-party desktop OAuth client. Call blocking methods from a worker thread."""
 import base64
 import hashlib

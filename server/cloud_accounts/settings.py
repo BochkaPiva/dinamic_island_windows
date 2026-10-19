@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Separate account service. Desktop data never belongs in this database."""
 import os
 from pathlib import Path
@@ -65,7 +65,9 @@ if os.environ.get('PGHOST'):
 else:
     if PRODUCTION:
         raise ImproperlyConfigured('Production requires PostgreSQL')
-    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'local.sqlite3'}}
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.environ.get('COMMUNITY_LOCAL_DB', str(BASE_DIR / 'local.sqlite3')),
+        'OPTIONS': {'timeout': 20}}}
 OAUTH2_PROVIDER = {
     'SCOPES': {'account': 'Личный кабинет', 'license': 'Лицензия этого устройства'},
     'DEFAULT_SCOPES': ['account', 'license'], 'PKCE_REQUIRED': True,
@@ -91,8 +93,7 @@ CONSENT_VERSION = os.environ.get('CONSENT_VERSION', '')
 SIGNING_KEY_PATH = os.environ.get('SIGNING_KEY_PATH', '')
 SIGNING_KEY_ID = os.environ.get('SIGNING_KEY_ID', '')
 MAX_DEVICES = int(os.environ.get('MAX_DEVICES', '3'))
-# Membership is an optional factor AFTER first-party authentication, never Telegram-only login.
-# The experiment does not enable desktop blocking or publish a service.
+# Optional extended-feature service. Free local tools never require an account.
 COMMUNITY_EXPERIMENT_ENABLED = os.environ.get('COMMUNITY_EXPERIMENT_ENABLED', '0') == '1'
 COMMUNITY_CHANNEL_ID = int(os.environ.get('COMMUNITY_CHANNEL_ID', '0'))
 COMMUNITY_CHANNEL_URL = os.environ.get('COMMUNITY_CHANNEL_URL', '')
@@ -100,29 +101,28 @@ TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', '')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
 COMMUNITY_SIGNING_KEY_PATH = os.environ.get('COMMUNITY_SIGNING_KEY_PATH', '')
+COMMUNITY_SIGNING_KEY_PEM = os.environ.get('COMMUNITY_SIGNING_KEY_PEM', '')
 COMMUNITY_SIGNING_KEY_ID = os.environ.get('COMMUNITY_SIGNING_KEY_ID', '')
 if PRODUCTION and COMMUNITY_EXPERIMENT_ENABLED:
     import json
     import re
     try:
-        community_approvals = json.loads(Path(os.environ.get('COMMUNITY_APPROVALS_PATH', '')).read_text(encoding='utf-8'))
-        if not all(community_approvals.get(k) is True for k in
-                   ('authentication_review', 'personal_data_review', 'code_rights', 'operational_checks')):
-            raise ValueError()
-        if not all((YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET, COMMUNITY_CHANNEL_ID < 0,
+        if not all((COMMUNITY_CHANNEL_ID < 0,
                     urlsplit(COMMUNITY_CHANNEL_URL).scheme == 'https',
                     urlsplit(COMMUNITY_CHANNEL_URL).netloc == 't.me',
                     re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', TELEGRAM_BOT_USERNAME),
                     re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]+', TELEGRAM_BOT_TOKEN),
-                    re.fullmatch(r'[A-Za-z0-9_-]{32,256}', TELEGRAM_WEBHOOK_SECRET), COMMUNITY_SIGNING_KEY_PATH,
+                    re.fullmatch(r'[A-Za-z0-9_-]{32,256}', TELEGRAM_WEBHOOK_SECRET),
+                    COMMUNITY_SIGNING_KEY_PATH or COMMUNITY_SIGNING_KEY_PEM,
                     COMMUNITY_SIGNING_KEY_ID)):
             raise ValueError()
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        if not isinstance(load_pem_private_key(Path(COMMUNITY_SIGNING_KEY_PATH).read_bytes(), None), Ed25519PrivateKey):
+        key_data = COMMUNITY_SIGNING_KEY_PEM.encode() if COMMUNITY_SIGNING_KEY_PEM else Path(COMMUNITY_SIGNING_KEY_PATH).read_bytes()
+        if not isinstance(load_pem_private_key(key_data, None), Ed25519PrivateKey):
             raise ValueError()
     except (OSError, ValueError, TypeError):
-        raise ImproperlyConfigured('Community launch review or configuration is incomplete') from None
+        raise ImproperlyConfigured('Community bot/signing configuration is incomplete') from None
 if PRODUCTION and SALES_ENABLED:
     import json
     try:

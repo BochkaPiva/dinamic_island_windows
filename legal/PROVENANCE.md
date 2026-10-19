@@ -1,5 +1,18 @@
 # Ownership and distribution review
 
+## Current decision, 2026-10-19
+
+The owner requested free open-source distribution again. Newly authored private
+foundation files are now offered under GPL v3, alongside the inherited GPL v3
+application. The scoped file list and authorship evidence are recorded in
+open-source-transition.json. This does not grant rights in any third-party code.
+The repeated comparison found no exact large-function matches with the restricted
+original; matching fonts have independent OFL terms. Automated comparison cannot
+prove the absence of partial copies. Third-party notices and corresponding-source
+responsibilities still apply. Historical commercial drafts are not shipped.
+
+The previous commercial review below is retained as history, not current licensing.
+
 This candidate starts from public GPL release 0.5.1, commit
 887b7a3c57a83166277189e1809536dfda4373dd. Its Git history records one author identity,
 BochkaPiva. The current owner requested a commercial successor. That history is

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Small current-Windows-user DPAPI boundary for installation identity and future credentials."""
 import ctypes
 from ctypes import wintypes

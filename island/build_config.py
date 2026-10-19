@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 """Build-time distribution policy. Never read commercial mode or keys from settings."""
 PRODUCT_ID = "cloud-hub"
-DISTRIBUTION = "preview"  # preview preserves the existing feature set; never sell it.
+DISTRIBUTION = "community"  # Free base; optional membership unlocks additional groups.
 UPDATE_CHANNEL_URL = ""  # Commercial releases must use their own signed channel.
 PUBLIC_RELEASE_REPOSITORY = ""  # Separate binary release repository, not legacy GPL latest.
 LICENSE_API_URL = ""
@@ -10,6 +10,8 @@ LICENSE_PUBLIC_KEYS = {}  # key id -> base64 Ed25519 public key; private keys ne
 UPDATE_PUBLIC_KEYS = {}
 # Open-source transition: opt-in infrastructure only, no public gate or network requests.
 COMMUNITY_API_ORIGIN = ''
-COMMUNITY_CHANNEL_ID = 0
-COMMUNITY_PUBLIC_KEYS = {}
+COMMUNITY_CHANNEL_ID = -1004359060579
+COMMUNITY_CHANNEL_URL = 'https://t.me/Nelviro'
+COMMUNITY_BOT_USERNAME = 'nelviro_bot'
+COMMUNITY_PUBLIC_KEYS = {'nelviro-2026-01': 'lIMEX23SRTMXK5LsfqE3XCa1peUvThBeEzQZwT9h2nI='}
 COMMUNITY_ENFORCEMENT_ENABLED = False

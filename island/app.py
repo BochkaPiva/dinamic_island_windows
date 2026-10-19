@@ -70,10 +70,10 @@ class IslandWindow(QWidget):
         from .entitlements import FeatureAccess
         self.access = FeatureAccess(self.settings.directory)
         from . import build_config
-        self.account = None
-        if services and build_config.ACCOUNT_API_ORIGIN:
-            from .account_ui import AccountController
-            self.account = AccountController(build_config.ACCOUNT_API_ORIGIN, self.settings.directory, self.access, self)
+        self.account = None  # Retained only for older integration code; no provider login is loaded.
+        from .community_ui import CommunityController
+        self.community = CommunityController(self.settings.directory, self.access, self, auto_start=services,
+            origin=build_config.COMMUNITY_API_ORIGIN)
         self.setWindowOpacity(self.settings.get("island_opacity")/100)
         self._wheel_source = NativeWheelSource(QApplication.instance())
         self._volume_scroll = VolumeScroll(adjust_volume, self._wheel_source)
@@ -627,6 +627,7 @@ class IslandWindow(QWidget):
         self._closed = True
         if self.account:
             self.account.stop()
+        self.community.stop()
         self._wheel_source.close()
         for binding in self.hotkeys.values():
             binding.close()

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite3
+*.log
+telegram-poll-state.json
+**/__pycache__/**
+**/tests.py
+**/test_*.py
+staticfiles/**

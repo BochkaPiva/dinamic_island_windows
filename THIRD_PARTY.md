@@ -1,8 +1,9 @@
 # Third-party components
 
-This is the private PySide6 commercial-development line. Earlier public releases
-remain GPL-3.0-only. The candidate terms and outstanding ownership review are in
-LICENSE and legal/. Do not redistribute this candidate as a sales release.
+This is the free community development line on PySide6. Project code is released
+under GNU GPL v3; earlier public grants remain unchanged. The owner requested the
+return to open source on 2026-10-19. Membership applies to the official runtime's
+optional features and does not restrict recipients' GPL rights to modify the code.
 
 The application shell, media adapter, settings, drawing, release integration and
 build scripts are independently implemented for this repository. The new hub,
@@ -13,7 +14,7 @@ No code, icon or translation files from Faygooich/Glassy-Music-Widget are shippe
 Dependencies retain their own copyright and license terms. Release packages
 include dependency notices and GPL/LGPL texts in `licenses/`. LGPL libraries are
 external shared files under `_internal/`, replaceable by compatible builds.
-The commercial workflow does not publish application-source archives.
+Public binary releases must have corresponding application sources available.
 Corresponding dependency sources and their delivery must be approved before
 public distribution (legal/release-approvals.json).
 

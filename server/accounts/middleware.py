@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-CloudHub-Commercial
+# SPDX-License-Identifier: GPL-3.0-only
 class NoStoreMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
