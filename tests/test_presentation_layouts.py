@@ -66,6 +66,25 @@ class PresentationTests(unittest.TestCase):
             self.assertFalse(w.isVisible())
             self.assertFalse(w._visibility.moving)
 
+    def test_opening_layouts_does_not_break_island_native_geometry(self):
+        from island.window_layouts import list_windows
+        from island.motion import top_application
+        from island.platform_win import is_fullscreen
+        # Deliberately use actual APIs in sequence: mocks conceal incompatible
+        # RECT/Monitor ctypes prototypes shared through windll's function cache.
+        list_windows()
+        import ctypes
+        class LegacyRect(ctypes.Structure):
+            _fields_=[(key,ctypes.c_long) for key in ('left','top','right','bottom')]
+        user=ctypes.windll.user32
+        user.GetDesktopWindow.restype=ctypes.c_void_p
+        bounds=LegacyRect()
+        # Exercise geometry even if CI's foreground window is the desktop and
+        # the higher-level policies correctly return before querying a rect.
+        self.assertTrue(user.GetWindowRect(ctypes.c_void_p(user.GetDesktopWindow()),ctypes.byref(bounds)))
+        self.assertIsInstance(top_application(self.w),bool)
+        self.assertIsInstance(is_fullscreen(self.w),bool)
+
     def test_reduced_motion_changes_visibility_without_timer(self):
         self.w.settings.set('hub_animations',False)
         self.w._visibility.set_visible(False)

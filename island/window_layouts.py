@@ -25,7 +25,9 @@ def zones(bounds, preset='halves', gap=8):
 
 
 def api():
-    user=ctypes.windll.user32
+    # ctypes.windll caches one function object per process. Private prototypes
+    # must not change GetWindowRect/GetMonitorInfo signatures used by the island.
+    user=ctypes.WinDLL('user32',use_last_error=True)
     user.GetWindowThreadProcessId.argtypes=(W.HWND,ctypes.POINTER(W.DWORD))
     user.GetWindowTextW.argtypes=(W.HWND,W.LPWSTR,ctypes.c_int)
     user.IsWindow.argtypes=user.IsWindowVisible.argtypes=(W.HWND,)

@@ -1,3 +1,8 @@
+## v0.9.1
+
+- Isolate window-placement Win32 prototypes from the island's APIs. Opening the window page no longer causes incompatible RECT/Monitor pointer errors in cursor/fullscreen checks.
+- Added a regression check using the actual native APIs sequentially, rather than mocking their shared function signatures.
+
 ## v0.9.0
 
 - Visual section headers, concise grouped settings and animated disclosures; removed Windows/HONOR page.

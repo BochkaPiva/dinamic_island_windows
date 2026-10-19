@@ -60,9 +60,14 @@ It does not install global snap/keyboard hooks or replace the separate optional
 PowerToys Shift-drag behavior. Windows with larger minimum sizes cannot fit a
 narrow zone; elevated/nonresponsive windows may reject placement.
 
-Validation: 174 desktop tests, three native fixture placements (halves, thirds,
+Validation: 175 desktop tests, three native fixture placements (halves, thirds,
 60/40), four registered/unregistered native event hooks, packaged Qt/WinRT
 self-test and bundle audit. Dark/light pages were rendered and inspected. An
 attempted live fullscreen fixture could not obtain foreground under Windows'
 focus policy; real browser Alt-Tab is not claimed as manually verified. Reversal,
 hide/show and reduced-motion behavior are covered by GUI tests.
+
+The final 0.9.1 packaging isolates window-placement Win32 function signatures
+in a private DLL interface. A real-API regression test now opens the window
+catalog before invoking cursor/fullscreen geometry, covering shared ctypes
+signature conflicts that separate mocked tests missed in 0.9.0.
