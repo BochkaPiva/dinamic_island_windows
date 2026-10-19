@@ -1,6 +1,9 @@
-PyQt6==6.11.0
-PyQt6-Qt6==6.11.2
-PyQt6_sip==13.13.0
+PySide6-Essentials==6.11.2
+PySide6-Addons==6.11.2
+shiboken6==6.11.2
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.11
 numpy==2.5.4
 PyAudioWPatch==0.2.12.9
 winrt-runtime==3.2.1

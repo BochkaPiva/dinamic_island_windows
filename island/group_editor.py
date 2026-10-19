@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Visible group collection and one ID-bound editor shared with desktop actions."""
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
     QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
 from .hub import FileShelf
 from .group_icons import group_icons
@@ -95,7 +95,7 @@ class GroupEditor(QWidget):
         self.count=QLabel()
         self.count.setObjectName("paneTitle")
         left_layout.addWidget(self.count)
-        self.create=self.button("＋ Создать группу",self.create_group)
+        self.create=self.button("+ Создать группу",self.create_group)
         left_layout.addWidget(self.create)
         self.groups=QListWidget()
         self.groups.setAccessibleName("Все созданные группы рабочего стола")
@@ -135,6 +135,9 @@ class GroupEditor(QWidget):
         row.addWidget(self.name,1)
         self.rename=self.button("Сохранить",self.rename_current)
         row.addWidget(self.rename)
+        self.activate=self.button("На рабочий стол",lambda: self.manager.store.make_active(self.selected_id))
+        self.activate.setToolTip("Показать выбранную группу одной из первых; остальные данные сохранятся")
+        row.addWidget(self.activate)
         fields.addLayout(row)
         right_layout.addWidget(self.fields)
         self.files=GroupFiles(self)
@@ -146,12 +149,14 @@ class GroupEditor(QWidget):
         for button in (self.add_files,self.add_folder,self.remove_links):
             actions.addWidget(button)
         right_layout.addLayout(actions)
-        hint=QLabel("Файлы остаются на диске. Ярлыки хранятся в библиотеке Cloud Hub.")
+        hint=QLabel("Файлы остаются на диске. Ярлыки хранятся в библиотеке Nelviro.")
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         right_layout.addWidget(hint)
         root.addWidget(right,3)
         manager.store.changed.connect(self.refresh)
+        if manager.store.access:
+            manager.store.access.changed.connect(self.refresh)
         manager.store.error.connect(notify)
         manager.store.notice.connect(notify)
         self.refresh()
@@ -183,9 +188,13 @@ class GroupEditor(QWidget):
         self.groups.blockSignals(True)
         self.groups.clear()
         records=self.manager.store.groups
+        active=self.manager.store.access.active_ids(records) if self.manager.store.access else {g['id'] for g in records}
         for number,group in enumerate(records,1):
             count=len(group["items"])
-            item=QListWidgetItem(f"{number:02d}  {group['title']}\n"+(f"Элементов: {count}" if count else "Пустая группа"))
+            detail = f"Элементов: {count}" if count else "Пустая группа"
+            if group['id'] not in active:
+                detail = 'Сохранена · панель не активна'
+            item=QListWidgetItem(f"{number:02d}  {group['title']}\n"+detail)
             item.setData(Qt.ItemDataRole.UserRole,group["id"])
             item.setToolTip(group["title"])
             item.setSizeHint(QSize(1,58))

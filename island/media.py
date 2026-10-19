@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import queue
 import threading
 import time
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 
 
 @dataclass
@@ -21,6 +21,7 @@ class Snapshot:
     dur_sec: float = 0
     start_sec: float = 0
     sources: tuple = ()
+    source_states: tuple = ()
     can_play: bool = False
     can_pause: bool = False
     can_prev: bool = False
@@ -29,8 +30,8 @@ class Snapshot:
 
 
 class MediaWorker(QThread):
-    snapshot_updated = pyqtSignal(object)
-    failure = pyqtSignal(str)
+    snapshot_updated = Signal(object)
+    failure = Signal(str)
 
     def __init__(self, source="", parent=None):
         super().__init__(parent)
@@ -106,7 +107,17 @@ class MediaWorker(QThread):
                     session = sessions.get(self.preferred_source) if self.preferred_source else manager.get_current_session()
                     if session is None and not self.preferred_source and sessions:
                         session = next(iter(sessions.values()))
-                    snap = Snapshot(sources=tuple(sessions))
+                    source_states=[]
+                    for identifier,item in sessions.items():
+                        try:
+                            status=item.get_playback_info().playback_status
+                            label=('Playing' if status==Status.PLAYING else 'Paused' if status==Status.PAUSED
+                                   else 'Stopped' if status in (Status.STOPPED,Status.CLOSED) else 'Changing')
+                            source_states.append((identifier,label))
+                        except Exception:
+                            pass  # a disappearing session must not break all playback controls
+                    source_states=tuple(source_states)
+                    snap = Snapshot(sources=tuple(sessions),source_states=source_states)
                     if session is not None:
                         props = await session.try_get_media_properties_async()
                         info = session.get_playback_info()
@@ -145,7 +156,7 @@ class MediaWorker(QThread):
                                         status="Playing" if playing else "Paused", has_session=True,
                                         aumid=session.source_app_user_model_id, thumb=self._cover,
                                         pos_sec=min(position, duration) if duration else 0,
-                                        dur_sec=duration, start_sec=start, sources=tuple(sessions),
+                                        dur_sec=duration, start_sec=start, sources=tuple(sessions),source_states=source_states,
                                         can_play=controls.is_play_enabled, can_pause=controls.is_pause_enabled,
                                         can_prev=controls.is_previous_enabled, can_next=controls.is_next_enabled,
                                         can_seek=controls.is_playback_position_enabled)

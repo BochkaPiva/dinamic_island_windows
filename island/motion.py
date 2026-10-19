@@ -7,9 +7,9 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
-from PyQt6.QtGui import QCursor, QPainter, QPixmap, QRegion
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QObject, QTimer, QAbstractAnimation
+from PySide6.QtGui import QCursor, QPainter, QPixmap, QRegion
+from PySide6.QtWidgets import QWidget
 from .platform_win import is_desktop_window
 
 
@@ -101,6 +101,12 @@ class SpringGeometry(QObject):
             axis.velocity = 0.0
 
     def start(self, target):
+        if not self.owner.settings.get('hub_animations'):
+            self.stop()
+            self.target=QRect(target)
+            self.owner._geo_anim_step(self.target)
+            self.owner._after_geo_anim()
+            return
         if not self.timer.isActive():
             for axis, value in zip(self.axes, (self.owner.width(), self.owner.height())):
                 axis.value, axis.velocity = float(value), 0.0
@@ -117,7 +123,7 @@ class SpringGeometry(QObject):
         width, height = [max(1, round(v)) for v in values]
         screen = self.owner.screen().geometry()
         x = screen.x() + (screen.width() - width) // 2
-        self.owner._geo_anim_step(QRect(x, screen.top(), width, height))
+        self.owner._geo_anim_step(QRect(x, self.owner._island_top(), width, height))
         if all(abs(a.value - t) < 0.04 and abs(a.velocity) < 0.8 for a, t in zip(self.axes, targets)):
             self.stop()
             self.owner._geo_anim_step(self.target)
@@ -223,7 +229,8 @@ class PointerController:
         w = self.owner
         now = time.monotonic() if now is None else now
         dt, self.last_time = now - self.last_time, now
-        if not self.enabled or w.current_scale_pct != 200 or not w.isVisible() or w._fs_hidden:
+        if (not self.enabled or w.current_scale_pct != 200 or not w.isVisible() or w._fs_hidden
+                or getattr(w,'media_stage',None) and w.media_stage.engaged):
             self.route_input(False)
             return
         screen = w.screen().geometry()
@@ -239,8 +246,14 @@ class PointerController:
             self.covered, self.context_at = self.context_provider(), now
         width = w._scale_window_size(50)[0]
         intent = pointer_intent(screen, width, point, self.covered and w.settings.get("cursor_retreat"))
+        # The tucked silhouette itself is an entry point, not just the last
+        # physical pixel of the screen. Outside it, browser tabs keep all input.
+        tab_entry = (w.floating_mode() and (self.spring.value > .85 or self.edge_since is not None)
+                     and 0 <= point.y()-screen.top() <= 6
+                     and abs(point.x()-screen.center().x()) <= width*.30-6)
+        entry = intent.edge or tab_entry
         expanded = w._island_expanded
-        if intent.edge and not self.edge_blocked:
+        if entry and not self.edge_blocked:
             self.edge_since = self.edge_since or now
             if not expanded and now - self.edge_since >= 0.09:
                 self.route_input(False)
@@ -249,14 +262,14 @@ class PointerController:
                 expanded = True
         else:
             self.edge_since = None
-            if not intent.edge:
+            if not entry:
                 self.edge_blocked = False
         if expanded:
             # Use final bounds during expansion, so following the new panel
             # downward does not cancel an animation halfway through.
             tw, th = w._scale_window_size(100)
-            panel = QRect(screen.x() + (screen.width() - tw) // 2, screen.top(), tw, th)
-            inside = panel.adjusted(-5, 0, 5, 8).contains(point)
+            panel = QRect(screen.x() + (screen.width() - tw) // 2, w._island_top(), tw, th)
+            inside = entry or panel.adjusted(-5, 0, 5, 8).contains(point)
             w._hovering = inside
             if inside or now - self.opened_at < 0.35:
                 w._island_auto_timer.stop()
@@ -264,12 +277,10 @@ class PointerController:
                 w._island_auto_timer.start(w.settings.get("collapse_delay"))
             target = 0.0
         else:
-            target = intent.retreat
+            target = 0.0 if entry else intent.retreat
             if self.covered and w.settings.get("cursor_retreat"):
                 w._notch_hover_timer.stop()
-            # Restore hit testing only after retreat is visually over. Edge
-            # activation is global and works even while fully transparent.
-            yielding = self.covered and not intent.edge and (target > 0.015 or self.spring.value > 0.04)
+            yielding = self.covered and not entry and (target > 0.015 or self.spring.value > 0.04)
             self.route_input(yielding)
         # Outside the interaction zone retain the final dent location while it
         # relaxes, instead of pulling every exit toward an arbitrary center.
@@ -286,6 +297,15 @@ class PointerController:
 def smoothstep(value):
     x = max(0.0, min(1.0, value))
     return x * x * (3 - 2 * x)
+
+
+def floating_retreat(amount, gap, height):
+    """Attach to the bezel without dissolving the visible six-pixel tab.
+
+    Geometry inside the card contracts; the HWND stays on the chosen monitor.
+    Fullscreen visibility owns opacity independently of cursor avoidance.
+    """
+    return gap*smoothstep(amount), 1.0
 
 
 class CompactSurface(QWidget):
@@ -308,7 +328,12 @@ class CompactSurface(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         p.setClipPath(card.notch_path().translated(-self.x(), -self.y()))
         p.setOpacity(stage.compact_alpha)
-        if card._retreat <= 0.0005:
+        if stage.owner.floating_mode():
+            # Transport the complete live texture upward through the shrinking
+            # silhouette, rather than leaving artwork in place with a fade.
+            shift = (card.height()-6)*smoothstep(card._retreat)
+            p.drawPixmap(QPointF(0, -shift), image)
+        elif card._retreat <= 0.0005:
             p.drawPixmap(0, 0, image)
         else:
             # One-pixel strips carry the whole live texture upward along the
@@ -411,11 +436,14 @@ class NotchStage:
         if not self.active:
             return
         w = self.owner
+        if getattr(w,'media_stage',None) and w.media_stage.engaged:
+            w.media_stage.layout();return
+        activity=w.activities.current() if hasattr(w,'activities') else None
         # Layout only when its inputs change. FFT packets repaint the texture
         # directly instead of repeatedly relaying out every child at 40 Hz.
         signature = (w.width(), w.height(), w._island_expanded, w._notch_notice,
                      w.snapshot.has_session, w._notch_audio_active, bool(w.notch_hub._timer_end),
-                     w.notch_idle.text(), w.settings.get("spectrum"), w._geometry.timer.isActive())
+                     w.notch_idle.text(), w.settings.get("spectrum"), w._geometry.timer.isActive(),activity)
         if signature == getattr(self, "_signature", None):
             return
         self._signature = signature
@@ -446,10 +474,10 @@ class NotchStage:
         compact_alpha = 1 - smoothstep(progress / 0.32) if self.panel_was_visible else 1.0
         self.compact_alpha = compact_alpha
         notice = bool(w._notch_notice)
-        session = w.snapshot.has_session
-        timer = bool(hub._timer_end)
+        session = w.snapshot.has_session and activity in (None,'media')
+        timer = activity=='timer' if activity is not None else bool(hub._timer_end)
         w.art_label.setVisible(session and not notice)
-        audio = w._notch_audio_active
+        audio = w._notch_audio_active and activity in (None,'media')
         w.status_mark.setVisible((session or audio) and not notice and w.settings.get("spectrum"))
         art_size = min(40,ch-12)
         w.art_label.setFixedSize(art_size, art_size)
@@ -461,6 +489,7 @@ class NotchStage:
             w.notch_notice.setText(w.notch_notice.fontMetrics().elidedText(w._notch_notice, Qt.TextElideMode.ElideRight, cw - 40))
             w.notch_notice.setToolTip(w._notch_notice)
         w.notch_idle.setVisible(not notice and (not session or timer))
+        if hasattr(w,'activities'):w.notch_idle.setText(w.activities.text())
         left = 25+art_size if session else 16
         right = cw - 52 if session or audio else cw - 16
         w.notch_idle.setGeometry(left, 0, right - left, ch - 2)

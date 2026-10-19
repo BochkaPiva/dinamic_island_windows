@@ -2,7 +2,7 @@
 """Configurable RegisterHotKey bindings; no global keyboard hooks."""
 import ctypes
 from ctypes import wintypes
-from PyQt6.QtCore import QAbstractNativeEventFilter
+from PySide6.QtCore import QAbstractNativeEventFilter
 
 
 def parse_shortcut(value):

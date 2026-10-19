@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from PyQt6.QtCore import QStandardPaths
+from PySide6.QtCore import QStandardPaths
 
 
 def desktop_directories():
@@ -113,7 +113,7 @@ class ShortcutLibrary:
     def restore(self,path):
         source=Path(path)
         if not self.owns(source):
-            raise OSError('Этот ярлык не находится в библиотеке Cloud Hub')
+            raise OSError('Этот ярлык не находится в библиотеке Nelviro')
         destination=self.desktop_roots[0]/source.name
         destination.parent.mkdir(parents=True,exist_ok=True)
         content=source.read_bytes()

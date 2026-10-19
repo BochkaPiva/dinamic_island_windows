@@ -1,5 +1,10 @@
 # Security and privacy
 
+The optional community service receives Telegram ID, random installation ID and
+membership status. User files, groups, notes, audio and camera images remain local.
+Device credentials use Windows DPAPI; only their hashes are stored server-side.
+The bot token and signing private key must never be distributed with an installer.
+
 Report a vulnerability through the repository's private vulnerability reporting
 feature if available; otherwise contact the maintainer through their GitHub
 profile before posting exploit details publicly.

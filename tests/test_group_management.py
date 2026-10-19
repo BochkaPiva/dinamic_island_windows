@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMessageBox
 from island.app import IslandWindow
 from island.desktop_groups import GroupStore
 from island.group_editor import GroupEditor
@@ -23,6 +23,8 @@ class GroupManagementTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.w=IslandWindow(Settings(self.temp.name),services=False)
+        self.w.access.distribution='preview'  # Editing/identity tests are independent of membership policy.
+        self.w.access.reload()
         self.manager=self.w.modules.desktop
         self.store=self.manager.store
         for group in list(self.store.groups):

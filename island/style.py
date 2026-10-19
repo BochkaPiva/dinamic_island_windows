@@ -2,9 +2,9 @@
 """Original vector drawing for Cloud Island. Uses the Windows system font."""
 import math
 from pathlib import Path
-from PyQt6.QtCore import Qt, QRectF, QEasingCurve
-from PyQt6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPixmap
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PySide6.QtCore import Qt, QRectF, QEasingCurve
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtWidgets import QWidget, QPushButton
 
 
 _fonts_loaded = False
@@ -40,9 +40,15 @@ def rounded_art(data, size, radius=7, ratio=1.0):
     p.setClipPath(clip)
     if source.isNull():
         p.fillRect(QRectF(0, 0, size, size), QColor("#1c1d25"))
-        p.setFont(font(round(size * .45), 600))
-        p.setPen(QColor("#9dabc8"))
-        p.drawText(QRectF(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, "♪")
+        # Original vector note: no dependency on a font's music glyph coverage.
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QPen
+        p.setPen(QPen(QColor("#B4DFF2"), max(1., size*.035),
+                      Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.56,size*.65))
+        p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.72,size*.34))
+        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor("#B4DFF2"))
+        p.drawEllipse(QRectF(size*.34,size*.58,size*.24,size*.16))
     else:
         source = source.scaled(round(size * ratio), round(size * ratio),
                                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
@@ -60,18 +66,8 @@ def art_placeholder(size, radius=7, ratio=1.0):
 
 
 def app_icon():
-    pix = QPixmap(64, 64)
-    pix.fill(Qt.GlobalColor.transparent)
-    p = QPainter(pix)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(QColor("#111217"))
-    p.drawRoundedRect(QRectF(2, 2, 60, 60), 18, 18)
-    p.setBrush(QColor("#d5e5ff"))
-    for x, height in ((17, 10), (25, 23), (33, 32), (41, 18)):
-        p.drawRoundedRect(QRectF(x, (64-height)/2, 5, height), 2.5, 2.5)
-    p.end()
-    return QIcon(pix)
+    # Include every size so Windows and Qt choose a crisp native-resolution mark.
+    return QIcon(str(Path(__file__).parent / 'assets' / 'brand' / 'Nelviro.ico'))
 
 
 class TransportButton(QPushButton):
@@ -135,6 +131,23 @@ class SpectrumMark(QWidget):
             p.drawRoundedRect(QRectF(i*6, (self.height()-height)/2, 3, height), 1.5, 1.5)
 
 
+def island_outline(w,h,floating=False):
+    """Shared resting silhouette for the real surface and explanatory previews."""
+    path=QPainterPath()
+    if floating:
+        path.addRoundedRect(QRectF(0,0,w,h),min(24.,h/2),min(24.,h/2));return path
+    flare=min(18.,max(8.,h*.1));radius=min(30.,(h-flare)*.65)
+    left,right=flare+radius,w-flare-radius
+    path.moveTo(0,0);path.lineTo(w,0)
+    path.cubicTo(w-flare*.55,0,w-flare,flare*.45,w-flare,flare)
+    path.lineTo(w-flare,h-radius)
+    path.cubicTo(w-flare,h-radius*.34,right+radius*.66,h,right,h)
+    path.lineTo(left,h)
+    path.cubicTo(left-radius*.66,h,flare,h-radius*.34,flare,h-radius)
+    path.lineTo(flare,flare)
+    path.cubicTo(flare,flare*.45,flare*.55,0,0,0);path.closeSubpath();return path
+
+
 class NotchCard(QWidget):
     """An intact bezel silhouette compressed by a smooth material displacement."""
     def __init__(self, parent=None):
@@ -170,6 +183,20 @@ class NotchCard(QWidget):
 
     def notch_path(self):
         w, h = self.width(), self.height()
+        stage=getattr(self.parentWidget(),'media_stage',None)
+        if stage and stage.engaged:
+            path=QPainterPath();path.addRoundedRect(QRectF(0,0,w,h),min(22,h/2),min(22,h/2));return path
+        if self.parentWidget().floating_mode():
+            t=self._retreat*self._retreat*(3-2*self._retreat)
+            inset=w*.20*t
+            bottom=h+(6-h)*t
+            radius=min(24.,h/2)+(6-min(24.,h/2))*t
+            path=QPainterPath()
+            # Extend the top above the clip as the capsule docks, leaving a
+            # flat attachment and soft lower corners instead of a floating line.
+            path.addRoundedRect(QRectF(inset,-6*t,w-2*inset,bottom+6*t),radius,radius)
+            return path
+        if self._retreat<=.00001:return island_outline(w,h)
         flare = min(18., max(8., h*.1))
         radius = min(30., (h-flare)*.65)
         left, right = flare+radius, w-flare-radius

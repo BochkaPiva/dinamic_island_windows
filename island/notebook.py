@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 import uuid
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QPlainTextEdit, QLineEdit, QPushButton, QLabel, QFileDialog)
-from PyQt6.QtWidgets import QApplication, QPlainTextDocumentLayout
-from PyQt6.QtGui import QTextDocument
+from PySide6.QtWidgets import QApplication, QPlainTextDocumentLayout
+from PySide6.QtGui import QTextDocument
 
 
 class Notebook(QWidget):

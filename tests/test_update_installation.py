@@ -10,8 +10,8 @@ import tempfile
 import time
 import unittest
 from unittest.mock import Mock,patch
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
+from PySide6.QtTest import QTest
 from island import __version__,REPO_URL
 from island.update_manager import (UpdateChecker,release_info,trusted_url,checksum_for,verify_installer)
 from island.update_helper import validate_handoff,snapshot_data,resume_timer,apply_update,atomic_json
@@ -92,7 +92,7 @@ class DownloadTests(unittest.TestCase):
 
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
-        self.manager=UpdateChecker(directory=self.temp.name)
+        self.manager=UpdateChecker(directory=self.temp.name,channel_url=REPO_URL+'/releases/latest/download/update.json')
         self.content=b'MZ'+b'x'*400000
         self.manager.info=release_info(payload(content=self.content))
         self.states=[]
@@ -133,15 +133,15 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(self.manager.state,'available')
         opened.assert_called_once_with(REPO_URL+'/releases/latest/download/update.json')
 
-    def test_api_fallback_for_legacy_release_without_channel(self):
+    def test_missing_channel_never_falls_back_to_public_legacy_api(self):
         def response(url):
             if url.endswith('update.json'): raise OSError('missing legacy channel')
             return io.BytesIO(json.dumps(payload()).encode())
         with patch('island.update_manager.open_release',side_effect=response) as opened:
             self.manager.check()
             self.wait_terminal()
-        self.assertEqual(self.manager.state,'available')
-        self.assertEqual(opened.call_count,2)
+        self.assertEqual(self.manager.state,'error')
+        self.assertEqual(opened.call_count,1)
 
     def test_truncated_and_overlong_files_never_become_installable(self):
         for data in (self.content[:-1],self.content+b'extra'):

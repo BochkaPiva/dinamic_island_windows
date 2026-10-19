@@ -5,8 +5,8 @@ import ctypes
 from ctypes import wintypes
 import os
 import time
-from PyQt6.QtCore import QAbstractNativeEventFilter
-from PyQt6.QtGui import QInputDevice
+from PySide6.QtCore import QAbstractNativeEventFilter
+from PySide6.QtGui import QInputDevice
 
 
 def touchpad_scroll_reversed():

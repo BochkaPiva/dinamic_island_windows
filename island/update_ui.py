@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """A single update surface shared by manual checks and background notifications."""
 from pathlib import Path
-from PyQt6.QtCore import Qt,QUrl
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QProgressBar,QPlainTextEdit
+from PySide6.QtCore import Qt,QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QProgressBar,QPlainTextEdit
 from . import __version__
 from .style import app_icon
 
@@ -23,7 +23,7 @@ class UpdatePanel(QFrame):
         header.addWidget(emblem)
         header.addSpacing(10)
         words=QVBoxLayout()
-        self.title=QLabel('Cloud Hub')
+        self.title=QLabel('Nelviro')
         self.title.setObjectName('heading')
         words.addWidget(self.title)
         self.version=QLabel(f'Установлена версия {__version__}')
@@ -63,7 +63,7 @@ class UpdatePanel(QFrame):
         self.notes.setMaximumHeight(230)
         self.notes.setAccessibleName('Изменения в новой версии')
         root.addWidget(self.notes)
-        assurance=QLabel('После установки Cloud Hub откроется снова. Настройки, заметки, группы и таймер сохранятся.')
+        assurance=QLabel('После установки Nelviro откроется снова. Настройки, заметки, группы и таймер сохранятся.')
         assurance.setWordWrap(True)
         assurance.setObjectName('secondary')
         root.addWidget(assurance)
@@ -77,7 +77,7 @@ class UpdatePanel(QFrame):
     def render(self,value):
         state=value['state']
         info=value.get('info') or {}
-        self.title.setText('Cloud Hub '+info['version'] if state in {'available','downloading','verifying','ready','installing'} and info else 'Cloud Hub')
+        self.title.setText('Nelviro '+info['version'] if state in {'available','downloading','verifying','ready','installing'} and info else 'Nelviro')
         self.status.setText(value['message'])
         busy=state in {'checking','downloading','verifying','installing'}
         self.primary.setEnabled(not busy)

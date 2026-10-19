@@ -7,12 +7,20 @@ import sys
 
 
 def self_test(report, audio=False):
-    from PyQt6.QtCore import QCoreApplication, QTimer
+    from PySide6.QtCore import QCoreApplication, QTimer
     from island.audio import AudioSpectrum
     from island import __version__
     from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
     app = QCoreApplication([])
-    result = {"version": __version__, "qt": True, "winrt": True, "frozen": bool(getattr(sys, "frozen", False))}
+    from PySide6.QtMultimedia import QMediaPlayer,QVideoSink,QCamera
+    player=QMediaPlayer();sink=QVideoSink();player.setVideoSink(sink)
+    if not player.isAvailable(): raise RuntimeError('Qt multimedia backend unavailable')
+    from PySide6.QtCore import qVersion
+    import PySide6
+    from island.build_config import DISTRIBUTION
+    result = {"version": __version__, "qt": True, "winrt": True, "frozen": bool(getattr(sys, "frozen", False)),
+              "binding": "PySide6", "binding_version": PySide6.__version__, "qt_version": qVersion(),
+              "distribution": DISTRIBUTION,"multimedia":True}
     if audio:
         capture = AudioSpectrum()
         available, levels = [], []
@@ -44,7 +52,7 @@ def main():
         from island.update_helper import apply_update
         return apply_update(args.apply_update)
     if args.diagnostics:
-        from PyQt6.QtCore import QCoreApplication
+        from PySide6.QtCore import QCoreApplication
         from island.instance import query_status
         app=QCoreApplication([])
         result=query_status()
@@ -53,7 +61,7 @@ def main():
     if args.self_test or args.audio_self_test:
         return self_test(args.self_test or args.audio_self_test, bool(args.audio_self_test))
     if args.quit:
-        from PyQt6.QtCore import QCoreApplication
+        from PySide6.QtCore import QCoreApplication
         from island.instance import notify_existing
         app = QCoreApplication([])
         notify_existing("quit")

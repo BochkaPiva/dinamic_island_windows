@@ -3,6 +3,10 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.ps1 text eol=crlf
+server/deploy/* text eol=lf
+server/.env.example text eol=lf
+server/requirements*.txt text eol=lf
+*.html text eol=lf
 *.ttf binary
 *.ico binary
 *.gif binary

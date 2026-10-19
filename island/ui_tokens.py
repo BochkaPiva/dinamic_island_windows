@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Shared quiet surfaces, type and original line icons for desktop tools."""
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import QWidget, QPushButton
 
 SURFACE = "#202227"
 TEXT = "#f4f4f6"
@@ -39,6 +39,8 @@ def glyph(painter, name, rect, color=TEXT):
         p.drawLine(12,5,12,19); p.drawLine(5,12,19,12)
     elif name in {"hub","app","store"}:
         for x,y in ((4,4),(14,4),(4,14),(14,14)): p.drawRoundedRect(QRectF(x,y,6,6),1.5,1.5)
+    elif name=='community':
+        p.drawEllipse(QRectF(8,3,8,8)); p.drawArc(QRectF(4,13,16,12),0,180*16)
     elif name=='download':
         p.drawLine(12,3,12,15); p.drawLine(7,10,12,15); p.drawLine(12,15,17,10)
         p.drawLine(4,16,4,21); p.drawLine(4,21,20,21); p.drawLine(20,21,20,16)
@@ -58,6 +60,15 @@ def glyph(painter, name, rect, color=TEXT):
     p.restore()
 
 
+def widget_colors(widget):
+    from .brand import resolved_palette, palette
+    window=widget.window()
+    if hasattr(window,'colors'): return window.colors
+    if hasattr(window,'_brand_colors'): return window._brand_colors
+    owner=getattr(window,'owner',None) or getattr(getattr(window,'manager',None),'owner',None)
+    return resolved_palette(owner.settings) if owner else palette()
+
+
 class LineIcon(QWidget):
     def __init__(self,name,size=22,parent=None):
         super().__init__(parent)
@@ -68,7 +79,7 @@ class LineIcon(QWidget):
     def paintEvent(self,event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        glyph(p,self.name,QRectF(self.rect()),MUTED)
+        glyph(p,self.name,QRectF(self.rect()),widget_colors(self)['muted'])
 
 
 class IconButton(QPushButton):
@@ -87,4 +98,4 @@ class IconButton(QPushButton):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(255,255,255,20))
             p.drawRoundedRect(QRectF(self.rect()),7,7)
-        glyph(p,self.icon_name,QRectF(6,6,16,16),TEXT if self.underMouse() else MUTED)
+        glyph(p,self.icon_name,QRectF(6,6,16,16),widget_colors(self)['text' if self.underMouse() else 'muted'])

@@ -1,0 +1,244 @@
+{
+  "original_commit": "ecba420357a89cb4a6f6dd43aa6759c17c16fa73",
+  "application_baseline": "953f1032278e31182b593299ae78c8ce1c261cb2",
+  "comparison": "Exact AST matches of functions of at least 21 lines; exact binary asset hashes",
+  "large_function_matches": [],
+  "asset_matches": [
+    {
+      "current": "island/assets/fonts/GolosText-400.ttf",
+      "original": "fonts/GolosText-400.ttf"
+    },
+    {
+      "current": "island/assets/fonts/GolosText-500.ttf",
+      "original": "fonts/GolosText-500.ttf"
+    },
+    {
+      "current": "island/assets/fonts/GolosText-600.ttf",
+      "original": "fonts/GolosText-600.ttf"
+    },
+    {
+      "current": "island/assets/fonts/GolosText-700.ttf",
+      "original": "fonts/GolosText-700.ttf"
+    },
+    {
+      "current": "island/assets/fonts/GolosText-900.ttf",
+      "original": "fonts/GolosText-900.ttf"
+    }
+  ],
+  "files": [
+    {
+      "path": "island/__init__.py",
+      "sha256": "2740a36c2449465b3ca7d0b537c02359a5e09d66db8dc7ee231dca8dabffcb52"
+    },
+    {
+      "path": "island/account_client.py",
+      "sha256": "c78588c8f062ccf7c4054b00375e9afbc02ab71daaadccb7bfa4da7f294e73e0"
+    },
+    {
+      "path": "island/account_ui.py",
+      "sha256": "fa9d7ad3d48cf2d74a780d758818f065940eb8aa425d0c45d63d601d30399022"
+    },
+    {
+      "path": "island/app.py",
+      "sha256": "c2eeefbe4bca2c53d7897662d6d3b8e1a8a56479f0828f801d5a9c1425acc43e"
+    },
+    {
+      "path": "island/assets/fonts/GolosText-400.ttf",
+      "sha256": "7c255885e99e7df35f846074e6b780ee166a725e565e3a67f760dd12f4e5b77a"
+    },
+    {
+      "path": "island/assets/fonts/GolosText-500.ttf",
+      "sha256": "6dd89b893d2534ebb655520f2a1ac9258007af1a0daf4b8a32763f13b47fad4a"
+    },
+    {
+      "path": "island/assets/fonts/GolosText-600.ttf",
+      "sha256": "1d38fc3b3f03e9f22003bbf360e4cd58e8890f81e65f9a98b3773a0199ba4354"
+    },
+    {
+      "path": "island/assets/fonts/GolosText-700.ttf",
+      "sha256": "8b9ab44deba060e3f7a1a60bd2d8b19c4bab581e85c2e1f150a1e73a4f6aa8b4"
+    },
+    {
+      "path": "island/assets/fonts/GolosText-900.ttf",
+      "sha256": "7a65aef4e473695804f3f52eda88f76c9fe9da271730aa11de8c786aa8bb9bf0"
+    },
+    {
+      "path": "island/assets/fonts/OFL.txt",
+      "sha256": "9f73ecbd863e64e5d3d1b34a1860baaaa517c095b28bd1183e43e0b246b14679"
+    },
+    {
+      "path": "island/assets/timer-chime.wav",
+      "sha256": "868e4dd58cf8f78ca40b03791cc6d523ed23d9278d90fb07cb0efadaa3c0fe1d"
+    },
+    {
+      "path": "island/audio.py",
+      "sha256": "1b174275f37d46e1bf9b7d9e01665e02528afc6869e2a867d094e30edce3130a"
+    },
+    {
+      "path": "island/build_config.py",
+      "sha256": "2d161a30a8b0ccf10c575e3ac2c401489d047f03a16fae4ef664742a07ae3440"
+    },
+    {
+      "path": "island/community_access.py",
+      "sha256": "ede45ea92bc370d087dc00ef49081d686c04049a72d386e8a3c8f8ef789bf0fb"
+    },
+    {
+      "path": "island/community_client.py",
+      "sha256": "6c21cc2f7e70a50ceb3d83064693dd41237187aaf41e4a246eb19f3c3f5e2a1b"
+    },
+    {
+      "path": "island/community_ui.py",
+      "sha256": "b4c52f5d7e92f547711ba347f8b3dfdc3afa6f6b6d13c9d005d3c45d0d873b5c"
+    },
+    {
+      "path": "island/control_center.py",
+      "sha256": "d3060e1e8ae97608e2bc8f9453485f53dabeb508fdc36491b69ff71c8c2f8c94"
+    },
+    {
+      "path": "island/desktop_groups.py",
+      "sha256": "9a12c6cd69f814dc2476b57fb03217469626db4a1fcdd2b8f623eb8e944d3f32"
+    },
+    {
+      "path": "island/entitlements.py",
+      "sha256": "58a4b9d76c169e2fa786802d439cf0c798e36bde4129a27323257fb583b04ed3"
+    },
+    {
+      "path": "island/group_editor.py",
+      "sha256": "14b569d4f0ab89c2ec0e23ca4a565c21d74add702ac214095c6bed5c90381cee"
+    },
+    {
+      "path": "island/group_icons.py",
+      "sha256": "f3b763a124c65734f81d653b14b98388154f05f486cef8cc0285f696863ceb02"
+    },
+    {
+      "path": "island/hotkey.py",
+      "sha256": "f060ec582389c01ac5d9bc544c08d610225d8c8b4d32461b56098f12ad22e363"
+    },
+    {
+      "path": "island/hub.py",
+      "sha256": "3dc26bc5ae260015d708aff5f74a0067af2ff5c139b97e6ea7498d8b0fc93fcf"
+    },
+    {
+      "path": "island/hub_ui.py",
+      "sha256": "be145ad2cc874afee9f5a621b2d27df63b6262f064992c461a7505089100c31d"
+    },
+    {
+      "path": "island/instance.py",
+      "sha256": "ae1d281f8d4104bb8041cb561ffd436ae9b0687fa6b12286434cdc54c1f5f5b9"
+    },
+    {
+      "path": "island/integrations.py",
+      "sha256": "903ddb21421b54cf2d7ea90fe28dae46aebe2c50fdde9370a3fcfee9833b0656"
+    },
+    {
+      "path": "island/media.py",
+      "sha256": "36720a87cd36df874dfce69199d64411212af9c8e32412e97cfca8163515f381"
+    },
+    {
+      "path": "island/modules.py",
+      "sha256": "a109a9165706e661d0ebcbccec4f2219c1648775b46d387fd677465184925568"
+    },
+    {
+      "path": "island/motion.py",
+      "sha256": "3e81cbc1059ddc1d7da978395b2485417acf908be0abecc75fa15b4e280d3719"
+    },
+    {
+      "path": "island/notebook.py",
+      "sha256": "8d3b84cfd117dc97dbf00227ab459cebc2ce63dc7237ae15031c11b0502b1e38"
+    },
+    {
+      "path": "island/platform_win.py",
+      "sha256": "441e20390505556ecff59fd6ec8eee589c8a9bdc56eaeae7dbdd6cec31b690cf"
+    },
+    {
+      "path": "island/policy.py",
+      "sha256": "5f1c0b0a76b3ad9291567974a79199c8152ac6875824c7b971c064f7936d43b0"
+    },
+    {
+      "path": "island/protected_storage.py",
+      "sha256": "29873288b8f5b678538b28e9333fc7522b67e98942de847553669547de461e11"
+    },
+    {
+      "path": "island/scrolling.py",
+      "sha256": "e2acacf64b89ed941c82e5c6a2555361c8785512395be01d4cba66242315456a"
+    },
+    {
+      "path": "island/search.py",
+      "sha256": "0669f51efde3821cf24d595477719584fe62602ea875068e9a4feb4cbc49a25d"
+    },
+    {
+      "path": "island/search_ui.py",
+      "sha256": "8de7c713c2c12ded80c9ffefbfb0bdc272e55d8847ada97067d9f5d3e62d216f"
+    },
+    {
+      "path": "island/settings_pages.py",
+      "sha256": "517848497b91e10041319d0d84ee9bd56e6e09075958721ddba04a5adba21e21"
+    },
+    {
+      "path": "island/shortcut_library.py",
+      "sha256": "522ce9b91fb8198a2449107e5a52f7f45526cf4b600668f720460a5a6d044e72"
+    },
+    {
+      "path": "island/signed_payload.py",
+      "sha256": "97642f74fd423bd87353d8ebbc888663f78ed587dd544363df3df40763bbe95d"
+    },
+    {
+      "path": "island/storage.py",
+      "sha256": "9483aaa0e15c464a7baf806aceb9a723073420cd5c451240702f1821ef21d7ac"
+    },
+    {
+      "path": "island/style.py",
+      "sha256": "64e1285717293540baf1a1606bc2e697a404fb2417ae4ffa086b2d9463360ad7"
+    },
+    {
+      "path": "island/timer.py",
+      "sha256": "0e773c98c24adaab3cf7bcad6af0f559a19c602b4f8af94e06f1757199800e0a"
+    },
+    {
+      "path": "island/ui_tokens.py",
+      "sha256": "e46cbef6d35573eb7829dac38f9b3ba08727a45c9f334050cde54ea302568202"
+    },
+    {
+      "path": "island/update_helper.py",
+      "sha256": "af103d67d875421c1a8b04cb9e6cc632ccdb1ac08c180a6d20487500136caa37"
+    },
+    {
+      "path": "island/update_manager.py",
+      "sha256": "24aa998e4204a78c1c367fc77b830a47a6291858d97db2608470aca0f794678c"
+    },
+    {
+      "path": "island/update_ui.py",
+      "sha256": "2beabc050c818d7a2fe1cd59e9f5c4aca5bda6a64553c97dc71d71a425a4fee2"
+    },
+    {
+      "path": "island/updates.py",
+      "sha256": "c82427a5310a80c16d74c790c63e61ed0e1f5f154cd43e12cc7b7efc017e3dbe"
+    },
+    {
+      "path": "island/volume_scroll.py",
+      "sha256": "4ad5db327b5ac0f01c08879f392dd4c022280d613e9fdf54f424b3405f75b248"
+    },
+    {
+      "path": "main.py",
+      "sha256": "7e88dc23b1b47d5b71a776e61cf38dcdc053f4620be3aa549de344973c17a517"
+    },
+    {
+      "path": "packaging/build.ps1",
+      "sha256": "48a5f59c83af1dda888ad14c4a493685ff9bcc3de00fb22d4da8d1237a9f02ad"
+    },
+    {
+      "path": "packaging/cloud-island.spec",
+      "sha256": "ea1201e154f1b64656f56f0de9e519450508aab9e97ee67eab68f8a5837d0118"
+    },
+    {
+      "path": "packaging/cloud.ico",
+      "sha256": "ce72aa3daa0eb6c96437cae529ad4a3d1fb782fa42f65a5e52192533119d945c"
+    },
+    {
+      "path": "packaging/installer.iss",
+      "sha256": "0077130b8e1062ec3f5c889738a6993fca67a70c174d3b3921841ac2bad5a179"
+    }
+  ],
+  "legal_clearance": false,
+  "limitations": "Does not detect rewritten/renamed/partial copies or prove ownership; inherited code and assets require owner review."
+}

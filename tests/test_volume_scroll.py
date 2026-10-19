@@ -6,9 +6,9 @@ import ctypes
 from ctypes import wintypes
 import tempfile
 from unittest.mock import patch, Mock
-from PyQt6.QtCore import QPoint, QPointF, Qt
-from PyQt6.QtGui import QWheelEvent, QInputDevice, QPointingDevice
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent, QInputDevice, QPointingDevice
+from PySide6.QtWidgets import QApplication
 from island.volume_scroll import VolumeScroll, NativeWheelSource
 from island.platform_win import adjust_volume
 from island.app import IslandWindow

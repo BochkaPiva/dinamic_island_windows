@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Direct touchpad pixels; continuous damped movement for wheel notches."""
 import time
-from PyQt6.QtCore import Qt, QObject, QTimer
+from PySide6.QtCore import Qt, QObject, QTimer
+from PySide6.QtWidgets import QScrollArea
 from .motion import DampedValue
 
 
@@ -28,8 +29,15 @@ class SmoothScroll(QObject):
     def wheel(self,event):
         pixel=event.pixelDelta().y()
         angle=event.angleDelta().y()
+        owner=getattr(self.view.window(),'owner',None)
+        if owner and not owner.settings.get('hub_animations'):
+            self.stop()
+            self.bar.setValue(round(self.bar.value()-(pixel or angle/120*60)))
+            event.accept()
+            return
         if pixel:
             self.stop()
+
             self.bar.setValue(self.bar.value()-pixel)
         elif angle:
             running=self.timer.isActive()
@@ -50,3 +58,18 @@ class SmoothScroll(QObject):
         if abs(value-self.target)<.08 and abs(self.axis.velocity)<1:
             self.bar.setValue(round(self.target))
             self.stop()
+
+
+class SmoothScrollArea(QScrollArea):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.smooth_scroll=SmoothScroll(self)
+
+    def wheelEvent(self,event):
+        if self.verticalScrollBar().maximum()>0:
+            self.smooth_scroll.wheel(event)
+        else: event.ignore()
+
+    def hideEvent(self,event):
+        self.smooth_scroll.stop()
+        super().hideEvent(event)

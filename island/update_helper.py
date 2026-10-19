@@ -104,8 +104,41 @@ def resume_timer(directory,current=__version__,now=None):
     except (OSError,ValueError,KeyError,TypeError,OverflowError): return None
 
 
+def snapshot_application(target,backup):
+    """Save the executable and its complete matching shared runtime for rollback."""
+    if target.is_file(): shutil.copy2(target,backup/'previous-CloudIsland.exe')
+    runtime=target.parent/'_internal'
+    if runtime.is_dir(): shutil.copytree(runtime,backup/'previous-runtime')
+
+
+def remove_runtime(path,application_dir):
+    path=Path(path)
+    if path.is_symlink() or path.resolve().parent!=application_dir.resolve() or path.name not in {'_internal','_internal.rollback'}:
+        raise ValueError('Unsafe runtime restoration path')
+    if path.exists(): shutil.rmtree(path)
+
+
+def restore_application(target,backup):
+    """Restore runtime before executable; never combine two Qt/Python releases."""
+    previous=backup/'previous-CloudIsland.exe'
+    if not previous.is_file(): return False
+    saved_runtime=backup/'previous-runtime'
+    runtime=target.parent/'_internal'
+    # These paths are derived only from a validated handoff, not external input.
+    if saved_runtime.is_dir():
+        staging=target.parent/'_internal.rollback'
+        remove_runtime(staging,target.parent)
+        shutil.copytree(saved_runtime,staging)
+        remove_runtime(runtime,target.parent)
+        staging.replace(runtime)
+    temporary=target.with_suffix('.rollback.tmp')
+    shutil.copy2(previous,temporary)
+    temporary.replace(target)
+    return True
+
+
 def apply_update(manifest):
-    from PyQt6.QtCore import QCoreApplication
+    from PySide6.QtCore import QCoreApplication
     from .instance import notify_existing,query_status
     app=QCoreApplication.instance() or QCoreApplication([])
     directory=data_dir()
@@ -126,7 +159,7 @@ def apply_update(manifest):
             time.sleep(.15)
         stopped=True
         backup=snapshot_data(directory,value['version'])
-        if target.is_file(): shutil.copy2(target,backup/'previous-CloudIsland.exe')
+        snapshot_application(target,backup)
         if isinstance(value.get('timer'),dict):
             atomic_json(directory/'update-resume.json',{'version':value['version'],'at':time.time(),'timer':value['timer']})
         installer=Path(value['installer'])
@@ -155,12 +188,14 @@ def apply_update(manifest):
         try:
             atomic_json(directory/'update-result.json',{'status':'error','version':value.get('version','') if value else '',
                 'at':time.time(),'backup':str(backup) if backup else '', 'message':message,'seen':False})
+            if stopped and value and query_status().get('running'):
+                notify_existing('quit')
+                limit=time.monotonic()+15
+                while target and matching_processes(target) and time.monotonic()<limit: time.sleep(.15)
             if stopped and value and not query_status().get('running'):
                 previous=backup/'previous-CloudIsland.exe' if backup else None
                 if installer_started and previous and previous.exists() and target and not matching_processes(target):
-                    temporary=target.with_suffix('.rollback.tmp')
-                    shutil.copy2(previous,temporary)
-                    temporary.replace(target)
+                    restore_application(target,backup)
                 if isinstance(value.get('timer'),dict):
                     atomic_json(directory/'update-resume.json',{'version':value['current_version'],'at':time.time(),'timer':value['timer']})
                 fallback=Path(value['source_exe'])

@@ -5,9 +5,9 @@ from pathlib import Path
 import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from PyQt6.QtCore import Qt,QAbstractAnimation
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt,QAbstractAnimation
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.storage import Settings
 from island import __version__

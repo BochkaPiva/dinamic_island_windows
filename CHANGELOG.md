@@ -1,4 +1,84 @@
+## v0.10.0
+
+- Added a movable video state in the same island window: local file playback, explicit native window preview, and an opt-in camera mirror for channel subscribers. Drag the header; pause/close returns continuously to the selected screen's notch/island. Esc returns too.
+- Snapshot-based content/geometry transitions, reversible entry/return, screen work-area clamping, device/source loss handling and capability expiry cleanup. Camera and decoding stop on close; DWM relationships release at the end of the short return.
+- Video/camera frames are pulled from the native sink at a bounded 30 fps without Python callbacks on decoder threads or per-frame queued slots. The preview retains one image capped at 1280×720; no microphone, recording or upload.
+- Swipe the compact island horizontally or use horizontal touchpad scrolling to select media, clock or a running/paused timer. Vertical scrolling retains volume control. Subscriber pinning retains a chosen activity; disappearing sources release the pin.
+- Audio menu selects actual SMTC sessions; the local video player offers its own output-device selector. Global Windows audio configuration opens the native sound settings. Fixed source-list refresh overwriting a preferred session.
+- Rebuilt community comparison using the shared resting silhouette and centered live spectrum; added concrete benefits, connected state and access explanation. Prominent cursor-avoidance toggle, calmer settings headers/type hierarchy, and an actionable empty file shelf.
+- QtMultimedia is packaged with matched PySide6 Addons and external FFmpeg 7.1.5 libraries. Dependency notices/build flags are recorded; unrelated Qt modules remain excluded by the bundle audit.
+
+## v0.9.3
+
+- Floating avoidance morphs into an opaque six-pixel bezel tab instead of disappearing. The complete live artwork/spectrum texture travels upward inside the contracting silhouette.
+- Hovering the visible tab opens controls; the physical top-edge gesture still works. Browser tabs below retain click-through input.
+- Fullscreen visibility remains independent; avoidance does not cancel the fullscreen fade or move the native window onto another monitor.
+- Added a staged media/activity proposal with explicit video capture limitations and acceptance criteria in docs/island-media-roadmap.md.
+
+## v0.9.2
+
+- Floating cursor avoidance now lifts and fades the intact capsule; artwork and spectrum move together without dents or strip warping.
+- Screen-edge clipping prevents bleed onto a display above, and the native window remains associated with its selected monitor.
+- Cursor retreat composes with fullscreen visibility rather than overriding its opacity. Global top-edge activation remains alive when the capsule is transparent.
+- Holding the cursor on the physical top edge keeps the floating panel open instead of starting its collapse timer across the gap.
+
+## v0.9.1
+
+- Isolate window-placement Win32 prototypes from the island's APIs. Opening the window page no longer causes incompatible RECT/Monitor pointer errors in cursor/fullscreen checks.
+- Added a regression check using the actual native APIs sequentially, rather than mocking their shared function signatures.
+
+## v0.9.0
+
+- Visual section headers, concise grouped settings and animated disclosures; removed Windows/HONOR page.
+- Smooth settings scrolling; native touchpad pixel deltas preserved and reduced-motion preference respected.
+- Floating island with adjustable gap for channel subscribers; free notch and saved data remain available on access expiry.
+- Reversible opacity/position appearance for both forms. Foreground and foreground-geometry events replace waiting for the slow fullscreen poll; no premature content collapse during exit.
+- Community capability comparison, prominent navigation and connected state show actual benefits.
+- Direct native window placement in halves, thirds and 60/40 with size verification and minimum-size checks. PowerToys Shift zones and workspace sets remain separate optional tools.
+
+## v0.8.0
+
+- Nelviro identity: original N mark, Glacier accent, shared dark/light palette and calmer native controls.
+- Two-column module overview with live cover/audio, saved groups, direct search and editable focus timer.
+- Preview audio updates coalesced to 30 fps while visible; no additional capture service.
+- Search and desktop groups follow the selected theme. Keyboard controls and reduced motion retained.
+- Existing installation identity, updater protocol, Telegram pairing and user data paths preserved.
+
+## v0.7.1
+
+- Public Telegram service on Vercel with PostgreSQL on Neon Free; no Yandex login or payments.
+- Public membership API embedded in Windows; public GitHub update channel restored.
+- Preserve groups on read failure, retry loading, retain the last valid file before changes.
+- Fixed a PostgreSQL table/index name collision in the original community migration.
+- PostgreSQL tests now run, including concurrent ledger checks; added safe readiness endpoint.
+
+# v0.7.0 (community preview)
+
+- Free base: current island, search, local utilities and two active desktop groups.
+- Telegram directly opens additional groups; no Yandex ID or checkout in the active flow.
+- Background membership checks, offline allowance and safe downgrade without deleting groups.
+- Community page and explicit selection of which saved groups are active.
+- GPL v3 project licensing restored by owner request. Public service is not deployed yet.
+
 # Changelog
+
+## Unreleased — private account foundation
+
+- Отдельный сервер Django/PostgreSQL, Яндекс ID через браузер и PKCE-клиент для Windows.
+- Нативный аккаунт, устройства, история платежей, адаптер ЮKassa, журнал доступа,
+  отмена продления, очередь повторов/сверки, возвраты и учёт задач на чеки НПД.
+- Подписанные разрешения для установки и защищённые токены. Реальные сервисы не
+  подключены; продажи выключены. Установленная версия 0.6.0 не заменяется этим коммитом.
+- Инструкция подключения с нуля и частный CI PostgreSQL. Две проверки конкурентности
+  требуют реального PostgreSQL; локальная SQLite их не подтверждает.
+
+## v0.6.0
+
+- Частная основа будущей коммерческой линии: Python и Qt сохранены, интерфейс переведён с PyQt6 на PySide6 Essentials 6.11.2. Существующие функции доступны в предварительной сборке.
+- Чистое окружение с закреплёнными зависимостями, внешние заменяемые Qt DLL, установщик и переносимая папка приложения. EXE требует соседнюю папку `_internal`.
+- Помощник обновления переносит свой runtime за пределы установки; резервная копия и восстановление учитывают весь runtime предыдущей версии.
+- Общие возможности и числовые ограничения, Ed25519-проверка разрешений, раздельные назначения подписей лицензий/обновлений, идентификатор установки в защищённом хранилище Windows. Платёжный сервис пока не подключён.
+- Предварительная линия отделена от публичного канала GPL-обновлений. Нет автоматической публичной публикации и выгрузки source ZIP. Продажа требует отдельной проверки конфигурации, прав, зависимостей и платёжного цикла.
 
 ## v0.5.1
 

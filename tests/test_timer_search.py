@@ -5,10 +5,10 @@ import tempfile
 import time
 import unittest
 from unittest.mock import Mock
-from PyQt6.QtCore import Qt,QPoint,QPointF
-from PyQt6.QtGui import QWheelEvent
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt,QPoint,QPointF
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.search import Result
 
@@ -54,7 +54,7 @@ class TimerSearchTests(unittest.TestCase):
 
     def test_direct_input_commits_and_escape_cancels(self):
         readout=self.hub.timer_display
-        from PyQt6.QtGui import QFocusEvent
+        from PySide6.QtGui import QFocusEvent
         readout.focusInEvent(QFocusEvent(QFocusEvent.Type.FocusIn))
         readout.selectAll()
         QTest.keyClicks(readout,"37")
@@ -67,7 +67,7 @@ class TimerSearchTests(unittest.TestCase):
         self.assertEqual(self.hub.timer_seconds(),2220)
 
     def test_ticks_do_not_overwrite_in_progress_duration_edit(self):
-        from PyQt6.QtGui import QFocusEvent
+        from PySide6.QtGui import QFocusEvent
         readout=self.hub.timer_display
         readout.focusInEvent(QFocusEvent(QFocusEvent.Type.FocusIn))
         readout.selectAll()

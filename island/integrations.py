@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import uuid
 import time
-from PyQt6.QtCore import QObject, QProcess, QTimer, QCoreApplication, QThread, pyqtSignal
+from PySide6.QtCore import QObject, QProcess, QTimer, QCoreApplication, QThread, Signal
 
 MODULES = ("CmdPal", "FancyZones", "Workspaces")
 
@@ -78,8 +78,8 @@ def load_workspaces(path=None):
 
 
 class PowerToysBridge(QObject):
-    changed = pyqtSignal()
-    message = pyqtSignal(str)
+    changed = Signal()
+    message = Signal(str)
 
     def __init__(self, directory, parent=None):
         super().__init__(parent)

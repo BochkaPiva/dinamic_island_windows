@@ -14,3 +14,11 @@ notch-files.json
 .env
 .env.*
 !.env.example
+*.sqlite3
+*.pem
+*.key
+server/staticfiles/
+server/telegram-poll-state.json
+.vercel/
+.agents/
+skills-lock.json

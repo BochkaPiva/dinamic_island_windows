@@ -6,15 +6,18 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 import uuid
-from PyQt6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+import os
+import tempfile
+from PySide6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, Signal
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
+from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle,
     QInputDialog, QMessageBox, QDialog, QDialogButtonBox)
 from .hub import FileShelf
 from .platform_win import anchor_desktop_panel, disable_window_transitions, exclude_from_peek
 from .motion import DampedValue, smoothstep
 from .style import font
+from .brand import resolved_palette
 from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
 from .shortcut_library import ShortcutLibrary
 from .scrolling import SmoothScroll
@@ -61,21 +64,36 @@ def ask_group_title(parent,caption,value,verb):
 
 
 class GroupStore(QObject):
-    changed = pyqtSignal()
-    error = pyqtSignal(str)
-    notice = pyqtSignal(str)
+    changed = Signal()
+    error = Signal(str)
+    notice = Signal(str)
 
-    def __init__(self, directory, collect_desktop=True, desktop_roots=None, migrate=True):
+    def __init__(self, directory, collect_desktop=True, desktop_roots=None, migrate=True, access=None):
         super().__init__()
         self.path = Path(directory)/"desktop-groups.json"
         self.library=ShortcutLibrary(directory,desktop_roots)
         self.collect_desktop=collect_desktop
         self.last_warning=""
         self.groups = []
+        self.access = access
+        self._read_failed = False
         loaded = False
+        missing = False
         try:
-            document = json.loads(self.path.read_text(encoding="utf-8"))
-            loaded = isinstance(document.get("groups"),list)
+            for attempt in range(3):
+                try:
+                    raw = self.path.read_text(encoding="utf-8-sig")
+                    break
+                except FileNotFoundError:
+                    raise
+                except OSError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(.025)
+            document = json.loads(raw)
+            if not isinstance(document, dict) or not isinstance(document.get("groups"), list):
+                raise ValueError("Invalid group document")
+            loaded = True
             for record in document.get("groups", [])[:30]:
                 if not isinstance(record, dict) or not isinstance(record.get("title"), str):
                     continue
@@ -84,15 +102,16 @@ class GroupStore(QObject):
                     "x": max(0., min(1., float(record.get("x", .03)))),
                     "y": max(0., min(1., float(record.get("y", .12)))),
                     "screen": str(record.get("screen", ""))})
+        except FileNotFoundError:
+            missing = True
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
-            # Preserve an unreadable file for recovery instead of silently overwriting it.
-            if self.path.exists():
-                import shutil
-                shutil.copy2(self.path, self.path.with_suffix(".recovery.json"))
-        if not self.groups and not loaded:
+            # Never turn a read failure into a fresh install or overwrite the evidence.
+            self._read_failed = True
+            self.last_warning = "Не удалось прочитать группы. Данные сохранены; повторим загрузку автоматически."
+        if not self.groups and missing:
             self.add("Работа", .03)
             self.add("Личное", .31)
-        elif loaded and migrate:
+        elif loaded and migrate and not self._read_failed:
             self.migrate_shortcuts()
 
     def warn(self,message):
@@ -106,7 +125,7 @@ class GroupStore(QObject):
                 try:
                     self.library.collect(path)
                 except OSError:
-                    self.warn("Ярлык сохранён в Cloud Hub, но убрать его с рабочего стола не удалось: "+Path(path).name)
+                    self.warn("Ярлык сохранён в Nelviro, но убрать его с рабочего стола не удалось: "+Path(path).name)
 
     def restore_shortcut(self,path):
         try:
@@ -142,16 +161,62 @@ class GroupStore(QObject):
             for group,items in zip(self.groups,previous): group['items']=items
 
     def save(self):
+        if self._read_failed:
+            self.warn("Сохранение групп приостановлено: сначала нужно восстановить чтение существующих данных.")
+            return False
+        temporary = None
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            temp = self.path.with_suffix(".tmp")
-            temp.write_text(json.dumps({"version": 1, "groups": self.groups}, ensure_ascii=False, indent=2), encoding="utf-8")
-            temp.replace(self.path)
+            # Validate the previous document before retaining it as a recovery generation.
+            if self.path.exists():
+                previous = self.path.read_bytes()
+                parsed = json.loads(previous.decode('utf-8-sig'))
+                if not isinstance(parsed, dict) or not isinstance(parsed.get('groups'), list):
+                    raise ValueError('Invalid previous groups')
+                backup = self.path.with_suffix('.last-good.json')
+                with tempfile.NamedTemporaryFile(dir=self.path.parent, delete=False) as stream:
+                    temporary = Path(stream.name)
+                    stream.write(previous)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                temporary.replace(backup)
+                temporary = None
+            with tempfile.NamedTemporaryFile(dir=self.path.parent, delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(json.dumps({"version": 1, "groups": self.groups}, ensure_ascii=False, indent=2).encode('utf-8'))
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(self.path)
+            temporary = None
             self.changed.emit()
             return True
-        except OSError:
+        except (OSError, ValueError):
             self.error.emit("Не удалось сохранить группы на диск")
             return False
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    def retry_load(self):
+        if not self._read_failed:
+            return
+        try:
+            document = json.loads(self.path.read_text(encoding='utf-8-sig'))
+            if not isinstance(document, dict) or not isinstance(document.get('groups'), list):
+                return
+        except (OSError, ValueError):
+            return
+        retry = GroupStore(self.path.parent, collect_desktop=False, desktop_roots=[], migrate=False)
+        if retry._read_failed:
+            return
+        self.groups = retry.groups
+        self._read_failed = False
+        self.last_warning = ""
+        self.changed.emit()
+        self.notice.emit("Группы загружены повторно. Ваши данные на месте.")
 
     def find(self,identifier):
         return next((g for g in self.groups if g["id"]==identifier),None)
@@ -165,6 +230,11 @@ class GroupStore(QObject):
         return title
 
     def add(self, title=None, x=None):
+        if self.access is not None:
+            decision=self.access.capacity('desktop.groups.active',len(self.groups))
+            if not decision.allowed:
+                self.error.emit(decision.reason)
+                return None
         if len(self.groups) >= 30:
             return None
         title=self.next_title() if title is None else title.strip()[:60]
@@ -193,6 +263,17 @@ class GroupStore(QObject):
         if self.save():
             return True
         group["title"]=previous
+        return False
+
+    def make_active(self,identifier):
+        group=self.find(identifier)
+        if not group:
+            return False
+        previous=list(self.groups)
+        self.groups=[group]+[item for item in self.groups if item['id']!=identifier]
+        if self.save():
+            return True
+        self.groups=previous
         return False
 
     def remove(self, identifier):
@@ -260,7 +341,7 @@ class GroupItemDelegate(QStyledItemDelegate):
         if icon:
             icon.paint(p,QRect(round(rect.center().x()-20),round(rect.y()+7),40,40))
         p.setFont(font(11,400))
-        p.setPen(QColor(TEXT))
+        p.setPen(QColor(self.parent().panel._brand_colors['text']))
         label=index.data(Qt.ItemDataRole.DisplayRole) or ""
         width=max(10,round(rect.width()-6))
         text_layout=QTextLayout(label,p.font())
@@ -355,7 +436,7 @@ class GroupShelf(FileShelf):
 
 class GroupPanel(QWidget):
     def __init__(self, manager, group):
-        super().__init__(flags=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        super().__init__(f=Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.manager, self.group = manager, group
         self.expanded = False
         self.drag_origin = None
@@ -366,26 +447,10 @@ class GroupPanel(QWidget):
         self.texture = QPixmap()
         self.full_height = 112
         self.closed_width = 216
-        self.setWindowTitle("Cloud Hub — группа «"+group["title"]+"»")
+        self.setWindowTitle("Nelviro — группа «"+group["title"]+"»")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
-        self.setStyleSheet("""QWidget {color:#f4f4f6;font:12px 'Golos Text';background:transparent;}
-            QPushButton {border:0;padding:5px;background:transparent;border-radius:7px;}
-            QPushButton:hover {background:rgba(255,255,255,18);}
-            QLabel#groupName {font-weight:500;font-size:15px;}
-            QLabel#groupCount {color:#b2b6bf;font-size:11px;}
-            QLineEdit {background:rgba(255,255,255,7);border:0;padding:7px;border-radius:7px;selection-background-color:#53647a;}
-            QListWidget {border:0;background:transparent;outline:0;padding:2px;}
-            QListWidget::item {padding:3px;border-radius:7px;}
-            QListWidget::item:selected {background:rgba(255,255,255,24);}
-            QScrollBar:vertical {width:4px;background:transparent;}
-            QScrollBar::handle:vertical {background:#657080;border-radius:2px;min-height:24px;}
-            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
-            QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}
-            QMenu {background:#20242c;border:1px solid #414550;border-radius:10px;padding:6px;}
-            QMenu::item {padding:9px 15px;border-radius:5px;}
-            QMenu::item:selected {background:#3c4350;}""")
         self.header = QWidget(self)
         header = QHBoxLayout(self.header)
         header.setContentsMargins(14, 0, 8, 0)
@@ -446,6 +511,20 @@ class GroupPanel(QWidget):
         self._header_state(False)
 
     def configure(self):
+        colors=resolved_palette(self.manager.owner.settings)
+        if getattr(self,'_brand_colors',None)!=colors:
+            from .hub_ui import stylesheet
+            self._brand_colors=colors
+            self.setStyleSheet(stylesheet(colors)+f"""
+                QWidget {{font-size:12px;}}
+                QLabel#groupName {{font-size:15px;font-weight:500;}}
+                QPushButton {{background:transparent;border:0;padding:5px;}}
+                QPushButton:hover {{background:{colors['raised']};}}
+                QLineEdit {{border:0;padding:7px;}}
+                QListWidget {{border:0;background:transparent;padding:2px;}}
+            """)
+            self.texture=QPixmap()
+
         s = self.manager.owner.settings
         old_width, old_grid = getattr(self,"full_width",0), self.shelf.gridSize()
         self.full_width = s.get("group_width")
@@ -455,7 +534,7 @@ class GroupPanel(QWidget):
         self.shelf.setGridSize(QSize((self.full_width-30)//s.get("group_columns"), 96))
         self.header.setGeometry(0, 0, self.width(), 44)
         self.name.setText(self.group["title"])
-        self.setWindowTitle("Cloud Hub — группа «"+self.group["title"]+"»")
+        self.setWindowTitle("Nelviro — группа «"+self.group["title"]+"»")
         self.count_label.setText(str(self.shelf.count()))
         changed = old_width != self.full_width or old_grid != self.shelf.gridSize()
         if self.expanded or self.animation.isActive():
@@ -652,16 +731,17 @@ class GroupPanel(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         progress=max(0.,min(1.,(self.height()-44)/max(1,self.full_height-44)))
-        color = QColor(SURFACE)
+        colors=self._brand_colors
+        color = QColor(colors['surface'])
         color.setAlpha(round((150+90*progress)*self.manager.owner.settings.get("group_opacity")/100))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         path = QPainterPath()
-        radius=10+4*progress
+        radius=16+4*progress
         path.addRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),radius,radius)
         p.fillPath(path,color)
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(QColor(255,255,255,22),1))
+        p.setPen(QPen(QColor(colors['line']),1))
         p.drawPath(path)
         if self.animation.isActive() and not self.texture.isNull():
             p.setClipPath(path)
@@ -697,11 +777,14 @@ class DesktopGroups(QObject):
     def __init__(self,owner):
         super().__init__(owner)
         self.owner, self.enabled = owner, False
-        self.store = GroupStore(owner.settings.directory,collect_desktop=lambda:owner.settings.get('group_collect_shortcuts'))
+        self.store = GroupStore(owner.settings.directory,collect_desktop=lambda:owner.settings.get('group_collect_shortcuts'),
+                                access=getattr(owner,'access',None))
         self.store.notice.connect(self.notify)
         self.store.error.connect(self.notify)
         self.panels = {}
         self.store.changed.connect(self.reconcile)
+        if self.store.access:
+            self.store.access.changed.connect(self.reconcile)
         self.timer = QTimer(self)
         self.timer.setInterval(2000)  # Shell recovery only; foreground changes never hide/show tiles.
         self.timer.timeout.connect(self.tick)
@@ -713,7 +796,7 @@ class DesktopGroups(QObject):
 
     def notify(self,message):
         if self.owner._services and getattr(self.owner,'tray',None) and not (self.owner.control_center and self.owner.control_center.isVisible()):
-            self.owner.tray.showMessage('Cloud Hub',message)
+            self.owner.tray.showMessage('Nelviro',message)
 
     def screen_added(self,screen):
         screen.availableGeometryChanged.connect(lambda _:self.reposition())
@@ -802,9 +885,14 @@ class DesktopGroups(QObject):
                 panel.hide()
 
     def tick(self):
+        self.store.retry_load()
         if not self.enabled:
             return
-        for panel in self.panels.values():
+        active = self.store.access.active_ids(self.store.groups) if self.store.access else set(self.panels)
+        for identifier,panel in self.panels.items():
+            if identifier not in active:
+                panel.hide()
+                continue
             shown = not panel.isVisible()
             if shown:
                 if not anchor_desktop_panel(panel):
@@ -835,7 +923,7 @@ class DesktopGroups(QObject):
         dialog.setWindowTitle("Удалить группу?")
         dialog.setIcon(QMessageBox.Icon.Question)
         dialog.setTextFormat(Qt.TextFormat.PlainText)
-        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nФайлы и папки на диске останутся.\nСохранённые ярлыки останутся в библиотеке Cloud Hub.")
+        dialog.setText("Удалить группу «"+group["title"]+"»?\n\nФайлы и папки на диске останутся.\nСохранённые ярлыки останутся в библиотеке Nelviro.")
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)
         dialog.button(QMessageBox.StandardButton.Yes).setText("Удалить группу")
         dialog.button(QMessageBox.StandardButton.No).setText("Отмена")

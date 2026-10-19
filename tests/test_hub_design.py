@@ -8,9 +8,9 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt,QAbstractAnimation
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt,QAbstractAnimation
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 from island.app import IslandWindow
 from island.storage import Settings
 from island.hub_ui import ToggleSwitch,ModuleCard
@@ -82,6 +82,10 @@ class HubDesignTests(unittest.TestCase):
     def test_refresh_keeps_uncommitted_number_input(self):
         c=self.center
         c.navigate('island')
+        from island.hub_ui import SettingsSection
+        section=next(s for s in c.findChildren(SettingsSection) if s.title=='Размер и прозрачность')
+        section.button.setChecked(True)
+        QTest.qWait(250)
         spin=c.values['compact_width']
         c.pages.currentWidget().ensureWidgetVisible(spin)
         spin.setFocus()
@@ -92,11 +96,46 @@ class HubDesignTests(unittest.TestCase):
         QTest.keyClick(spin,Qt.Key.Key_Return)
         self.assertEqual(self.w.settings.get('compact_width'),219)
 
+    def test_preview_audio_is_coalesced_and_stops_when_page_hides(self):
+        preview=self.center.hero_preview
+        for _ in range(100): preview.audio_changed([.2]*5)
+        self.assertTrue(preview.clock.isActive())
+        self.center.navigate('timer')
+        self.assertFalse(preview.clock.isActive())
+        preview.audio_changed([.9]*5)
+        self.assertFalse(preview.clock.isActive())
+
+    def test_theme_and_preview_do_not_mutate_saved_groups(self):
+        store=self.w.modules.desktop.store
+        before=store.path.read_bytes()
+        for theme in ('light','dark'):
+            self.center._setting('hub_theme',theme)
+            self.center.hero_preview.grab()
+            for panel in self.w.modules.desktop.panels.values(): panel.configure()
+            search=self.w.modules.search
+            search.apply_brand_theme()
+            self.assertIn(self.center.colors['text'],search.styleSheet())
+        self.assertEqual(before,store.path.read_bytes())
+
+    def test_focus_preview_edits_shared_timer_and_starts_it(self):
+        self.center.overview_timer.setFocus()
+        self.center.overview_timer.selectAll()
+        QTest.keyClicks(self.center.overview_timer,'7')
+        QTest.keyClick(self.center.overview_timer,Qt.Key.Key_Return)
+        self.assertEqual(self.w.settings.get('timer_minutes'),7)
+        self.center.overview_start.click()
+        self.assertTrue(self.w.notch_hub._timer_end)
+        self.center.refresh_timer_display()
+        self.assertEqual(self.center.overview_start.text(),'Пауза')
+
     def test_transition_completes_and_releases_cached_frames(self):
         c=self.center
         c.navigate('desktop')
         c.navigate('timer')
-        QTest.qWait(260)
+        # Qt's first animation tick can be delayed under native/video test load.
+        # Wait for completion rather than assuming a particular timer phase.
+        deadline=time.monotonic()+1
+        while c.transition.isVisible() and time.monotonic()<deadline: QTest.qWait(25)
         self.assertFalse(c.transition.isVisible())
         self.assertIsNone(c.transition.old)
         self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
