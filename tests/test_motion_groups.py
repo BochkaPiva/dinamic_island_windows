@@ -24,6 +24,10 @@ class MotionGroupTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.w = IslandWindow(Settings(self.temp.name),services=False)
         self.w._notch_pointer.enabled = False
+        # These fixtures drive groups/geometry explicitly with services=False.
+        # A real policy tick would disable the manually enabled group manager.
+        self.w._system_timer.stop()
+        self.w._notch_pointer_timer.stop()
         self.w.show()
 
     def tearDown(self):
