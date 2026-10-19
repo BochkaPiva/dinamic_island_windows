@@ -35,7 +35,7 @@ panels and the settings chrome; reading surfaces stay opaque.
 ## Components and tokens
 
 Reuse `hub_ui.py`: Navigation/NavDelegate, CatalogRow, ToggleSwitch,
-SettingsSection, WindowHeader, ContentTransition, icon and stylesheet.
+SettingsSection, ElidedLabel, WindowHeader, ContentTransition, icon and stylesheet.
 shortcut_ui.py provides ShortcutButton, ShortcutCapture and ShortcutDialog.
 SettingsPages
 card/number and ControlCenter._module build consistent groups and setting rows.

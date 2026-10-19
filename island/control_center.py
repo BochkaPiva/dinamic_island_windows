@@ -484,9 +484,10 @@ class ControlCenter(QWidget, SettingsPages):
         self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
         if hasattr(self,'style_picker'):
             self.style_picker.blockSignals(True)
-            self.style_picker.setCurrentIndex(self.style_picker.findData(w.settings.get('island_style')))
+            effective_style='floating' if w.floating_mode() else 'notch'
+            self.style_picker.setCurrentIndex(self.style_picker.findData(effective_style))
             self.style_picker.blockSignals(False)
-            self.island_preview.display_style='floating' if w.floating_mode() else 'notch'
+            self.island_preview.display_style=effective_style
             self.island_preview.update()
         if hasattr(self,'style_choices'):
             for style,(tile,status) in self.style_choices.items():

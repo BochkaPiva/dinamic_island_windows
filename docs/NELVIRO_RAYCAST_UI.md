@@ -98,9 +98,9 @@ pixels and should not be used to evaluate blur. The native recorder image does.
 
 ## Verified candidate results
 
-- 211 desktop regression tests pass. The six shortcut-sheet tests cover save,
+- 214 desktop regression tests pass. The seven shortcut-sheet tests cover save,
   cancellation/restoring bindings, duplicate preservation, invalid input without
-  writes, Cyrillic physical letters and opaque fallback/Meta key round trip.
+  writes, disk failure rollback, Cyrillic physical letters and opaque fallback/Meta key round trip.
 - Native Windows matrix: 132 page/theme/width/scale combinations; actual DPR
   1/1.5/2, widths 900/1120. No horizontal overflow or Qt exceptions. Hidden preview
   timers stop; isolated saved groups remain byte-identical.
@@ -119,3 +119,7 @@ pixels and should not be used to evaluate blur. The native recorder image does.
   channel unsubscribe/rejoin cycle were not manually re-tested in this UI update.
 
 The candidate is 0.11.0; it has not replaced the public update channel.
+
+A 60-character group name without spaces is now elided while preserving full
+accessible text and tooltip; it cannot widen the 900 px editor or push the desktop
+menu out of the header. Native maximize/restore preserves the material contour.

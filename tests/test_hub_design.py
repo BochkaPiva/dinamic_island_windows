@@ -164,6 +164,33 @@ class HubDesignTests(unittest.TestCase):
         self.assertFalse(c.hero_preview.clock.isActive())
         self.assertLessEqual(sum(p.isVisible() for p in c.catalog_stack.findChildren(ModulePreview)),1)
 
+    def test_form_picker_shows_effective_access_without_erasing_saved_choice(self):
+        c=self.center
+        self.w.settings.set('island_style','floating')
+        with patch.object(self.w,'floating_mode',return_value=False):
+            c.refresh()
+            self.assertEqual(c.style_picker.currentData(),'notch')
+            self.assertEqual(c.island_preview.display_style,'notch')
+            self.assertEqual(self.w.settings.get('island_style'),'floating')
+        with patch.object(self.w,'floating_mode',return_value=True):
+            c.refresh()
+            self.assertEqual(c.style_picker.currentData(),'floating')
+
+    def test_long_group_name_does_not_expand_editor_or_hide_panel_menu(self):
+        from PySide6.QtCore import QPoint
+        c=self.center;c._setting('hub_animations',False);c.resize(900,600);c.navigate('desktop')
+        group=self.w.modules.desktop.store.groups[0]
+        group['title']='Р'*60
+        self.w.modules.desktop.store.changed.emit()
+        QTest.qWait(30)
+        self.assertEqual(c.pages.currentWidget().horizontalScrollBar().maximum(),0)
+        self.assertEqual(c.group_editor.title.text(),'Р'*60)
+        self.assertEqual(c.group_editor.title.toolTip(),'Р'*60)
+        panel=self.w.modules.desktop.panels[group['id']]
+        panel.header.layout().activate()
+        point=panel.mapFromGlobal(panel.menu_button.mapToGlobal(QPoint(0,0)))
+        self.assertLessEqual(point.x()+panel.menu_button.width(),panel.width())
+
     def test_update_install_flushes_notes_and_supplies_remaining_timer(self):
         hub=self.w.notch_hub
         hub._timer_end=time.monotonic()+75

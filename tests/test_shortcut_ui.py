@@ -2,6 +2,7 @@
 import os
 os.environ['QT_QPA_PLATFORM']='offscreen'
 import tempfile,unittest
+from unittest.mock import patch
 from PySide6.QtCore import Qt,QEvent
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QApplication
@@ -49,6 +50,15 @@ class ShortcutSheetTests(unittest.TestCase):
         QTest.keyClick(self.d.capture,Qt.Key.Key_K,Qt.KeyboardModifier.ShiftModifier)
         self.assertFalse(self.d.save_button.isEnabled());self.assertTrue(self.d.error.isVisible())
         self.assertEqual(before,self.w.settings.path.read_bytes())
+    def test_disk_failure_keeps_binding_and_reports_save_error(self):
+        self.d.capture.value='Ctrl+Alt+K'
+        with patch.object(self.w.settings,'set',side_effect=OSError('fixture')):
+            self.d.apply()
+        self.assertTrue(self.d.isVisible())
+        self.assertEqual(self.w.settings.get('hotkey_search'),'Alt+Space')
+        self.assertEqual(self.w.hotkeys['hotkey_search'].value,'Alt+Space')
+        self.assertIn('на диск',self.d.error.text())
+
     def test_native_letter_works_with_cyrillic_layout(self):
         event=QKeyEvent(QEvent.Type.KeyPress,0x0424,Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.AltModifier,0,0x41,0,'ф')
         QApplication.sendEvent(self.d.capture,event)

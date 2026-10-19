@@ -22,6 +22,7 @@ from .ui_tokens import LineIcon, IconButton, TEXT, SURFACE
 from .shortcut_library import ShortcutLibrary
 from .scrolling import SmoothScroll
 from .group_icons import group_icons
+from .hub_ui import ElidedLabel
 
 
 def group_dialog_style(parent):
@@ -448,13 +449,13 @@ class GroupPanel(QWidget):
         header.setSpacing(3)
         header.addWidget(LineIcon("folder",20))
         header.addSpacing(8)
-        self.name = QLabel(group["title"])
+        self.name = ElidedLabel(group["title"])
         self.name.setTextFormat(Qt.TextFormat.PlainText)
         self.name.setObjectName("groupName")
         self.name.setFont(font(15,500))
         self.name.setMinimumWidth(0)
         self.name.installEventFilter(self)
-        self.name.setToolTip("Наведи для раскрытия. Перетащи заголовок, чтобы переместить группу.")
+        self.name.setAccessibleDescription("Наведи для раскрытия. Перетащи заголовок, чтобы переместить группу.")
         header.addWidget(self.name, 1)
         self.chevron = IconButton("chevron","Свернуть группу")
         self.chevron.clicked.connect(lambda: self.animate(not self.expanded))

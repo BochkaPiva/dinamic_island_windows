@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
     QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
 from .hub import FileShelf
 from .group_icons import group_icons
+from .hub_ui import ElidedLabel
 
 
 class GroupFiles(FileShelf):
@@ -114,10 +115,10 @@ class GroupEditor(QWidget):
         root.addWidget(left,1)
         right,right_layout=self.pane()
         heading=QHBoxLayout()
-        self.title=QLabel("Выбери группу")
+        self.title=ElidedLabel("Выбери группу")
         self.title.setTextFormat(Qt.TextFormat.PlainText)
         self.title.setObjectName("paneTitle")
-        self.title.setWordWrap(True)
+        self.title.setMinimumWidth(0)
         heading.addWidget(self.title,1)
         self.remove=self.button("Удалить группу…",self.delete_group)
         self.remove.setObjectName("deleteGroup")

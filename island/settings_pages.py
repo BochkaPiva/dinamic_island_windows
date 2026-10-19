@@ -220,7 +220,7 @@ class SettingsPages:
         self.style_picker=QComboBox()
         self.style_picker.addItem('Чёлка · для всех','notch')
         self.style_picker.addItem('Плавающий · подписчикам','floating')
-        self.style_picker.currentIndexChanged.connect(lambda _:self._setting('island_style',self.style_picker.currentData()))
+        self.style_picker.activated.connect(lambda _:self._setting('island_style',self.style_picker.currentData()))
         style_row.addWidget(self.style_picker)
         base.addLayout(style_row)
         self.island_preview=FormPreview(self.owner,'notch',self.owner._show_panel)

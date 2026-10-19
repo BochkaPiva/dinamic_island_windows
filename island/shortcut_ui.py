@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """A small, keyboard-first shortcut sheet; no global keyboard hooks."""
-from PySide6.QtCore import Qt,QRectF,QEvent,Signal
+from PySide6.QtCore import Qt,QPoint,QRectF,QEvent,Signal
 from PySide6.QtGui import QColor,QPainter,QPainterPath,QPen,QRegion,QKeySequence
 from PySide6.QtWidgets import QWidget,QPushButton,QDialog,QVBoxLayout,QHBoxLayout,QLabel
 from .style import font
@@ -158,7 +158,8 @@ class ShortcutDialog(QDialog):
         else:
             self.suspend()
             binding=self.owner.hotkeys.get(self.key)
-            self.error.setText((binding.error if binding else '') or 'Сочетание занято или недоступно. Выбери другое.')
+            self.error.setText(self.center.feedback.text() or (binding.error if binding else '') or 'Не удалось сохранить сочетание. Попробуй ещё раз.')
+            self.center.feedback.hide()
             self.error.show();self.adjustSize();self.capture.setFocus()
 
     def showEvent(self,event):
@@ -168,12 +169,22 @@ class ShortcutDialog(QDialog):
         self.material=apply_acrylic(self,light=self.colors['bg']!='#161616')
         path=QPainterPath();path.addRoundedRect(QRectF(self.rect()),12,12)
         if self.material:self.setMask(QRegion(path.toFillPolygon().toPolygon()))
-        self.move(self.center.geometry().center()-self.rect().center())
+        anchor=self.center.key_editors.get(self.key)
+        if anchor is not None and anchor.isVisible():
+            edge=anchor.mapToGlobal(QPoint(anchor.width(),anchor.height()))
+            bounds=anchor.screen().availableGeometry()
+            x=max(bounds.left()+8,min(edge.x()-self.width(),bounds.right()-self.width()-8))
+            y=edge.y()+8
+            if y+self.height()>bounds.bottom()-8:
+                y=anchor.mapToGlobal(QPoint(0,0)).y()-self.height()-8
+            self.move(x,max(bounds.top()+8,y))
+        else:self.move(self.center.geometry().center()-self.rect().center())
         self.capture.setFocus()
 
     def changeEvent(self,event):
         if event.type()==QEvent.Type.ActivationChange and hasattr(self,'_restored'):
-            if self.isActiveWindow():self.suspend()
+            if self.isActiveWindow():
+                self.capture.modifiers='';self.capture.update();self.suspend()
             else:self.restore()
         super().changeEvent(event)
 

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Quiet native surfaces, switches, navigation and short-lived transitions."""
 from PySide6.QtCore import Qt,QRectF,QSize,QVariantAnimation,QEasingCurve,QAbstractAnimation
-from PySide6.QtGui import QColor,QPainter,QPen,QIcon,QPixmap
-from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame,QVBoxLayout,QPushButton
+from PySide6.QtGui import QColor,QPainter,QPen,QIcon,QPixmap,QPalette
+from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame,QVBoxLayout,QPushButton,QLabel,QSizePolicy
 from .ui_tokens import glyph
 from .style import font,rounded_art
 
@@ -27,6 +27,28 @@ def icon(name,color='#a6abbc',size=20):
     glyph(painter,name,QRectF(0,0,size,size),color)
     painter.end()
     return QIcon(pix)
+
+
+class ElidedLabel(QLabel):
+    """Keep full accessible text without letting a long token expand its row."""
+    def __init__(self,value='',parent=None):
+        super().__init__(value,parent)
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred)
+        self.setToolTip(value)
+
+    def setText(self,value):
+        super().setText(value)
+        self.setToolTip(value)
+
+    def paintEvent(self,event):
+        p=QPainter(self);p.setFont(self.font())
+        p.setPen(self.palette().color(QPalette.ColorRole.WindowText))
+        if not self.isEnabled():p.setOpacity(.5)
+        rect=self.contentsRect()
+        p.drawText(rect,Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,
+            self.fontMetrics().elidedText(self.text(),Qt.TextElideMode.ElideRight,max(0,rect.width())))
 
 
 class ToggleSwitch(QCheckBox):
@@ -370,6 +392,8 @@ def stylesheet(c,*,glass=False):
         QLineEdit:focus,QComboBox:focus,QSpinBox:focus,QKeySequenceEdit:focus {{border-color:{c['accent']};}}
         QPlainTextEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:6px;padding:10px;selection-background-color:{c['selection']};}}
         QComboBox::drop-down {{border:0;width:22px;}}
+        QSpinBox::up-button,QSpinBox::down-button {{background:transparent;border:0;width:18px;}}
+        QSpinBox::up-button:hover,QSpinBox::down-button:hover {{background:{c['raised']};}}
         QComboBox QAbstractItemView {{background:{c['raised']};color:{c['text']};selection-background-color:{c['selection']};padding:6px;border:1px solid {c['line']};}}
         QListWidget {{background:{c['field']};border:1px solid {c['line']};border-radius:10px;padding:5px;outline:0;}}
         QListWidget#navigation {{background:transparent;border:0;padding:0;}}

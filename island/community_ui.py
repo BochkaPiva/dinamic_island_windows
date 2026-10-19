@@ -184,9 +184,9 @@ class CommunityBenefits(QWidget):
         for column,title in enumerate(('Возможности','Без входа','С подпиской')):
             label=text(title);label.setObjectName('paneTitle');grid.addWidget(label,0,column)
         for row,values in enumerate((('Форма','Чёлка','Чёлка и остров'),
-            ('Группы на рабочем столе','2 активные','Без ограничения'),
+            ('Группы на рабочем столе','2 активные','Все группы'),
             ('Поиск, заметки, таймер','Доступны','Доступны'),
-            ('Видео, камера, закрепление','—','Доступны')),1):
+            ('Видеофайлы, камера, закрепление','—','Доступны')),1):
             for column,value in enumerate(values):
                 grid.addWidget(text(value,column>0),row,column)
         grid.setColumnStretch(0,1)
