@@ -8,14 +8,14 @@ import winreg
 from PySide6.QtCore import Qt, QTimer, QUrl, QRectF,QEvent
 from PySide6.QtGui import QDesktopServices,QPainter,QPainterPath,QRegion,QColor,QPen,QShortcut,QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox,QLineEdit)
+    QCheckBox, QListWidget, QStackedWidget, QFrame, QScrollArea, QComboBox,QLineEdit,QMenu)
 from . import __version__, REPO_URL
 from .integrations import load_workspaces, powertoys_root
 from .policy import PROFILES
 from .style import app_icon
 from .settings_pages import SettingsPages, PAGES
 from .modules import MODULES
-from .hub_ui import Navigation,ContentTransition,ToggleSwitch,WindowHeader,palette,stylesheet,icon
+from .hub_ui import Navigation,ContentTransition,ToggleSwitch,WindowHeader,ActionFooter,palette,stylesheet,icon
 from .style import font
 
 
@@ -125,7 +125,7 @@ class ControlCenter(QWidget, SettingsPages):
         self.sidebar=sidebar
         self.sidebar_collapsed=False
         sidebar.setObjectName('sidebar')
-        sidebar.setFixedWidth(194)
+        sidebar.setFixedWidth(218)
         side=QVBoxLayout(sidebar)
         side.setContentsMargins(10,14,10,10)
         side.setSpacing(10)
@@ -161,11 +161,22 @@ class ControlCenter(QWidget, SettingsPages):
         side.addWidget(version)
         body.addWidget(sidebar)
         content=QVBoxLayout()
-        content.setContentsMargins(24,20,18,8)
+        content.setContentsMargins(26,20,18,0)
         content.setSpacing(12)
         self.section_title=text('Модули')
         self.section_title.setObjectName('heading')
-        content.addWidget(self.section_title)
+        page_header=QHBoxLayout()
+        self.back_button=button('‹',lambda:self.travel(-1))
+        self.forward_button=button('›',lambda:self.travel(1))
+        for control,label in ((self.back_button,'Назад · Alt+←'),(self.forward_button,'Вперёд · Alt+→')):
+            control.setObjectName('windowButton');control.setFixedSize(26,28)
+            control.setAccessibleName(label);control.setToolTip(label);page_header.addWidget(control)
+        page_header.addSpacing(6)
+        page_header.addWidget(self.section_title,1)
+        self.page_action=button('Открыть',self.run_page_action)
+        self.page_action.setObjectName('quiet')
+        page_header.addWidget(self.page_action)
+        content.addLayout(page_header)
         content.addWidget(self.pages,1)
         body.addLayout(content,1)
         layout.addLayout(body, 1)
@@ -189,17 +200,20 @@ class ControlCenter(QWidget, SettingsPages):
         self.settings_search.textChanged.connect(self.filter_pages)
         self.settings_search.returnPressed.connect(self.open_first_match)
         QShortcut(QKeySequence('Ctrl+F'),self,activated=self.focus_settings_search)
-        footer = QHBoxLayout()
-        self.resource_label = text("", True)
-        self.resource_label.setObjectName('resource')
-        self.resource_label.setWordWrap(False)
-        self.resource_label.hide()
-        footer.addWidget(self.resource_label)
-        footer.addStretch()
-        self.shortcut_label = text("Ctrl + Alt + H", True)
-        self.shortcut_label.setObjectName('resource')
-        footer.addWidget(self.shortcut_label)
-        content.addLayout(footer)
+        self.action_footer=ActionFooter()
+        self.resource_label=self.action_footer.context
+        self.resource_label.setText('Изменения сохраняются автоматически')
+        self.shortcut_label=QLabel('')
+        self.shortcut_label.hide()
+        self.action_footer.add_action('Найти',('Ctrl','F'),self.focus_settings_search)
+        self.action_footer.add_action('Действия',('Ctrl','K'),self.show_page_actions)
+        layout.addWidget(self.action_footer)
+        QShortcut(QKeySequence('Ctrl+K'),self,activated=self.show_page_actions)
+        QShortcut(QKeySequence('Alt+Left'),self,activated=lambda:self.travel(-1))
+        QShortcut(QKeySequence('Alt+Right'),self,activated=lambda:self.travel(1))
+        self._history=[self.navigation.currentRow()];self._history_index=0
+        self._travelling=False
+        self.update_page_action()
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setInterval(3000)
         self.refresh_timer.timeout.connect(self.refresh)
@@ -208,13 +222,54 @@ class ControlCenter(QWidget, SettingsPages):
         owner.updates.changed.connect(lambda _:self.navigation.viewport().update())
         self._apply_theme()
 
+    def page_action_spec(self):
+        key=PAGES[max(0,self.navigation.currentRow())][0]
+        return {
+            'hub':('Открыть остров',self.owner._show_panel),
+            'island':('Открыть остров',self.owner._show_panel),
+            'search':('Открыть поиск',self.owner.show_search),
+            'desktop':('Выровнять группы',self.owner.modules.desktop.arrange),
+            'library':('Добавить файлы',self.file_shelf.add_files),
+            'timer':('Открыть фокус',self.open_focus),
+            'shortcuts':('Открыть поиск',self.owner.show_search),
+            'workspaces':('Обновить окна',self.window_layout.reload),
+            'integrations':('Папка данных',lambda:self._url(QUrl.fromLocalFile(str(self.owner.settings.directory)))),
+            'updates':('Открыть GitHub',lambda:self._url(QUrl(REPO_URL))),
+            'account':('Открыть канал',lambda:self._url(QUrl('https://t.me/Nelviro'))),
+        }.get(key,('Открыть остров',self.owner._show_panel))
+
+    def update_page_action(self):
+        if hasattr(self,'action_footer'):
+            title,_=self.page_action_spec();self.page_action.setText(title+' ↗')
+            self.back_button.setEnabled(self._history_index>0)
+            self.forward_button.setEnabled(self._history_index<len(self._history)-1)
+            self.action_footer.context.setText(PAGES[max(0,self.navigation.currentRow())][1]+' · Сохраняется автоматически')
+
+    def run_page_action(self):
+        self.page_action_spec()[1]()
+
+    def show_page_actions(self):
+        menu=QMenu(self)
+        title,callback=self.page_action_spec();menu.addAction(title,callback)
+        menu.addSeparator()
+        menu.addAction('Найти настройку',self.focus_settings_search).setShortcut(QKeySequence('Ctrl+F'))
+        menu.addAction('Горячие клавиши',lambda:self.navigate('shortcuts'))
+        menu.addAction('Приостановить / продолжить',self._pause)
+        menu.exec(self.action_footer.mapToGlobal(self.action_footer.rect().topRight()))
+
+    def travel(self,step):
+        index=self._history_index+step
+        if 0<=index<len(self._history):
+            self._history_index=index;self._travelling=True
+            self.navigation.setCurrentRow(self._history[index]);self._travelling=False
+
     def focus_settings_search(self):
         if self.sidebar_collapsed: self.toggle_sidebar()
         self.settings_search.setFocus()
 
     def toggle_sidebar(self):
         self.sidebar_collapsed=not self.sidebar_collapsed
-        self.sidebar.setFixedWidth(54 if self.sidebar_collapsed else 194)
+        self.sidebar.setFixedWidth(54 if self.sidebar_collapsed else 218)
         self.navigation.setProperty('collapsed',self.sidebar_collapsed)
         self.navigation.viewport().update()
         self.settings_search.setVisible(not self.sidebar_collapsed)
@@ -233,6 +288,10 @@ class ControlCenter(QWidget, SettingsPages):
         self.transition.animation.stop()
         self.transition.hide()
         self.section_title.setText(PAGES[index][1])
+        if hasattr(self,'_history') and not self._travelling:
+            self._history=self._history[:self._history_index+1]+[index]
+            self._history_index=len(self._history)-1
+        self.update_page_action()
         self.pages.setCurrentIndex(index)
         self.pages.currentWidget().ensurePolished()
         if self.pages.currentWidget().layout(): self.pages.currentWidget().layout().activate()
@@ -279,6 +338,9 @@ class ControlCenter(QWidget, SettingsPages):
         p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(self.colors['line']),1))
         p.drawRoundedRect(rect,radius,radius)
         p.drawLine(6,44,self.width()-6,44)
+        if hasattr(self,'sidebar'):
+            x=self.sidebar.geometry().right()
+            p.drawLine(x,44,x,self.height()-self.action_footer.height()-6 if hasattr(self,'action_footer') else self.height()-6)
 
     def refresh_material(self):
         from .native_material import apply_acrylic
@@ -520,7 +582,7 @@ class ControlCenter(QWidget, SettingsPages):
                 self.key_editors[key].setKeySequence(QKeySequence(value.replace('Win+','Meta+')))
         self.refresh_timer_display()
         if self.isVisible():
-            self.resource_label.setText(self.usage.sample())
+            self.resource_label.setToolTip(self.usage.sample())
             hotkey = getattr(w, "_hub_hotkey", None)
             self.shortcut_label.setText(w.settings.get("hotkey_hub") if hotkey and hotkey.registered else "Открытие через трей")
         self._refresh_workspaces()
@@ -546,7 +608,7 @@ class ControlCenter(QWidget, SettingsPages):
         from .brand import resolved_palette
         self.colors=resolved_palette(self.owner.settings)
         self.setStyleSheet(stylesheet(self.colors))
-        self.setFont(font(13))
+        self.setFont(font(14))
         if hasattr(self,'search_action'): self.search_action.setIcon(icon('search',self.colors['muted']))
         if hasattr(self,'collapse_navigation'): self.collapse_navigation.setIcon(icon('windows',self.colors['muted'],16))
         from .hub_ui import NAV_ICONS

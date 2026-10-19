@@ -2,7 +2,7 @@
 """Quiet native surfaces, switches, navigation and short-lived transitions."""
 from PySide6.QtCore import Qt,QRectF,QSize,QVariantAnimation,QEasingCurve,QAbstractAnimation
 from PySide6.QtGui import QColor,QPainter,QPen,QIcon,QPixmap,QPalette
-from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame,QVBoxLayout,QPushButton,QLabel,QSizePolicy
+from PySide6.QtWidgets import QWidget,QCheckBox,QListWidget,QStyledItemDelegate,QStyle,QFrame,QVBoxLayout,QHBoxLayout,QPushButton,QLabel,QSizePolicy
 from .ui_tokens import glyph
 from .style import font,rounded_art
 
@@ -27,6 +27,40 @@ def icon(name,color='#a6abbc',size=20):
     glyph(painter,name,QRectF(0,0,size,size),color)
     painter.end()
     return QIcon(pix)
+
+
+class HintButton(QPushButton):
+    """A real action with individually readable keyboard hints."""
+    def __init__(self,title,keys,callback,parent=None):
+        super().__init__(parent)
+        self.setObjectName('hintAction')
+        self.setAccessibleName(title)
+        self.clicked.connect(callback)
+        row=QHBoxLayout(self);row.setContentsMargins(8,4,8,4);row.setSpacing(5)
+        self.caption=QLabel(title);self.caption.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        row.addWidget(self.caption)
+        for key in keys:
+            label=QLabel(key);label.setObjectName('keyHint')
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            row.addWidget(label)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def sizeHint(self):return self.layout().sizeHint()
+    def minimumSizeHint(self):return self.sizeHint()
+
+
+class ActionFooter(QFrame):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.setObjectName('actionFooter')
+        self.row=QHBoxLayout(self);self.row.setContentsMargins(12,5,10,5);self.row.setSpacing(6)
+        self.context=ElidedLabel('');self.context.setObjectName('secondary')
+        self.row.addWidget(self.context,1)
+
+    def add_action(self,title,keys,callback):
+        action=HintButton(title,keys,callback,self);self.row.addWidget(action)
+        return action
 
 
 class ElidedLabel(QLabel):
@@ -111,7 +145,7 @@ class ToggleSwitch(QCheckBox):
 
 
 class NavDelegate(QStyledItemDelegate):
-    def sizeHint(self,option,index): return QSize(185,58 if index.data(Qt.ItemDataRole.UserRole)=="shortcuts" else 36)
+    def sizeHint(self,option,index): return QSize(205,62 if index.data(Qt.ItemDataRole.UserRole)=="shortcuts" else 40)
 
     def paint(self,p,option,index):
         colors=self.parent().window().colors
@@ -128,13 +162,13 @@ class NavDelegate(QStyledItemDelegate):
         p.setPen(Qt.PenStyle.NoPen)
         if selected or hovered:
             p.setBrush(QColor(colors['selection'] if selected else colors['raised']))
-            p.drawRoundedRect(rect,10,10)
+            p.drawRoundedRect(rect,7,7)
         if option.state & QStyle.StateFlag.State_HasFocus:
             p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['accent']),1))
             p.drawRoundedRect(rect.adjusted(.5,.5,-.5,-.5),6,6)
         color=colors['text'] if selected else colors['muted']
         glyph(p,NAV_ICONS.get(index.data(Qt.ItemDataRole.UserRole),'hub'),QRectF(rect.x()+12,rect.center().y()-8,16,16),color)
-        p.setFont(font(12,500 if selected else 400))
+        p.setFont(font(14,500 if selected else 400))
         p.setPen(QColor(color))
         if not self.parent().property("collapsed"):
             p.drawText(QRectF(rect.x()+39,rect.y(),rect.width()-49,rect.height()),Qt.AlignmentFlag.AlignVCenter,index.data())
@@ -264,17 +298,42 @@ class CatalogRow(QPushButton):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
         box=QRectF(self.rect()).adjusted(1,1,-1,-1)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(c['selection'] if self.isChecked() else c['raised'] if self.underMouse() else c['bg']))
+        p.setBrush(QColor(c['selection'] if self.isChecked() else c['raised'] if self.underMouse() else c['surface']))
         p.drawRoundedRect(box,6,6)
-        self.icon().paint(p,12,(self.height()-20)//2,20,20)
-        width=max(1,self.width()-56)
-        p.setPen(QColor(c['text']));p.setFont(font(13,500))
-        p.drawText(QRectF(44,9,width,20),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,width))
-        p.setPen(QColor(c['muted']));p.setFont(font(11))
-        p.drawText(QRectF(44,29,width,18),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.detail,Qt.TextElideMode.ElideRight,width))
+        p.setBrush(QColor(c['raised']));p.drawRoundedRect(QRectF(10,(self.height()-32)/2,32,32),7,7)
+        self.icon().paint(p,16,(self.height()-20)//2,20,20)
+        width=max(1,self.width()-68)
+        p.setPen(QColor(c['text']));p.setFont(font(14,500))
+        p.drawText(QRectF(54,9,width,20),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,width))
+        p.setPen(QColor(c['muted']));p.setFont(font(12))
+        p.drawText(QRectF(54,30,width,18),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.detail,Qt.TextElideMode.ElideRight,width))
         if self.hasFocus():
             p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(c['accent']),1))
             p.drawRoundedRect(box,6,6)
+
+
+class CollectionDelegate(QStyledItemDelegate):
+    """Compact icon/title/detail rows shared by saved collections."""
+    def sizeHint(self,option,index):return QSize(160,58)
+    def paint(self,p,option,index):
+        c=getattr(self.parent().window(),'colors',palette())
+        p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect=QRectF(option.rect).adjusted(1,1,-1,-1)
+        selected=bool(option.state & QStyle.StateFlag.State_Selected)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(c['selection'] if selected else c['raised'] if option.state & QStyle.StateFlag.State_MouseOver else c['field']))
+        p.drawRoundedRect(rect,6,6)
+        emblem=index.data(Qt.ItemDataRole.DecorationRole)
+        if emblem:emblem.paint(p,round(rect.x()+10),round(rect.center().y()-10),20,20)
+        lines=str(index.data()).split('\n',1);x=rect.x()+40;width=max(1,round(rect.width()-50))
+        p.setFont(font(14));p.setPen(QColor(c['text']))
+        p.drawText(QRectF(x,rect.y()+8,width,21),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(lines[0],Qt.TextElideMode.ElideRight,width))
+        if len(lines)>1:
+            p.setFont(font(11));p.setPen(QColor(c['muted']))
+            p.drawText(QRectF(x,rect.y()+30,width,18),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(lines[1],Qt.TextElideMode.ElideRight,width))
+        if option.state & QStyle.StateFlag.State_HasFocus:
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(c['muted']),1));p.drawRoundedRect(rect,6,6)
+        p.restore()
 
 
 class WindowHeader(QWidget):
@@ -344,21 +403,28 @@ class SettingsSection(QFrame):
 def stylesheet(c,*,glass=False):
     sidebar="transparent" if glass else c["side"]
     return f"""
-        QWidget {{background:transparent;color:{c['text']};font-family:'Golos Text';font-size:13px;}}
+        QWidget {{background:transparent;color:{c['text']};font-family:'Golos Text';font-size:14px;}}
         QDialog,QMessageBox {{background:{c['surface']};color:{c['text']};}}
         QMenu,QToolTip {{background:{c['raised']};color:{c['text']};border:1px solid {c['line']};border-radius:12px;padding:6px;}}
         QMenu::item {{padding:8px 14px;border-radius:5px;}}
         QMenu::item:selected {{background:{c['selection']};}}
         QLabel#brand {{font-size:15px;font-weight:600;}}
-        QLabel#heading {{font-size:19px;font-weight:600;margin:0 0 4px 0;}}
+        QLabel#heading {{font-size:21px;font-weight:500;margin:0 0 4px 0;}}
         QLabel#heroTitle {{font-size:22px;font-weight:600;}}
         QLabel#cardTitle {{font-size:16px;font-weight:600;}}
         QLabel#secondary,QLabel#hint {{color:{c['muted']};font-size:12px;}}
         QLabel#eyebrow {{color:{c['muted']};font-size:10px;letter-spacing:1px;}}
-        QLabel#paneTitle {{font-size:14px;font-weight:600;}}
+        QLabel#paneTitle {{font-size:14px;font-weight:500;}}
+        QLabel#keyHint {{background:{c['raised']};border:1px solid {c['line']};border-radius:4px;padding:2px 4px;font-size:11px;color:{c['muted']};}}
+        QFrame#actionFooter {{border:0;border-top:1px solid {c['line']};background:transparent;}}
+        QPushButton#hintAction {{background:transparent;border:0;padding:0;}}
+        QPushButton#hintAction:hover,QPushButton#hintAction:focus {{background:{c['selection']};}}
+        QFrame#sectionWrapper {{background:transparent;border:0;}}
+        QFrame#inspector {{background:{c['surface']};border:1px solid {c['line']};border-radius:10px;}}
+        QLabel#tableHeading {{color:{c['muted']};font-size:12px;padding:5px 10px;}}
         QLabel#toast {{background:{c['raised']};border:1px solid {c['line']};border-radius:10px;padding:10px 15px;color:{c['text']};}}
         QLabel#resource {{color:{c['muted']};font-size:10px;}}
-        QFrame#card {{background:{c['surface']};border:0;border-radius:8px;}}
+        QFrame#card {{background:{c['surface']};border:1px solid {c['line']};border-radius:9px;}}
         QFrame#groupPane {{background:transparent;border:0;}}
         QFrame#sidebar {{background:{sidebar};border:0;border-radius:0;}}
         QFrame#hero {{background:{c['surface']};border:0;border-radius:8px;}}

@@ -123,3 +123,28 @@ The candidate is 0.11.0; it has not replaced the public update channel.
 A 60-character group name without spaces is now elided while preserving full
 accessible text and tooltip; it cannot widen the 900 px editor or push the desktop
 menu out of the header. Native maximize/restore preserves the material contour.
+
+## Follow-up: whole-screen composition and launcher
+
+The user rejected spending further time on a single binding sheet. This pass changes
+the shared window shell and complete-page composition: 218 px navigation, 40 px rows,
+14 px body, external section labels, icon collection rows, bounded module catalog and
+inspector, Community comparison surface, contextual header action, history, and a
+working footer with Find / Actions key hints. The command palette now has grouped
+results, default commands, a 720 px surface, real native acrylic with opaque fallback,
+and actual selected-result actions. It does not add AI or claim browser video support.
+
+Validation: 216 desktop tests passed; the final header/history adjustment also passed
+all 16 hub interaction tests. Native page matrix passed at actual DPR 1/1.5/2,
+widths 900/1120, both themes, without horizontal overflow or Qt exceptions. Isolated
+group files retained their bytes and hidden previews stopped. Native launcher checks
+passed empty-command suggestions, popup retention, navigation to Search Settings,
+and optional material on this Windows machine. No production profile was modified.
+
+Complete composed Windows screenshots (owned neutral backing window; not mockups):
+
+![Modules](screenshots/raycast/composition-hub.png)
+![Application](screenshots/raycast/composition-integrations.png)
+![Community](screenshots/raycast/composition-account.png)
+![Desktop](screenshots/raycast/composition-desktop.png)
+![Launcher](screenshots/raycast/composition-launcher.png)

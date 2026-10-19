@@ -180,7 +180,8 @@ class CommunityBenefits(QWidget):
         self.owner=owner
         from .module_preview import FormPreview
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0);root.setSpacing(12)
-        grid=QGridLayout();grid.setHorizontalSpacing(20);grid.setVerticalSpacing(12)
+        table=QFrame();table.setObjectName('card')
+        grid=QGridLayout(table);grid.setContentsMargins(16,14,16,14);grid.setHorizontalSpacing(20);grid.setVerticalSpacing(16)
         for column,title in enumerate(('Возможности','Без входа','С подпиской')):
             label=text(title);label.setObjectName('paneTitle');grid.addWidget(label,0,column)
         for row,values in enumerate((('Форма','Чёлка','Чёлка и остров'),
@@ -190,7 +191,7 @@ class CommunityBenefits(QWidget):
             for column,value in enumerate(values):
                 grid.addWidget(text(value,column>0),row,column)
         grid.setColumnStretch(0,1)
-        root.addLayout(grid)
+        root.addWidget(table)
         if owner:
             controls=QHBoxLayout()
             self.preview=FormPreview(owner,'floating')
@@ -229,7 +230,7 @@ class CommunityPanel(QWidget):
             owner = None
         self.owner = owner
         hero = QFrame(self)
-        hero.setObjectName('hero')
+        hero.setObjectName('card')
         inside = QVBoxLayout(hero)
         inside.setContentsMargins(16, 14, 16, 14)
         inside.setSpacing(12)

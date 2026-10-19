@@ -39,6 +39,32 @@ class HubDesignTests(unittest.TestCase):
         QTest.qWait(10)
         self.temp.cleanup()
 
+    def test_context_actions_and_history_follow_current_page(self):
+        c=self.center
+        c.navigate('search');c.navigate('timer')
+        c.travel(-1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['search'])
+        self.assertEqual(c.page_action_spec()[0],'Открыть поиск')
+        self.assertIn('Поиск',c.action_footer.context.text())
+        c.travel(1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['timer'])
+        c.travel(-1);c.navigate('desktop');c.travel(1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['desktop'])
+        with patch.object(self.w.modules.desktop,'arrange') as arrange:
+            c.run_page_action();arrange.assert_called_once()
+
+    def test_footer_key_hints_are_visible_and_fit_at_minimum_width(self):
+        from island.hub_ui import HintButton
+        c=self.center;c.resize(900,600);QTest.qWait(20)
+        actions=c.action_footer.findChildren(HintButton)
+        self.assertEqual(len(actions),2)
+        for action in actions:
+            self.assertGreaterEqual(action.width(),action.minimumSizeHint().width())
+            self.assertTrue(action.isVisible())
+            self.assertGreater(action.caption.width(),20)
+        actions[0].click()
+        self.assertTrue(c.settings_search.hasFocus())
+
     def test_page_search_keyboard_navigation_and_clear(self):
         c=self.center
         c.settings_search.setText('обновление')

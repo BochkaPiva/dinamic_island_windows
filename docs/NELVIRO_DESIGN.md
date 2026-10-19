@@ -16,7 +16,7 @@ panels and the settings chrome; reading surfaces stay opaque.
 
 ## Composition
 
-- A quiet, thin title bar. Integrated sidebar with 36 px navigation rows; a separate
+- A quiet, thin title bar. Integrated sidebar with 40 px navigation rows; a separate
   Parameters group for shortcuts, application, updates and community.
 - The sidebar folds to icons. Every icon retains a tooltip and accessible name.
   Ctrl+F unfolds it and focuses settings search. Page IDs remain stable.
@@ -41,8 +41,8 @@ SettingsPages
 card/number and ControlCenter._module build consistent groups and setting rows.
 Use existing vector glyphs from ui_tokens.py; no emoji or new icon package.
 
-Body text 13 px, supporting text 11–12 px, group title 14 px, page title 19 px.
-Rows ~56 px for a two-line catalog; 36 px navigation. Settings/controls use 6–8 px
+Body text 14 px, supporting text 11–12 px, group title 14 px, page title 21 px.
+Rows ~56 px for a two-line catalog; 40 px navigation. Settings/controls use 6–8 px
 radii. Use 4/8 px spacing increments; no giant promotional hero.
 `brand.MOTION`: response 120 ms, toggle 180 ms, groups 320 ms, island 380 ms.
 Respect hub_animations; do not poll a second media source to animate a preview.
@@ -54,7 +54,7 @@ Keep CloudIsland.exe, installer AppId, Cloud Island data/autostart/IPC identitie
 DPAPI context, installation binding, stored keys/data formats and Telegram protocol.
 The membership model remains free plus channel-member capabilities, without payment.
 The video feature is local files and camera, not a promised browser video stream.
-Search has one optionally translucent rounded surface; native blur is not claimed.
+Search uses the same optional native acrylic adapter with an opaque fallback; the rounded mask follows its animated height. No screen pixels are used as a runtime background.
 
 ## Verification and maintenance
 
@@ -92,3 +92,29 @@ Inspect the composed native sheet over an owned fixture, because QWidget.grab()
 does not include compositor blur. tools/check_shortcut_ui.py checks cancel, save,
 duplicate preservation and records native composition. The opaque fallback is
 covered by offscreen GUI tests; no global keyboard hook is installed.
+
+## Whole-window composition pass
+
+The 218 px sidebar and content header are shared by every settings page. Back/forward
+buttons and Alt+Left/Right follow actual section history; navigating after going back
+replaces the forward branch. Ctrl+F focuses section search. The bottom ActionFooter
+contains separately drawn key hints and real Find/Actions controls. Ctrl+K opens a
+context menu for the current section, rather than a decorative shortcut label.
+HintButton sizes itself from its child layout so hints never get clipped.
+
+Settings group labels sit above a single bordered charcoal surface. The module
+catalog uses icon tiles, a column header and one selected inspector. Group collections
+use an icon/title/detail delegate; IDs and saved editor drafts are unchanged. Community
+uses the same bounded surfaces for connection state and its comparison table.
+
+The launcher is 720 logical pixels wide (bounded by the available monitor). Empty
+queries suggest the five existing Nelviro commands. Category labels live inside result
+rows rather than becoming selectable dummy items. Rows retain their Result model and
+existing async generation guards. Return opens; Ctrl+K or Actions opens the real menu.
+File results offer reveal/copy-path, and every state offers Search Settings. A popup
+must not trigger deactivation hiding of its owning launcher. Escape, arrows, wheel
+scroll, long-name elision, opaque mode and reduced motion remain supported.
+
+This is an iterative visual pass against the supplied Raycast references, not a claim
+of pixel-identical completion. Native composition examples and a launcher action check
+are recorded by tools/check_launcher_actions.py over owned Qt fixture windows.

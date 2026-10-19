@@ -79,17 +79,13 @@ class SettingsPages:
 
     def card(self,title,detail=""):
         from .control_center import text
-        frame = QFrame()
-        frame.setObjectName("card")
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(14,10,14,12)
-        layout.setSpacing(9)
-        label = text(title)
-        label.setObjectName("paneTitle")
-        layout.addWidget(label)
-        if detail:
-            layout.addWidget(text(detail,True))
-        return frame,layout
+        wrapper=QFrame();wrapper.setObjectName('sectionWrapper')
+        outer=QVBoxLayout(wrapper);outer.setContentsMargins(0,2,0,0);outer.setSpacing(9)
+        label=text(title);label.setObjectName('paneTitle');outer.addWidget(label)
+        frame=QFrame();frame.setObjectName('card');outer.addWidget(frame)
+        layout=QVBoxLayout(frame);layout.setContentsMargins(16,10,16,12);layout.setSpacing(9)
+        if detail: layout.addWidget(text(detail,True))
+        return wrapper,layout
 
     def fold(self,title,opened=False):
         from .hub_ui import SettingsSection
@@ -130,14 +126,19 @@ class SettingsPages:
         layout=self._page()
         layout.addWidget(text('Инструменты твоего рабочего пространства',True))
         body=QHBoxLayout();body.setSpacing(22)
-        catalog=QVBoxLayout();catalog.setSpacing(2)
+        catalog_frame=QFrame();catalog_frame.setObjectName('card')
+        catalog=QVBoxLayout(catalog_frame);catalog.setContentsMargins(6,6,6,6);catalog.setSpacing(2)
+        columns=QHBoxLayout()
+        name=text('ИНСТРУМЕНТ',True);name.setObjectName('tableHeading');columns.addWidget(name,1)
+        enabled=text('СТАТУС',True);enabled.setObjectName('tableHeading');columns.addWidget(enabled)
+        catalog.addLayout(columns)
         self.module_status={}
         self.module_switches={}
         self.catalog_buttons={}
         self.catalog_group=QButtonGroup(self)
         self.catalog_stack=QStackedWidget()
-        self.catalog_stack.setMinimumWidth(280)
-        self.catalog_stack.setMaximumWidth(320)
+        self.catalog_stack.setMinimumWidth(245)
+        self.catalog_stack.setMaximumWidth(300)
         self.catalog_stack.setMinimumHeight(230)
         specs=(('island','Остров','Музыка, календарь и звук','island_enabled','island'),
             ('desktop','Группы','Файлы и приложения','desktop_enabled','folder'),
@@ -160,8 +161,8 @@ class SettingsPages:
                 row.addWidget(toggle)
                 self.module_switches[setting]=toggle
             catalog.addLayout(row)
-            panel=QWidget();inside=QVBoxLayout(panel)
-            inside.setContentsMargins(0,8,0,0);inside.setSpacing(10)
+            panel=QFrame();panel.setObjectName("inspector");inside=QVBoxLayout(panel)
+            inside.setContentsMargins(16,16,16,16);inside.setSpacing(12)
             if key in ('island','desktop','search'):
                 callback=(self.owner._show_panel if key=='island' else self.owner.show_search if key=='search' else lambda:self.navigate('desktop'))
                 preview=ModulePreview(self.owner,key,callback)
@@ -181,7 +182,7 @@ class SettingsPages:
             inside.addStretch()
             self.catalog_stack.addWidget(panel)
         catalog.addStretch()
-        body.addLayout(catalog,1);body.addWidget(self.catalog_stack,1,Qt.AlignmentFlag.AlignTop)
+        body.addWidget(catalog_frame,1);body.addWidget(self.catalog_stack,1,Qt.AlignmentFlag.AlignTop)
         layout.addLayout(body)
         self.policy_label=text('',True);layout.addWidget(self.policy_label)
         profiles=QHBoxLayout();profiles.setSpacing(4)
@@ -343,6 +344,7 @@ class SettingsPages:
         for title,callback in (("Добавить файлы",self.file_shelf.add_files),("Добавить папку",self.file_shelf.add_folder),
                                 ("Убрать ссылки",self.file_shelf.remove_selected)):
             row.addWidget(self.action(title,callback))
+        row.addStretch()
         file_layout.addLayout(row)
         file_layout.addWidget(self.file_shelf,1)
         from .control_center import text
@@ -430,8 +432,11 @@ class SettingsPages:
         self.key_editors, self.key_status = {},{}
         frame,inside=self.card('Сочетания клавиш')
         from .shortcut_ui import ShortcutButton
+        from .hub_ui import icon
         for key,title in (("hotkey_search","Быстрый поиск"),("hotkey_island","Открыть чёлку"),("hotkey_hub","Открыть Nelviro")):
             row=QHBoxLayout();row.setSpacing(8)
+            emblem=QLabel();emblem.setPixmap(icon('search' if key=='hotkey_search' else 'island' if key=='hotkey_island' else 'hub',self.colors['text'],22).pixmap(22,22))
+            emblem.setFixedSize(34,38);row.addWidget(emblem)
             words=QVBoxLayout();words.setSpacing(2)
             words.addWidget(text(title))
             status=text('',True);words.addWidget(status);self.key_status[key]=status
@@ -487,6 +492,7 @@ class SettingsPages:
         actions=QHBoxLayout()
         actions.addWidget(self.action('Обновления →',lambda:self.navigate('updates')))
         actions.addWidget(self.action('Папка данных ↗',lambda:self._url(QUrl.fromLocalFile(str(self.owner.settings.directory)))))
+        actions.addStretch()
         layout.addLayout(actions)
         frame,inside = self.fold('Подключение PowerToys')
         self.integration_status = QLabel()

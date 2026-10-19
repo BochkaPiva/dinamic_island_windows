@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
     QPushButton,QListWidget,QListWidgetItem,QFrame,QFileDialog)
 from .hub import FileShelf
 from .group_icons import group_icons
-from .hub_ui import ElidedLabel
+from .hub_ui import ElidedLabel, CollectionDelegate, icon
 
 
 class GroupFiles(FileShelf):
@@ -104,6 +104,8 @@ class GroupEditor(QWidget):
         self.create=self.button("+ Создать группу",self.create_group)
         left_layout.addWidget(self.create)
         self.groups=QListWidget()
+        self.groups.setItemDelegate(CollectionDelegate(self.groups))
+        self.groups.setMouseTracking(True)
         self.groups.setAccessibleName("Все созданные группы рабочего стола")
         self.groups.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.groups.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -121,7 +123,7 @@ class GroupEditor(QWidget):
         self.title.setMinimumWidth(0)
         heading.addWidget(self.title,1)
         self.remove=self.button("Удалить группу…",self.delete_group)
-        self.remove.setObjectName("deleteGroup")
+        self.remove.setObjectName("quiet")
         heading.addWidget(self.remove)
         right_layout.addLayout(heading)
         self.detail=QLabel()
@@ -200,9 +202,10 @@ class GroupEditor(QWidget):
             detail = f"Элементов: {count}" if count else "Пустая группа"
             if group['id'] not in active:
                 detail = 'Сохранена · панель не активна'
-            item=QListWidgetItem(f"{number:02d}  {group['title']}\n"+detail)
+            item=QListWidgetItem(f"{group['title']}\n"+detail)
             item.setData(Qt.ItemDataRole.UserRole,group["id"])
             item.setToolTip(group["title"])
+            item.setIcon(icon("folder"))
             item.setSizeHint(QSize(1,58))
             self.groups.addItem(item)
         index=next((i for i,g in enumerate(records) if g["id"]==old),min(old_row,len(records)-1))
