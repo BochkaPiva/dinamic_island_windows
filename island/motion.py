@@ -229,7 +229,8 @@ class PointerController:
         w = self.owner
         now = time.monotonic() if now is None else now
         dt, self.last_time = now - self.last_time, now
-        if not self.enabled or w.current_scale_pct != 200 or not w.isVisible() or w._fs_hidden:
+        if (not self.enabled or w.current_scale_pct != 200 or not w.isVisible() or w._fs_hidden
+                or getattr(w,'media_stage',None) and w.media_stage.engaged):
             self.route_input(False)
             return
         screen = w.screen().geometry()
@@ -435,11 +436,14 @@ class NotchStage:
         if not self.active:
             return
         w = self.owner
+        if getattr(w,'media_stage',None) and w.media_stage.engaged:
+            w.media_stage.layout();return
+        activity=w.activities.current() if hasattr(w,'activities') else None
         # Layout only when its inputs change. FFT packets repaint the texture
         # directly instead of repeatedly relaying out every child at 40 Hz.
         signature = (w.width(), w.height(), w._island_expanded, w._notch_notice,
                      w.snapshot.has_session, w._notch_audio_active, bool(w.notch_hub._timer_end),
-                     w.notch_idle.text(), w.settings.get("spectrum"), w._geometry.timer.isActive())
+                     w.notch_idle.text(), w.settings.get("spectrum"), w._geometry.timer.isActive(),activity)
         if signature == getattr(self, "_signature", None):
             return
         self._signature = signature
@@ -470,10 +474,10 @@ class NotchStage:
         compact_alpha = 1 - smoothstep(progress / 0.32) if self.panel_was_visible else 1.0
         self.compact_alpha = compact_alpha
         notice = bool(w._notch_notice)
-        session = w.snapshot.has_session
-        timer = bool(hub._timer_end)
+        session = w.snapshot.has_session and activity in (None,'media')
+        timer = activity=='timer' if activity is not None else bool(hub._timer_end)
         w.art_label.setVisible(session and not notice)
-        audio = w._notch_audio_active
+        audio = w._notch_audio_active and activity in (None,'media')
         w.status_mark.setVisible((session or audio) and not notice and w.settings.get("spectrum"))
         art_size = min(40,ch-12)
         w.art_label.setFixedSize(art_size, art_size)
@@ -485,6 +489,7 @@ class NotchStage:
             w.notch_notice.setText(w.notch_notice.fontMetrics().elidedText(w._notch_notice, Qt.TextElideMode.ElideRight, cw - 40))
             w.notch_notice.setToolTip(w._notch_notice)
         w.notch_idle.setVisible(not notice and (not session or timer))
+        if hasattr(w,'activities'):w.notch_idle.setText(w.activities.text())
         left = 25+art_size if session else 16
         right = cw - 52 if session or audio else cw - 16
         w.notch_idle.setGeometry(left, 0, right - left, ch - 2)

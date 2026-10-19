@@ -179,6 +179,20 @@ class FileShelf(QListWidget):
         except (OSError, ValueError, TypeError):
             pass
 
+    def paintEvent(self,event):
+        super().paintEvent(event)
+        if self.count():return
+        from .ui_tokens import glyph
+        from .brand import palette
+        c=getattr(self.window(),'colors',palette())
+        p=QPainter(self.viewport());p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        center=self.viewport().rect().center()
+        glyph(p,'folder',QRectF(center.x()-18,center.y()-50,36,36),c['accent'])
+        p.setFont(gs.font(13,500));p.setPen(QColor(c['text']))
+        p.drawText(QRectF(10,center.y(),self.viewport().width()-20,30),Qt.AlignmentFlag.AlignCenter,'Материалы под рукой')
+        p.setFont(gs.font(10));p.setPen(QColor(c['muted']))
+        p.drawText(QRectF(20,center.y()+34,self.viewport().width()-40,46),Qt.AlignmentFlag.AlignCenter|Qt.TextFlag.TextWordWrap,'Перетащи сюда файлы или добавь их кнопкой. Оригиналы остаются на своих местах.')
+
     def paths(self):
         return [self.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.count())]
 
@@ -375,6 +389,11 @@ class NotchHub(QWidget):
         source_button.setToolTip("Выбрать плеер")
         source_button.clicked.connect(self.choose_source)
         bar.addWidget(source_button)
+        media_button=QPushButton('▷')
+        media_button.setToolTip('Видео, зеркало и закрепление карточки')
+        media_button.setAccessibleName('Видео, зеркало и закрепление карточки')
+        media_button.clicked.connect(lambda:owner.media_stage.media_menu())
+        bar.addWidget(media_button)
         settings_button = QPushButton("•••")
         settings_button.setToolTip("Открыть Nelviro")
         settings_button.clicked.connect(owner.show_hub)
@@ -552,14 +571,7 @@ class NotchHub(QWidget):
         self.alarm.changed.connect(self.tick)
 
     def choose_source(self):
-        menu = QMenu(self)
-        for index in range(self.sources.count()):
-            action = menu.addAction(self.sources.itemText(index))
-            action.setCheckable(True)
-            action.setChecked(index == self.sources.currentIndex())
-            action.triggered.connect(lambda _,i=index:self.sources.setCurrentIndex(i))
-        from PySide6.QtGui import QCursor
-        menu.exec(QCursor.pos())
+        self.owner.media_stage.audio_menu()
 
     def select_tab(self, index):
         changed = index != self.stack.currentIndex()
@@ -626,11 +638,13 @@ class NotchHub(QWidget):
         if sources != self._sources:
             self._sources = sources
             selected = self.owner.worker.preferred_source if hasattr(self.owner, "worker") else ""
+            self.sources.blockSignals(True)
             self.sources.clear()
             self.sources.addItem("Автоматически · активный плеер", "")
             for aumid in sources:
                 self.sources.addItem(self.owner._notch_source_name(aumid), aumid)
             self.sources.setCurrentIndex(max(0, self.sources.findData(selected)))
+            self.sources.blockSignals(False)
         self.tick()
 
     def _refresh_text(self):

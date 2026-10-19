@@ -47,7 +47,7 @@ class SettingsPages:
     def account_page(self):
         from .community_ui import CommunityPanel
         layout = self._page()
-        self.heading(layout, 'Сообщество', 'Поддержи проект — открой больше возможностей')
+        self.heading(layout, 'Сообщество', 'Развиваем Nelviro вместе')
         self.account_panel = CommunityPanel(getattr(self.owner, 'community', None))
         layout.addWidget(self.account_panel)
 
@@ -55,7 +55,7 @@ class SettingsPages:
         from .control_center import text
         from .module_preview import ModulePreview,FocusPreview
         frame=QFrame()
-        frame.setObjectName('card')
+        frame.setObjectName('hero')
         row=QHBoxLayout(frame)
         row.setContentsMargins(24,20,20,20)
         row.setSpacing(20)
@@ -88,7 +88,7 @@ class SettingsPages:
         layout.setContentsMargins(18,14,18,16)
         layout.setSpacing(9)
         label = text(title)
-        label.setObjectName("cardTitle")
+        label.setObjectName("paneTitle")
         layout.addWidget(label)
         if detail:
             layout.addWidget(text(detail,True))
@@ -220,7 +220,7 @@ class SettingsPages:
     def island_page(self):
         layout = self._page()
         from .hub_ui import ModuleCard
-        from .module_preview import ModulePreview
+        from .module_preview import FormPreview
         self.heading(layout,'Остров','Выбери формат. Музыка, календарь и фокус остаются рядом.')
         self._module(layout,'island_enabled','Показывать остров','Выбранный вариант появляется по центру экрана')
         choices=QHBoxLayout()
@@ -230,12 +230,13 @@ class SettingsPages:
             tile=ModuleCard(choose)
             inside=QVBoxLayout(tile);inside.setContentsMargins(16,12,16,12)
             label=QLabel(title);label.setObjectName('cardTitle');inside.addWidget(label)
-            preview=ModulePreview(self.owner,'island',choose);preview.display_style=style
+            preview=FormPreview(self.owner,style,choose)
             inside.addWidget(preview)
             status=QLabel(caption);status.setObjectName('secondary');inside.addWidget(status)
             choices.addWidget(tile,1)
             self.style_choices[style]=(tile,status)
         layout.addLayout(choices)
+        self._module(layout,'cursor_retreat','Уклоняться от курсора','Приближаешься к вкладкам — остров оставляет тонкий язычок. Наведи на него, чтобы раскрыть управление.')
         row=QHBoxLayout()
         row.addWidget(self.action('Открыть остров',self.owner._show_panel))
         row.addWidget(self.action('Сбросить оформление',self.reset_island))
@@ -250,7 +251,6 @@ class SettingsPages:
         frame,inside = self.fold("Поведение и звук")
         self.number(inside,"hover_delay","Раскрытие при наведении"," мс")
         self.number(inside,"collapse_delay","Сворачивание после ухода"," мс")
-        self._module(inside,"cursor_retreat","Уворачиваться от курсора","Освобождает вкладки браузера; верхний край экрана раскрывает чёлку")
         self._module(inside,"spectrum","Реальный спектр звука","Анализ воспроизводимого звука; микрофон не используется")
         self._module(inside,"spectrum_battery_save","Отключать спектр в свёрнутой чёлке от батареи","Дополнительная экономия. По умолчанию выключена: спектр реагирует на звук и без зарядки")
         self._module(inside,"hide_fullscreen","Скрывать в полноэкранных приложениях","В обычных и развёрнутых окнах чёлка остаётся доступна")
@@ -266,6 +266,14 @@ class SettingsPages:
         self.screen_picker.currentIndexChanged.connect(lambda _:self._setting("monitor",self.screen_picker.currentData()))
         screen_row.addWidget(self.screen_picker,1)
         inside.addLayout(screen_row)
+        layout.addWidget(frame)
+        frame,inside=self.card('Медиа рядом','Видео можно переместить за верхнюю полосу. Пауза или закрытие плавно возвращают остров наверх.')
+        actions=QHBoxLayout()
+        actions.addWidget(self.action('Открыть видео…',self.owner.media_stage.choose_file))
+        actions.addWidget(self.action('Показать окно…',self.owner.media_stage.choose_window))
+        actions.addWidget(self.action('Зеркало',self.owner.media_stage.choose_camera))
+        inside.addLayout(actions)
+        inside.addWidget(self.action('Аудиопульт →',self.owner.media_stage.audio_menu))
         layout.addWidget(frame)
         frame,inside=self.fold('Что показывать в обзоре')
         self._module(inside,"overview_calendar","Неделя в обзоре","Сегодня по центру; нажми месяц, чтобы вернуться к текущей дате. События аккаунтов не подключаются")
@@ -336,7 +344,7 @@ class SettingsPages:
         self.file_shelf = FileShelf(self.owner.settings.directory/"notch-files.json")
         self.file_shelf.setMinimumHeight(280)
         row = QHBoxLayout()
-        for title,callback in (("＋ Файлы",self.file_shelf.add_files),("＋ Папка",self.file_shelf.add_folder),
+        for title,callback in (("Добавить файлы",self.file_shelf.add_files),("Добавить папку",self.file_shelf.add_folder),
                                 ("Убрать ссылки",self.file_shelf.remove_selected)):
             row.addWidget(self.action(title,callback))
         file_layout.addLayout(row)

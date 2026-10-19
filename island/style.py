@@ -131,6 +131,23 @@ class SpectrumMark(QWidget):
             p.drawRoundedRect(QRectF(i*6, (self.height()-height)/2, 3, height), 1.5, 1.5)
 
 
+def island_outline(w,h,floating=False):
+    """Shared resting silhouette for the real surface and explanatory previews."""
+    path=QPainterPath()
+    if floating:
+        path.addRoundedRect(QRectF(0,0,w,h),min(24.,h/2),min(24.,h/2));return path
+    flare=min(18.,max(8.,h*.1));radius=min(30.,(h-flare)*.65)
+    left,right=flare+radius,w-flare-radius
+    path.moveTo(0,0);path.lineTo(w,0)
+    path.cubicTo(w-flare*.55,0,w-flare,flare*.45,w-flare,flare)
+    path.lineTo(w-flare,h-radius)
+    path.cubicTo(w-flare,h-radius*.34,right+radius*.66,h,right,h)
+    path.lineTo(left,h)
+    path.cubicTo(left-radius*.66,h,flare,h-radius*.34,flare,h-radius)
+    path.lineTo(flare,flare)
+    path.cubicTo(flare,flare*.45,flare*.55,0,0,0);path.closeSubpath();return path
+
+
 class NotchCard(QWidget):
     """An intact bezel silhouette compressed by a smooth material displacement."""
     def __init__(self, parent=None):
@@ -166,6 +183,9 @@ class NotchCard(QWidget):
 
     def notch_path(self):
         w, h = self.width(), self.height()
+        stage=getattr(self.parentWidget(),'media_stage',None)
+        if stage and stage.engaged:
+            path=QPainterPath();path.addRoundedRect(QRectF(0,0,w,h),min(22,h/2),min(22,h/2));return path
         if self.parentWidget().floating_mode():
             t=self._retreat*self._retreat*(3-2*self._retreat)
             inset=w*.20*t
@@ -176,6 +196,7 @@ class NotchCard(QWidget):
             # flat attachment and soft lower corners instead of a floating line.
             path.addRoundedRect(QRectF(inset,-6*t,w-2*inset,bottom+6*t),radius,radius)
             return path
+        if self._retreat<=.00001:return island_outline(w,h)
         flare = min(18., max(8., h*.1))
         radius = min(30., (h-flare)*.65)
         left, right = flare+radius, w-flare-radius

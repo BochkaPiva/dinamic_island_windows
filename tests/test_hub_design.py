@@ -132,7 +132,10 @@ class HubDesignTests(unittest.TestCase):
         c=self.center
         c.navigate('desktop')
         c.navigate('timer')
-        QTest.qWait(260)
+        # Qt's first animation tick can be delayed under native/video test load.
+        # Wait for completion rather than assuming a particular timer phase.
+        deadline=time.monotonic()+1
+        while c.transition.isVisible() and time.monotonic()<deadline: QTest.qWait(25)
         self.assertFalse(c.transition.isVisible())
         self.assertIsNone(c.transition.old)
         self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])

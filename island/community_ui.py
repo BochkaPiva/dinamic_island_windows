@@ -4,7 +4,7 @@ import threading
 import time
 from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl, QRectF
 from PySide6.QtGui import QDesktopServices, QPainter, QColor, QPen
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QLabel, QPushButton
 from .community_client import CommunityClient, CommunityError
 from . import build_config
 
@@ -175,38 +175,22 @@ def text(value, secondary=False):
 
 class CommunityBenefits(QWidget):
     """Show the capabilities that actually exist, without promises or upsell tiers."""
-    def __init__(self,parent=None):
+    def __init__(self,owner=None,parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(220)
+        self.owner=owner
+        from .module_preview import FormPreview
+        row=QHBoxLayout(self);row.setContentsMargins(0,0,0,0);row.setSpacing(16)
+        for style,title,detail in (
+            ('notch','Для каждого','Чёлка у рамки\nДве группы на рабочем столе\nПоиск, заметки и таймер'),
+            ('floating','С подпиской на канал','Плавающий остров\nБольше групп и закрепление карточек\nВидео и зеркало камеры')):
+            card=QFrame();card.setObjectName('card')
+            inside=QVBoxLayout(card);inside.setContentsMargins(18,16,18,18);inside.setSpacing(12)
+            label=text(title);label.setObjectName('cardTitle');inside.addWidget(label)
+            if owner:inside.addWidget(FormPreview(owner,style))
+            inside.addWidget(text(detail,True));inside.addStretch()
+            row.addWidget(card,1)
         self.setAccessibleName('Без входа: чёлка и две группы. С подпиской: плавающий остров и дополнительные группы.')
 
-    def paintEvent(self,event):
-        from .brand import palette
-        from .style import font
-        from .ui_tokens import glyph
-        c=getattr(self.window(),'colors',palette())
-        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        width=(self.width()-16)/2
-        for i in range(2):
-            x=i*(width+16)
-            box=QRectF(x+1,1,width-2,self.height()-2)
-            p.setPen(QPen(QColor(c['accent'] if i else c['line']),1))
-            p.setBrush(QColor(c['selection'] if i else c['surface']))
-            p.drawRoundedRect(box,20,20)
-            p.setPen(QColor(c['text']));p.setFont(font(16,500))
-            p.drawText(QRectF(x+20,15,width-40,28),Qt.AlignmentFlag.AlignVCenter,'С подпиской' if i else 'Без входа')
-            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#000000'))
-            p.drawRoundedRect(QRectF(x+width*.23,62 if i else 47,width*.54,28 if i else 37),14,14)
-            p.setBrush(QColor('#B4DFF2'))
-            for k in range(4): p.drawRoundedRect(QRectF(x+width*.65+k*4,74 if i else 62,2,7+k%2*4),1,1)
-            for k in range(4 if i else 2):
-                r=QRectF(x+20+k*(width-40)/4,112,(width-52)/4,35)
-                p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['raised']));p.drawRoundedRect(r,8,8)
-                glyph(p,'folder',QRectF(r.center().x()-8,r.y()+9,16,16),c['accent'])
-            p.setFont(font(11));p.setPen(QColor(c['muted']))
-            p.drawText(QRectF(x+20,160,width-40,45),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter|Qt.TextFlag.TextWordWrap,
-                'Плавающий остров\nДополнительные группы' if i else 'Чёлка и две группы\nПоиск, заметки и таймер')
-        p.end()
 
 
 class CommunityPanel(QWidget):
@@ -249,14 +233,14 @@ class CommunityPanel(QWidget):
                 item.widget().setParent(None)
                 item.widget().deleteLater()
         controller = self.controller
-        self.layout_.addWidget(CommunityBenefits())
-        self.layout_.addWidget(text('Базовые инструменты работают без входа. Файлы и настройки остаются на компьютере.',True))
+        owner=controller.parent() if controller else None
+        if not owner or not hasattr(owner,'snapshot'):owner=None
         permit = controller.permit if controller else None
         active = bool(permit and permit.allows(controller.clock()))
-        title = 'Расширенные возможности подключены' if active else 'Открой больше пространства'
+        title = 'Ты в сообществе' if active else 'Больше возможностей. Без оплаты.'
         extended = self.card(title,
-            'Плавающий остров и дополнительные группы уже доступны на этом ПК.' if active else
-            'Подпишись на канал Nelviro и подключи Telegram. Без оплаты: плавающий остров и дополнительные группы откроются на этом ПК.')
+            'Видео, зеркало, плавающий остров и дополнительные группы доступны на этом компьютере.' if active else
+            'Подпишись на Nelviro в Telegram и подтверди подписку через бота. Это откроет дополнительные инструменты на этом компьютере.')
         if permit and permit.state == 'grace':
             extended.addWidget(text('Подписка не подтверждена. Подпишитесь снова, чтобы сохранить расширенный доступ.', True))
         if controller and controller.message:
@@ -279,5 +263,15 @@ class CommunityPanel(QWidget):
                 actions.addWidget(self.button('Открыть бота', lambda: QDesktopServices.openUrl(QUrl(controller.client.pairing['bot_url']))))
         actions.addStretch()
         extended.addLayout(actions)
-        extended.addWidget(text('При завершении доступа группы сохраняются в настройках. На рабочем столе остаются две активные.', True))
+        self.layout_.addWidget(CommunityBenefits(owner))
+        frame=self.card('Что меняется в работе','Все расширенные инструменты включаются по твоему действию. Камера и превью не запускаются в фоне.')
+        grid=QGridLayout();grid.setSpacing(16)
+        for i,(title,detail) in enumerate((('Видео рядом','Открой файл или выбранное окно. Перемещай плеер; при закрытии остров плавно вернётся наверх.'),
+            ('Зеркало перед звонком','Проверь кадр. При закрытии устройство камеры освобождается.'),
+            ('Свой ритм','Листай музыку, часы и таймер. Закрепи нужную карточку.'),
+            ('Больше порядка','Добавляй группы под работу, игры и личное. Их содержимое сохраняется при завершении доступа.'))):
+            words=QVBoxLayout();label=text(title);label.setObjectName('cardTitle');words.addWidget(label);words.addWidget(text(detail,True))
+            grid.addLayout(words,i//2,i%2)
+        frame.addLayout(grid)
+        self.layout_.addWidget(text('Базовые инструменты работают без входа: чёлка, две активные группы, поиск, заметки и таймер. При завершении доступа остальные группы сохраняются в настройках. Оплата и банковская карта не нужны.',True))
         self.layout_.addStretch()

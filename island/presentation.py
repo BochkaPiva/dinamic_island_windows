@@ -28,6 +28,10 @@ class IslandVisibility(QObject):
 
     def apply(self):
         w=self.owner
+        if getattr(w,'media_stage',None) and w.media_stage.engaged:
+            w.clearMask();self._clip_signature=None
+            w.setWindowOpacity(w.settings.get('island_opacity')/100)
+            return
         retreat_alpha=1.
         if w.floating_mode():
             _,retreat_alpha=floating_retreat(w._notch_stage.retreat,w.settings.get('island_gap'),w.settings.get('compact_height'))

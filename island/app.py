@@ -127,6 +127,10 @@ class IslandWindow(QWidget):
         self._notch_pointer = PointerController(self)
         from .presentation import IslandVisibility
         self._visibility = IslandVisibility(self)
+        from .media_stage import MediaStage
+        from .activities import ActivityController
+        self.media_stage=MediaStage(self)
+        self.activities=ActivityController(self)
         self._window_events = None
         self._notch_pointer_timer = QTimer(self)
         self._notch_pointer_timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -221,6 +225,8 @@ class IslandWindow(QWidget):
         self._update_services()
 
     def _place(self):
+        if getattr(self,'media_stage',None) and self.media_stage.engaged:
+            self.media_stage.layout();return
         app = QApplication.instance()
         screen = next((s for s in app.screens() if s.name() == self.settings.get("monitor")), app.primaryScreen())
         self._geometry.stop()
@@ -231,6 +237,7 @@ class IslandWindow(QWidget):
         self._notch_stage.sync()
 
     def _screens_changed(self):
+        if self.media_stage.engaged:self.media_stage.screens_changed();return
         self._place()
         self._build_menu()
 
@@ -250,6 +257,8 @@ class IslandWindow(QWidget):
             self._visibility.apply()
 
     def _set_island_expanded(self, expanded):
+        if getattr(self,'media_stage',None) and self.media_stage.engaged:return
+        if expanded and getattr(self,'activities',None) and self.activities.press is not None:return
         if expanded == self._island_expanded or self._closed:
             return
         self._notch_stage.prepare()
@@ -264,6 +273,7 @@ class IslandWindow(QWidget):
         self._update_services()
 
     def _close_if_allowed(self):
+        if self.media_stage.engaged:return
         if self.notch_hub.alarm.active and time.monotonic() < self.notch_hub.alarm.hold_until:
             self._island_auto_timer.start(1000)
             return
@@ -300,6 +310,8 @@ class IslandWindow(QWidget):
         self._volume_scroll.handle(event, reverse=self.settings.get("volume_scroll_reverse"))
 
     def keyPressEvent(self, event):
+        if self.media_stage.engaged and event.key()==Qt.Key.Key_Escape:
+            self.media_stage.close_media();return
         if event.key() == Qt.Key.Key_Escape:
             self._notch_pointer.edge_blocked = True
             self._notch_pointer.edge_since = None
@@ -408,7 +420,7 @@ class IslandWindow(QWidget):
 
     def _system_tick(self):
         self._notch_audio_active = time.monotonic()-self._last_audio < .8
-        self.notch_idle.setText(fmt(self.notch_hub.timer_seconds()) if self.notch_hub._timer_end else datetime.now().strftime("%H:%M"))
+        self.notch_idle.setText(self.activities.text() if hasattr(self,'activities') else datetime.now().strftime('%H:%M'))
         state = battery_state()
         self.notch_hub.battery.setText(("⚡ " if state and state[1] else "") + f"{state[0]}%" if state else "")
         if state and self._last_battery and state[1] != self._last_battery[1]:
@@ -466,6 +478,10 @@ class IslandWindow(QWidget):
 
     def _sync_visibility(self):
         if self._closed:
+            return
+        if self.media_stage.engaged:
+            if self._hidden_by_user or not self._policy.island:self.media_stage.close_media()
+            self._fs_hidden=False
             return
         self._fs_hidden=bool(self.settings.get('hide_fullscreen') and is_fullscreen(self))
         wanted=not self._hidden_by_user and self._policy.island and not self._fs_hidden
@@ -658,6 +674,7 @@ class IslandWindow(QWidget):
         if self.account:
             self.account.stop()
         self.community.stop()
+        self.media_stage.close()
         self._visibility.close()
         if self._window_events: self._window_events.close()
         self._wheel_source.close()

@@ -12,7 +12,7 @@ from island import build_config as config
 
 def problems(sales=False):
     issues=[]
-    for name in ('PyQt6','PyQt6-Qt6','PyQt6-sip','PySide6-Addons'):
+    for name in ('PyQt6','PyQt6-Qt6','PyQt6-sip'):
         try: importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError: continue
         issues.append('Unexpected dependency: '+name)

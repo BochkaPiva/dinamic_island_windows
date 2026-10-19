@@ -20,7 +20,8 @@ public distribution (legal/release-approvals.json).
 
 | Component | Source / license information |
 | --- | --- |
-| PySide6 Essentials / shiboken6 | https://code.qt.io/cgit/pyside/pyside-setup.git/ — LGPL v3 option; version 6.11.2 |
+| PySide6 Essentials, Addons / shiboken6 | https://code.qt.io/cgit/pyside/pyside-setup.git/ — LGPL v3 option; version 6.11.2. Addons supplies QtMultimedia; unrelated modules are excluded from the package. |
+| FFmpeg | https://doc.qt.io/qt-6/qtmultimedia-attribution-ffmpeg.html — Qt multimedia backend, LGPL 2.1 or later; shared DLLs and bundled notices. Exact packaged version recorded in build inventory. |
 | Qt 6 | https://code.qt.io/cgit/qt/ — Qt open-source licenses; see bundled notices |
 | NumPy | https://github.com/numpy/numpy — BSD-3-Clause and bundled notices |
 | PyAudioWPatch / PortAudio | https://github.com/s0d3s/PyAudioWPatch — MIT and bundled notices |

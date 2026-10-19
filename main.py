@@ -12,12 +12,15 @@ def self_test(report, audio=False):
     from island import __version__
     from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
     app = QCoreApplication([])
+    from PySide6.QtMultimedia import QMediaPlayer,QVideoSink,QCamera
+    player=QMediaPlayer();sink=QVideoSink();player.setVideoSink(sink)
+    if not player.isAvailable(): raise RuntimeError('Qt multimedia backend unavailable')
     from PySide6.QtCore import qVersion
     import PySide6
     from island.build_config import DISTRIBUTION
     result = {"version": __version__, "qt": True, "winrt": True, "frozen": bool(getattr(sys, "frozen", False)),
               "binding": "PySide6", "binding_version": PySide6.__version__, "qt_version": qVersion(),
-              "distribution": DISTRIBUTION}
+              "distribution": DISTRIBUTION,"multimedia":True}
     if audio:
         capture = AudioSpectrum()
         available, levels = [], []

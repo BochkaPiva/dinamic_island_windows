@@ -1,3 +1,13 @@
+## v0.10.0
+
+- Added a movable video state in the same island window: local file playback, explicit native window preview, and an opt-in camera mirror for channel subscribers. Drag the header; pause/close returns continuously to the selected screen's notch/island. Esc returns too.
+- Snapshot-based content/geometry transitions, reversible entry/return, screen work-area clamping, device/source loss handling and capability expiry cleanup. Camera and decoding stop on close; DWM relationships release at the end of the short return.
+- Video/camera frames are pulled from the native sink at a bounded 30 fps without Python callbacks on decoder threads or per-frame queued slots. The preview retains one image capped at 1280×720; no microphone, recording or upload.
+- Swipe the compact island horizontally or use horizontal touchpad scrolling to select media, clock or a running/paused timer. Vertical scrolling retains volume control. Subscriber pinning retains a chosen activity; disappearing sources release the pin.
+- Audio menu selects actual SMTC sessions; the local video player offers its own output-device selector. Global Windows audio configuration opens the native sound settings. Fixed source-list refresh overwriting a preferred session.
+- Rebuilt community comparison using the shared resting silhouette and centered live spectrum; added concrete benefits, connected state and access explanation. Prominent cursor-avoidance toggle, calmer settings headers/type hierarchy, and an actionable empty file shelf.
+- QtMultimedia is packaged with matched PySide6 Addons and external FFmpeg 7.1.5 libraries. Dependency notices/build flags are recorded; unrelated Qt modules remain excluded by the bundle audit.
+
 ## v0.9.3
 
 - Floating avoidance morphs into an opaque six-pixel bezel tab instead of disappearing. The complete live artwork/spectrum texture travels upward inside the contracting silhouette.

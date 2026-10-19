@@ -1,4 +1,5 @@
 PySide6-Essentials==6.11.2
+PySide6-Addons==6.11.2
 shiboken6==6.11.2
 cryptography==50.0.2
 cffi==2.1.1

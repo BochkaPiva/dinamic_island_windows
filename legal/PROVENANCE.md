@@ -34,7 +34,7 @@ carried-over prototype modules, any external contributions, fonts and graphics;
 resolve incompatible code by replacement or permission. Then approve exact file
 relicensing and customer terms. A blanket text replacement is not this review.
 
-Runtime modules used: QtCore, QtGui, QtWidgets, QtNetwork. QtTest is test-only and
+Runtime modules used: QtCore, QtGui, QtWidgets, QtNetwork, QtMultimedia. QtTest is test-only and
 excluded from the packaged application. WebEngine, Charts, DataVisualization and
 PDF must not be bundled. PySide6 Essentials and shiboken6 use the LGPL option;
 audit the exact shipped Qt plugins and third-party notices as part of release.

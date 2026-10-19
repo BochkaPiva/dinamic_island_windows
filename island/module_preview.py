@@ -229,3 +229,45 @@ class FocusPreview(QWidget):
         p.setPen(QPen(QColor(c['accent']),3,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap))
         p.drawArc(box,90*16,-round(360*16*fraction))
         p.end()
+
+
+class FormPreview(ModulePreview):
+    """Compact, live form demonstration with the same outline as the HWND."""
+    def __init__(self,owner,style,callback=None):
+        super().__init__(owner,'island',callback)
+        self.display_style=style;self.setFixedHeight(112);self.setMinimumWidth(180)
+
+    def paintEvent(self,event):
+        from .style import island_outline
+        c=getattr(self.window(),'colors',None)
+        if c is None:
+            from .brand import palette
+            c=palette()
+        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['bg']))
+        p.drawRoundedRect(QRectF(self.rect()),14,14)
+        p.setClipRect(self.rect().adjusted(8,8,-8,-8))
+        p.setBrush(QColor(c['raised']))
+        for i in range(3):p.drawRoundedRect(QRectF(18+i*42,78,32,4),2,2)
+        width=min(210,self.width()-40);height=38
+        x=(self.width()-width)/2;y=23 if self.display_style=='floating' else 8
+        p.save();p.translate(x,y)
+        path=island_outline(width,height,self.display_style=='floating')
+        p.fillPath(path,QColor('black'));p.setClipPath(path)
+        data=self.owner.snapshot.thumb if self.owner and self.owner.snapshot else b''
+        if self.cover is None or self.cover_key!=data:
+            self.cover_key=data;self.cover=rounded_art(data,24,6,self.devicePixelRatioF())
+        p.drawPixmap(20,7,self.cover)
+        p.setPen(QColor('#F5F6F8'));p.setFont(font(10,500))
+        p.drawText(QRectF(52,0,max(20,width-118),38),Qt.AlignmentFlag.AlignCenter,
+            self.owner.activities.text() if self.owner and self.owner.activities.current()!='media' else 'Музыка')
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#B4DFF2'))
+        levels=self.owner.status_mark.levels if self.owner else (0,)*5
+        for i,level in enumerate(levels):
+            height=3+max(0,min(1,level))*15
+            p.drawRoundedRect(QRectF(width-48+i*5,19-height/2,2.5,height),1.2,1.2)
+        p.restore()
+        if self.hasFocus():
+            p.setClipping(False);p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(c['accent']),1))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),14,14)
+        p.end()

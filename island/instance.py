@@ -85,6 +85,8 @@ class InstanceServer(QObject):
                     "audio_capture":w.audio.capture_active.is_set(),"spectrum_levels":list(w.status_mark.levels),
                     "island_visible":w.isVisible(),"island_expanded":w._island_expanded,
                     "island_style":"floating" if w.floating_mode() else "notch",
+                    "media_state":w.media_stage.state,"media_kind":w.media_stage.kind,
+                    "camera_active":bool(w.media_stage.camera and w.media_stage.camera.isActive()),
                     "island_visibility":round(w._visibility.fraction,3),
                     "island_visibility_moving":w._visibility.moving,"fullscreen_hidden":w._fs_hidden,
                     "spectrum_battery_save":w.settings.get("spectrum_battery_save"),
