@@ -62,27 +62,6 @@ class MediaStageTests(unittest.TestCase):
         self.w.activities.toggle_pin();self.assertFalse(self.w.activities.pinned)
         self.w.control_center=None
 
-    def test_browser_action_uses_inline_guide_not_window_capture_or_a_menu(self):
-        with patch('island.browser_video.existing_pip',return_value=None),patch.object(self.stage,'choose_window') as capture:
-            self.stage.browser_video()
-            hub=self.w.notch_hub
-            self.assertIs(hub.stack.currentWidget(),hub.browser_page)
-            self.assertTrue(self.w._island_expanded)
-            self.assertFalse(self.stage.engaged)
-            capture.assert_not_called()
-            # Changing audio sources has no ownership of the browser PiP.
-            self.w.snapshot=Snapshot(aumid='Telegram',title='Voice message',status='Playing')
-            self.stage.check_source()
-            self.assertFalse(self.stage.engaged)
-
-    def test_existing_browser_pip_is_activated_without_creating_a_duplicate_player(self):
-        window=object()
-        with patch('island.browser_video.existing_pip',return_value=window),patch('island.browser_video.activate',return_value=True) as activate:
-            self.stage.browser_video()
-            activate.assert_called_once_with(window)
-            self.assertFalse(self.stage.engaged)
-            self.assertIsNone(self.stage.player)
-
     def test_dragged_media_returns_continuously_in_same_native_window(self):
         self.supporter();w=self.w;native=int(w.winId());home=QRect(w.geometry())
         self.stage.begin('file','Fixture');QTest.qWait(420)

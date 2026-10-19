@@ -378,11 +378,14 @@ class IslandWindow(QWidget):
                 user.SetForegroundWindow(ctypes.c_void_p(candidates[0]))
 
     def _audio_levels(self, levels):
+        was_active=self._notch_audio_active
         if not self._policy.spectrum:
             levels = (0.,)*5
         if max(levels) > .025:
             self._last_audio = time.monotonic()
         self._notch_audio_active = time.monotonic()-self._last_audio < .8
+        if was_active!=self._notch_audio_active and not self.snapshot.has_session and self.notch_hub.snap is not None:
+            self.notch_hub._refresh_text()
         self.status_mark.set_spectrum(levels)
         self._notch_stage.sync()
         if self.isVisible():
@@ -419,7 +422,10 @@ class IslandWindow(QWidget):
                 self.notch_hub.select_tab(1)
 
     def _system_tick(self):
+        was_active=self._notch_audio_active
         self._notch_audio_active = time.monotonic()-self._last_audio < .8
+        if was_active!=self._notch_audio_active and not self.snapshot.has_session and self.notch_hub.snap is not None:
+            self.notch_hub._refresh_text()
         self.notch_idle.setText(self.activities.text() if hasattr(self,'activities') else datetime.now().strftime('%H:%M'))
         state = battery_state()
         self.notch_hub.battery.setText(("⚡ " if state and state[1] else "") + f"{state[0]}%" if state else "")

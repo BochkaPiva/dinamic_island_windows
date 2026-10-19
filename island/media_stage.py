@@ -143,27 +143,6 @@ class MediaStage(QObject):
     def access_changed(self):
         if self.engaged and not self.owner.access.feature('island.mirror' if self.kind=='camera' else 'island.video').allowed:self.close_media()
 
-    def media_menu(self):
-        # Compatibility entry point; primary action never opens the old toolbox.
-        self.browser_video()
-
-    def browser_video(self):
-        from .browser_video import existing_pip, activate
-        window = existing_pip()
-        if window and activate(window):
-            return
-        self.owner._set_island_expanded(True)
-        hub = self.owner.notch_hub
-        hub.select_tab(hub.stack.indexOf(hub.browser_page))
-
-    def open_browser_video(self):
-        from .browser_video import existing_pip, browser_for, activate
-        window = existing_pip() or browser_for(self.owner.snapshot)
-        if window and activate(window):
-            return True
-        self.owner.notch_hub.browser_hint.setText('Открой нужную вкладку в браузере и нажми значок выноса над видео.')
-        return False
-
     def choose_file(self):
         if not self.allowed('island.video'):return
         self.owner._island_auto_timer.stop()
