@@ -262,7 +262,7 @@ class PointerController:
             # downward does not cancel an animation halfway through.
             tw, th = w._scale_window_size(100)
             panel = QRect(screen.x() + (screen.width() - tw) // 2, w._island_top(), tw, th)
-            inside = panel.adjusted(-5, 0, 5, 8).contains(point)
+            inside = intent.edge or panel.adjusted(-5, 0, 5, 8).contains(point)
             w._hovering = inside
             if inside or now - self.opened_at < 0.35:
                 w._island_auto_timer.stop()
@@ -294,6 +294,16 @@ def smoothstep(value):
     return x * x * (3 - 2 * x)
 
 
+def floating_retreat(amount, gap, height):
+    """Rigid lift and a gentle dissolve; never bend the floating capsule.
+
+    Keep most of the native window on its monitor, even at full retreat, so
+    MonitorFromWindow and Qt don't switch to a display above it. Opacity finishes
+    the exit while global edge activation and click-through remain available.
+    """
+    return (gap + height*.4)*smoothstep(amount), 1-smoothstep((amount-.25)/.75)
+
+
 class CompactSurface(QWidget):
     """Warp the artwork, spectrum and labels as one continuous material layer."""
     def __init__(self, stage):
@@ -306,6 +316,8 @@ class CompactSurface(QWidget):
         stage = self.stage
         if not stage.active:
             return
+        if stage.owner.floating_mode() and stage.retreat>=.9999:
+            return
         image = stage.compact.grab()
         ratio = image.devicePixelRatioF()
         card = stage.owner.card
@@ -314,7 +326,7 @@ class CompactSurface(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         p.setClipPath(card.notch_path().translated(-self.x(), -self.y()))
         p.setOpacity(stage.compact_alpha)
-        if card._retreat <= 0.0005:
+        if stage.owner.floating_mode() or card._retreat <= 0.0005:
             p.drawPixmap(0, 0, image)
         else:
             # One-pixel strips carry the whole live texture upward along the

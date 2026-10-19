@@ -14,7 +14,7 @@ from . import APP_NAME, __version__, REPO_URL
 from .audio import AudioSpectrum
 from .hub import NotchHub, battery_state, fmt
 from .media import MediaWorker, Snapshot
-from .motion import NotchStage, PointerController, SpringGeometry
+from .motion import NotchStage, PointerController, SpringGeometry, floating_retreat
 from .platform_win import (autostart, is_fullscreen, adjust_volume,
                            desktop_is_foreground, keep_desktop_visible, exclude_from_peek)
 from .storage import Settings
@@ -200,7 +200,13 @@ class IslandWindow(QWidget):
         screen=next((s for s in QApplication.screens() if s.name()==self.settings.get('monitor')),QApplication.primaryScreen())
         gap=self.settings.get('island_gap') if self.floating_mode() else 0
         fraction=self._visibility.fraction if hasattr(self,'_visibility') else 1.
-        return screen.geometry().top()+gap-round(12*(1-fraction))
+        lift=0.
+        if self.floating_mode() and hasattr(self,'_notch_stage'):
+            lift,_=floating_retreat(self._notch_stage.retreat,gap,self.settings.get('compact_height'))
+        top=screen.geometry().top()+gap-round(12*(1-fraction)+lift)
+        # Keep the HWND centered on the selected display even during concurrent
+        # visibility and retreat animations on vertically stacked monitors.
+        return max(top,screen.geometry().top()-max(0,self.height()//2-2))
 
     def _presentation_changed(self):
         if not hasattr(self,'_visibility'): return
@@ -221,6 +227,7 @@ class IslandWindow(QWidget):
         width, height = self._scale_window_size(100 if self._island_expanded else 50)
         bounds = screen.geometry()
         self.setGeometry(bounds.x()+(bounds.width()-width)//2, self._island_top(), width, height)
+        self._visibility.apply()
         self._notch_stage.sync()
 
     def _screens_changed(self):
@@ -230,13 +237,17 @@ class IslandWindow(QWidget):
     def _geo_anim_step(self, rect):
         rect.moveTop(self._island_top())
         self.setGeometry(rect)
+        self._visibility.apply()
         self._notch_stage.sync()
 
     def _after_geo_anim(self):
         self._notch_stage.sync()
 
     def _notch_set_compact_retreat(self, value):
+        previous=self._notch_stage.retreat
         self._notch_stage.retreat = value
+        if self.floating_mode() and abs(previous-value)>.0001:
+            self._visibility.apply()
 
     def _set_island_expanded(self, expanded):
         if expanded == self._island_expanded or self._closed:

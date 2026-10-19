@@ -32,6 +32,55 @@ class PresentationTests(unittest.TestCase):
 
     def supporter(self): self.w.access.grant=Grant('supporter',PRO_FEATURES,dict(PRO_LIMITS))
 
+    def test_floating_retreat_preserves_capsule_and_its_content(self):
+        from island.media import Snapshot
+        from PySide6.QtCore import QBuffer,QIODevice
+        from PySide6.QtGui import QImage,QColor
+        w=self.w;self.supporter();w._toggle_setting('island_style','floating')
+        image=QImage(48,48,QImage.Format.Format_ARGB32);image.fill(QColor('#b35aeb'))
+        buffer=QBuffer();buffer.open(QIODevice.OpenModeFlag.WriteOnly);image.save(buffer,'PNG')
+        w._handle_snapshot(Snapshot(has_session=True,title='Fixture',thumb=bytes(buffer.data())))
+        w.art_label._anim.stop();w.art_label.fraction=1.
+        w.status_mark.set_spectrum((.2,.8,.5,.7,.3))
+        self.app.processEvents()
+        path=w.card.notch_path()
+        reference=w.card.grab().toImage()
+        for amount,x in ((.4,0),(.7,.5),(1.,1)):
+            w.card.set_retreat(amount,x,1-x,.8)
+            w._notch_stage.surface.update()
+            self.assertEqual(w.card.notch_path(),path)
+            self.assertEqual(w.card.grab().toImage(),reference)
+
+    def test_floating_avoidance_yields_clicks_and_edge_reopens(self):
+        w=self.w;self.supporter();w._toggle_setting('island_style','floating')
+        pointer=w._notch_pointer;pointer.enabled=True
+        pointer.context_provider=lambda:True
+        screen=w.screen().geometry()
+        point=QPoint(screen.center().x(),screen.top()+30)
+        pointer.cursor_provider=lambda:point
+        pointer.last_time=1000.
+        with patch('island.motion.set_mouse_passthrough',side_effect=lambda h,value:value):
+            for i in range(1,101): pointer.tick(1000+i*.016)
+            self.assertTrue(pointer.passthrough)
+            self.assertTrue(w.isVisible())  # global edge sensor remains alive
+            self.assertLess(w.windowOpacity(),.01)
+            self.assertGreaterEqual(w.geometry().center().y(),screen.top())
+            self.assertGreaterEqual(w.mask().boundingRect().top(),screen.top()-w.y())
+            point=QPoint(screen.center().x(),screen.top())
+            for i in range(101,201): pointer.tick(1000+i*.016)
+            QTest.qWait(750)
+            self.assertTrue(w._island_expanded)
+            self.assertFalse(pointer.passthrough)
+            self.assertAlmostEqual(w.windowOpacity(),w.settings.get('island_opacity')/100,delta=.01)
+
+    def test_retreat_and_fullscreen_fades_compose_without_overriding_each_other(self):
+        w=self.w;self.supporter();w._toggle_setting('island_style','floating')
+        w._visibility.fraction=.4
+        w._notch_set_compact_retreat(.6)
+        self.assertLess(w.windowOpacity(),.4)
+        w._notch_set_compact_retreat(0)
+        self.assertAlmostEqual(w.windowOpacity(),.4,delta=.01)
+
     def test_floating_access_gap_and_safe_expiry_fallback(self):
         w=self.w
         self.assertFalse(w._toggle_setting('island_style','floating'))

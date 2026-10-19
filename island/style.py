@@ -166,6 +166,10 @@ class NotchCard(QWidget):
 
     def notch_path(self):
         w, h = self.width(), self.height()
+        if self.parentWidget().floating_mode():
+            path=QPainterPath()
+            path.addRoundedRect(QRectF(0,0,w,h),min(24.,h/2),min(24.,h/2))
+            return path
         flare = min(18., max(8., h*.1))
         radius = min(30., (h-flare)*.65)
         left, right = flare+radius, w-flare-radius
@@ -194,19 +198,6 @@ class NotchCard(QWidget):
                              current[0]-current[2]*step, current[1]-current[3]*step,
                              current[0], current[1])
                 previous = current
-        if self.parentWidget().floating_mode():
-            r=min(24.,h/2)
-            path=QPainterPath()
-            path.moveTo(r,0); path.lineTo(w-r,0)
-            curve([(w-r,0),(w-r*.45,0),(w,r*.45),(w,r)])
-            path.lineTo(*warp(w,h-r)[:2])
-            curve([(w,h-r),(w,h-r*.45),(w-r*.45,h),(w-r,h)])
-            curve([(w-r,h),(w*.66,h),(w*.34,h),(r,h)],24)
-            curve([(r,h),(r*.45,h),(0,h-r*.45),(0,h-r)])
-            path.lineTo(*warp(0,r)[:2])
-            curve([(0,r),(0,r*.45),(r*.45,0),(r,0)])
-            path.closeSubpath()
-            return path
         curve([(w, 0), (w-flare*.55, 0), (w-flare, flare*.45), (w-flare, flare)])
         path.lineTo(*warp(w-flare, h-radius)[:2])
         curve([(w-flare, h-radius), (w-flare, h-radius*.34), (right+radius*.66, h), (right, h)])

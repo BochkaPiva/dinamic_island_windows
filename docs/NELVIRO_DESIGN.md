@@ -71,3 +71,13 @@ The final 0.9.1 packaging isolates window-placement Win32 function signatures
 in a private DLL interface. A real-API regression test now opens the window
 catalog before invoking cursor/fullscreen geometry, covering shared ctypes
 signature conflicts that separate mocked tests missed in 0.9.0.
+
+## Floating cursor avoidance (0.9.2)
+
+The floating capsule uses rigid upward movement with a short dissolve. Its path
+and compact texture never deform; notch-specific cloud warping is limited to
+the bezel form. Cursor damping remains continuous on reversals. A screen-local
+mask prevents display bleed, while the native HWND center stays on the selected
+monitor. Visibility and retreat opacity multiply. The invisible island remains
+a Qt-visible input sensor for top-edge activation and uses click-through over
+tabs. The physical edge also counts as inside the expanded panel across its gap.

@@ -1,3 +1,10 @@
+## v0.9.2
+
+- Floating cursor avoidance now lifts and fades the intact capsule; artwork and spectrum move together without dents or strip warping.
+- Screen-edge clipping prevents bleed onto a display above, and the native window remains associated with its selected monitor.
+- Cursor retreat composes with fullscreen visibility rather than overriding its opacity. Global top-edge activation remains alive when the capsule is transparent.
+- Holding the cursor on the physical top edge keeps the floating panel open instead of starting its collapse timer across the gap.
+
 ## v0.9.1
 
 - Isolate window-placement Win32 prototypes from the island's APIs. Opening the window page no longer causes incompatible RECT/Monitor pointer errors in cursor/fullscreen checks.
