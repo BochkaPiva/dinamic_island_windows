@@ -1,3 +1,13 @@
+## v0.10.1
+
+- Исправлена ошибка повторного обновления статуса Telegram: карточки больше не удаляются при проверке подписки.
+- Постоянные живые предпросмотры, отдельный статус подключения и понятные действия в каждом состоянии.
+- На странице объяснены бесплатные и расширенные возможности, офлайн-доступ и сохранность групп.
+- Основная кнопка видео работает со встроенным PiP браузера: без захвата страницы, выбора окон и привязки к смене аудиоисточника. Включение PiP выполняется в самом браузере.
+- Видеофайлы и камера перенесены в свёрнутый блок настроек; аудиоменю оформлено под чёрный остров.
+- Добавлена проверка повторных уведомлений и полного локального цикла доступа: подтверждение, льготный период, ограничение, повторная подписка и отключение.
+
+
 ## v0.10.0
 
 - Added a movable video state in the same island window: local file playback, explicit native window preview, and an opt-in camera mirror for channel subscribers. Drag the header; pause/close returns continuously to the selected screen's notch/island. Esc returns too.
@@ -7,15 +17,6 @@
 - Audio menu selects actual SMTC sessions; the local video player offers its own output-device selector. Global Windows audio configuration opens the native sound settings. Fixed source-list refresh overwriting a preferred session.
 - Rebuilt community comparison using the shared resting silhouette and centered live spectrum; added concrete benefits, connected state and access explanation. Prominent cursor-avoidance toggle, calmer settings headers/type hierarchy, and an actionable empty file shelf.
 - QtMultimedia is packaged with matched PySide6 Addons and external FFmpeg 7.1.5 libraries. Dependency notices/build flags are recorded; unrelated Qt modules remain excluded by the bundle audit.
-
-## 0.10.1 — Сообщество и видео без лишнего меню
-
-- Исправлена ошибка повторного обновления статуса Telegram: карточки больше не удаляются при проверке подписки.
-- Постоянные живые предпросмотры, отдельный статус подключения и понятные действия в каждом состоянии.
-- На странице объяснены бесплатные и расширенные возможности, офлайн-доступ и сохранность групп.
-- Основная кнопка видео работает со встроенным PiP браузера: без захвата страницы, выбора окон и привязки к смене аудиоисточника. Включение PiP выполняется в самом браузере.
-- Видеофайлы и камера перенесены в свёрнутый блок настроек; аудиоменю оформлено под чёрный остров.
-- Добавлена проверка повторных уведомлений и полного локального цикла доступа: подтверждение, льготный период, ограничение, повторная подписка и отключение.
 
 ## v0.9.3
 
