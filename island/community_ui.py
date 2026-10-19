@@ -2,9 +2,9 @@
 """Minimal native community surface and bounded background subscription checks."""
 import threading
 import time
-from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl, QRectF
-from PySide6.QtGui import QDesktopServices, QPainter, QColor, QPen
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QLabel, QPushButton
+from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton
 from .community_client import CommunityClient, CommunityError
 from . import build_config
 
@@ -182,7 +182,7 @@ class CommunityBenefits(QWidget):
         row=QHBoxLayout(self);row.setContentsMargins(0,0,0,0);row.setSpacing(16)
         for style,title,detail in (
             ('notch','Для каждого','Чёлка у рамки\nДве группы на рабочем столе\nПоиск, заметки и таймер'),
-            ('floating','С подпиской на канал','Плавающий остров\nБольше групп и закрепление карточек\nВидео и зеркало камеры')):
+            ('floating','С подпиской на канал','Плавающий остров\nБольше групп и закрепление карточек\nВидеофайлы и зеркало камеры')):
             card=QFrame();card.setObjectName('card')
             inside=QVBoxLayout(card);inside.setContentsMargins(18,16,18,18);inside.setSpacing(12)
             label=text(title);label.setObjectName('cardTitle');inside.addWidget(label)
@@ -194,19 +194,69 @@ class CommunityBenefits(QWidget):
 
 
 class CommunityPanel(QWidget):
+    """Keep the widget tree alive across worker and entitlement notifications.
+
+    Reparenting a widget owned only by a layout can destroy its Python wrapper
+    immediately. Rebuilding here also discarded focus and every live preview.
+    Build once; notifications only update text, visibility and enabled states.
+    """
     def __init__(self, controller=None, parent=None):
         super().__init__(parent)
         self.controller = controller
         self.layout_ = QVBoxLayout(self)
         self.layout_.setContentsMargins(0, 0, 0, 0)
         self.layout_.setSpacing(16)
+        owner = controller.parent() if controller else None
+        if not owner or not hasattr(owner, 'snapshot'):
+            owner = None
+        self.owner = owner
+        hero = QFrame(self)
+        hero.setObjectName('hero')
+        inside = QVBoxLayout(hero)
+        inside.setContentsMargins(24, 22, 24, 22)
+        inside.setSpacing(12)
+        self.status = text('')
+        self.status.setObjectName('secondary')
+        self.status.setAccessibleName('Состояние подключения Telegram')
+        self.title = text('')
+        self.title.setObjectName('heading')
+        self.detail = text('', True)
+        self.message = text('', True)
+        for label in (self.status, self.title, self.detail, self.message):
+            inside.addWidget(label)
+        actions = QHBoxLayout()
+        actions.setSpacing(10)
+        self.primary = self.button('', self._primary_action)
+        self.primary.setObjectName('primary')
+        self.channel = self.button('Открыть канал', self._open_channel)
+        self.channel.setObjectName('')
+        actions.addWidget(self.primary)
+        actions.addWidget(self.channel)
+        actions.addStretch()
+        inside.addLayout(actions)
+        self.disconnect_button = self.button('Отключить на этом ПК', self._disconnect)
+        inside.addWidget(self.disconnect_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self.restart_button = self.button('Начать подключение заново', self._restart)
+        inside.addWidget(self.restart_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self.layout_.addWidget(hero)
+        self.benefits = CommunityBenefits(owner, self)
+        self.layout_.addWidget(self.benefits)
+        help_card = self.card('Как это работает',
+            'Один раз подключи Telegram через бота. Дальше Nelviro проверяет подписку автоматически.')
+        help_card.addWidget(text(
+            'Проверка — раз в 6 часов. Без интернета последнее подтверждение действует до 72 часов. '
+            'После отписки — 24 часа, чтобы вернуться в канал.', True))
+        help_card.addWidget(text(
+            'Базовые инструменты работают без входа. Если расширенный доступ закончится, '
+            'дополнительные группы сохранятся вместе с содержимым. Оплата и банковская карта не нужны.', True))
+        self.layout_.addStretch()
         if controller:
             controller.changed.connect(self.render)
             controller.access.changed.connect(self.render)
         self.render()
 
     def card(self, title, detail):
-        frame = QFrame()
+        frame = QFrame(self)
         frame.setObjectName('card')
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(24, 22, 24, 22)
@@ -226,52 +276,67 @@ class CommunityPanel(QWidget):
         button.clicked.connect(callback)
         return button
 
-    def render(self):
-        while self.layout_.count():
-            item = self.layout_.takeAt(0)
-            if item.widget():
-                item.widget().setParent(None)
-                item.widget().deleteLater()
+    def _open_channel(self):
+        QDesktopServices.openUrl(QUrl(build_config.COMMUNITY_CHANNEL_URL))
+
+    def _primary_action(self):
         controller = self.controller
-        owner=controller.parent() if controller else None
-        if not owner or not hasattr(owner,'snapshot'):owner=None
+        if not controller or not controller.client:
+            self._open_channel()
+        elif controller.busy:
+            return
+        elif controller.connected:
+            controller.refresh()
+        elif controller.client.pairing:
+            QDesktopServices.openUrl(QUrl(controller.client.pairing['bot_url']))
+        else:
+            controller.connect_telegram()
+
+    def _disconnect(self):
+        if self.controller and not self.controller.busy:
+            self.controller.disconnect()
+
+    def _restart(self):
+        if self.controller and not self.controller.busy:
+            self.controller.connect_telegram()
+
+    def render(self):
+        controller = self.controller
         permit = controller.permit if controller else None
         active = bool(permit and permit.allows(controller.clock()))
-        title = 'Ты в сообществе' if active else 'Больше возможностей. Без оплаты.'
-        extended = self.card(title,
-            'Видео, зеркало, плавающий остров и дополнительные группы доступны на этом компьютере.' if active else
-            'Подпишись на Nelviro в Telegram и подтверди подписку через бота. Это откроет дополнительные инструменты на этом компьютере.')
-        if permit and permit.state == 'grace':
-            extended.addWidget(text('Подписка не подтверждена. Подпишитесь снова, чтобы сохранить расширенный доступ.', True))
-        if controller and controller.message:
-            extended.addWidget(text(controller.message, True))
-        actions = QHBoxLayout()
-        if not controller or not controller.client:
-            extended.addWidget(text('Сервис проверки ещё не подключён. Базовые инструменты уже доступны.', True))
-            actions.addWidget(self.button('Открыть канал', lambda: QDesktopServices.openUrl(QUrl(build_config.COMMUNITY_CHANNEL_URL))))
-        elif controller.candidate is not None:
-            extended.addWidget(text('Подписка подтверждена. Подключаем расширенные возможности…', True))
-            actions.addWidget(self.button('Начать заново',controller.connect_telegram))
-        elif controller.connected:
-            if active and controller.parent() and getattr(controller.parent(),'control_center',None):
-                actions.addWidget(self.button('Настроить остров',lambda:controller.parent().control_center.navigate('island')))
-            actions.addWidget(self.button('Проверить подписку', controller.refresh))
-            actions.addWidget(self.button('Отключить на этом ПК', controller.disconnect))
+        connected = bool(controller and controller.connected)
+        configured = bool(controller and controller.client)
+        pairing = bool(configured and controller.client.pairing)
+        busy = bool(controller and controller.busy)
+        if active and permit.state == 'grace':
+            status, title = 'Нужно подтвердить подписку', 'Вернись в сообщество'
+            detail = 'Подпишись на канал и нажми «Проверить подписку». Расширенные инструменты пока доступны.'
+        elif active:
+            status, title = 'Подписка подтверждена', 'Всё подключено'
+            detail = 'Плавающий остров, видеоплеер для файлов, зеркало камеры и дополнительные группы доступны на этом компьютере.'
+        elif connected:
+            status, title = 'Telegram подключён', 'Подтверди подписку на канал'
+            detail = 'Открой канал, подпишись и вернись сюда для проверки. Базовые инструменты уже работают.'
+        elif pairing:
+            status, title = 'Ожидаем подтверждение', 'Продолжи в Telegram'
+            detail = 'В боте нажми «Проверить подписку». После подтверждения возможности откроются автоматически.'
         else:
-            actions.addWidget(self.button('Подключить Telegram', controller.connect_telegram))
-            if controller.client.pairing:
-                actions.addWidget(self.button('Открыть бота', lambda: QDesktopServices.openUrl(QUrl(controller.client.pairing['bot_url']))))
-        actions.addStretch()
-        extended.addLayout(actions)
-        self.layout_.addWidget(CommunityBenefits(owner))
-        frame=self.card('Что меняется в работе','Все расширенные инструменты включаются по твоему действию. Камера и превью не запускаются в фоне.')
-        grid=QGridLayout();grid.setSpacing(16)
-        for i,(title,detail) in enumerate((('Видео рядом','Открой файл или выбранное окно. Перемещай плеер; при закрытии остров плавно вернётся наверх.'),
-            ('Зеркало перед звонком','Проверь кадр. При закрытии устройство камеры освобождается.'),
-            ('Свой ритм','Листай музыку, часы и таймер. Закрепи нужную карточку.'),
-            ('Больше порядка','Добавляй группы под работу, игры и личное. Их содержимое сохраняется при завершении доступа.'))):
-            words=QVBoxLayout();label=text(title);label.setObjectName('cardTitle');words.addWidget(label);words.addWidget(text(detail,True))
-            grid.addLayout(words,i//2,i%2)
-        frame.addLayout(grid)
-        self.layout_.addWidget(text('Базовые инструменты работают без входа: чёлка, две активные группы, поиск, заметки и таймер. При завершении доступа остальные группы сохраняются в настройках. Оплата и банковская карта не нужны.',True))
-        self.layout_.addStretch()
+            status, title = 'Без оплаты · без пароля', 'Больше свободы для рабочего стола'
+            detail = 'Подпишись на Nelviro в Telegram, чтобы открыть дополнительные инструменты. Подключение займёт пару шагов.'
+        if controller and controller.candidate is not None:
+            status = 'Подключаем расширенные возможности…'
+        if not configured:
+            detail = 'Сервис проверки ещё не подключён. Базовые инструменты уже доступны без входа.'
+        self.status.setText('Проверяем подключение…' if busy else status)
+        self.title.setText(title)
+        self.detail.setText(detail)
+        self.message.setText(controller.message if controller else '')
+        self.message.setVisible(bool(self.message.text()))
+        self.primary.setText('Проверяем…' if busy else 'Открыть канал' if not configured else
+            'Проверить подписку' if connected else 'Открыть бота' if pairing else 'Подключить Telegram')
+        self.primary.setEnabled(not busy)
+        self.channel.setVisible(configured)
+        self.disconnect_button.setVisible(connected)
+        self.disconnect_button.setEnabled(not busy)
+        self.restart_button.setVisible(pairing and not connected)
+        self.restart_button.setEnabled(not busy)

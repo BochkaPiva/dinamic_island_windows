@@ -144,21 +144,25 @@ class MediaStage(QObject):
         if self.engaged and not self.owner.access.feature('island.mirror' if self.kind=='camera' else 'island.video').allowed:self.close_media()
 
     def media_menu(self):
-        from PySide6.QtWidgets import QMenu
-        from PySide6.QtGui import QCursor
-        menu=QMenu(self.owner)
-        from .hub_ui import stylesheet
-        from .brand import palette
-        menu.setStyleSheet(stylesheet(getattr(self.owner.control_center,'colors',palette())))
-        menu.addAction('Открыть видеофайл…',self.choose_file)
-        if self.player and not self.player.source().isEmpty():menu.addAction('Продолжить видео',self.resume)
-        menu.addAction('Предпросмотр окна…',self.choose_window)
-        menu.addAction('Зеркало камеры',self.choose_camera)
-        menu.addSeparator()
-        pin=menu.addAction('Закрепить текущую карточку',self.owner.activities.toggle_pin)
-        pin.setCheckable(True);pin.setChecked(self.owner.activities.pinned)
-        menu.addAction('Аудиопульт…',self.audio_menu)
-        menu.exec(QCursor.pos())
+        # Compatibility entry point; primary action never opens the old toolbox.
+        self.browser_video()
+
+    def browser_video(self):
+        from .browser_video import existing_pip, activate
+        window = existing_pip()
+        if window and activate(window):
+            return
+        self.owner._set_island_expanded(True)
+        hub = self.owner.notch_hub
+        hub.select_tab(hub.stack.indexOf(hub.browser_page))
+
+    def open_browser_video(self):
+        from .browser_video import existing_pip, browser_for, activate
+        window = existing_pip() or browser_for(self.owner.snapshot)
+        if window and activate(window):
+            return True
+        self.owner.notch_hub.browser_hint.setText('Открой нужную вкладку в браузере и нажми значок выноса над видео.')
+        return False
 
     def choose_file(self):
         if not self.allowed('island.video'):return
@@ -299,9 +303,9 @@ class MediaStage(QObject):
         from PySide6.QtGui import QCursor
         from PySide6.QtMultimedia import QMediaDevices
         menu=QMenu(self.owner)
-        from .hub_ui import stylesheet
-        from .brand import palette
-        menu.setStyleSheet(stylesheet(getattr(self.owner.control_center,'colors',palette())))
+        menu.setStyleSheet('''QMenu {background:#111114;color:#eeeef2;border:1px solid #29292f;border-radius:12px;padding:6px;}
+            QMenu::item {padding:9px 16px;border-radius:7px;} QMenu::item:selected {background:#25252c;}
+            QMenu::separator {height:1px;background:#29292f;margin:5px 10px;}''')
         menu.addSection('Медиаприложения')
         menu.addAction('Автоматический выбор',lambda:self.owner._select_source(''))
         for source in self.owner.snapshot.sources:
