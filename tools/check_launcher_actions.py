@@ -18,9 +18,14 @@ with tempfile.TemporaryDirectory() as folder:
  try:
   w.show_hub();c=w.control_center;c._setting('hub_animations',False);c._setting('hub_theme','dark')
   c.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint,True);c.setGeometry(40,40,1120,760);c.show();c.raise_();c.activateWindow();QTest.qWait(200)
-  for page in ('hub','integrations','shortcuts','account','desktop'):
+  for page in ('hub','integrations','shortcuts','account','desktop','island','timer','search','library'):
    c.navigate(page);c.feedback.hide();QTest.qWait(100)
    c.screen().grabWindow(0,c.x(),c.y(),c.width(),c.height()).save(str(out/(page+'-native.png')))
+  from island.settings_pages import PAGES
+  for title,name in (('Поведение','behavior'),('Размер и прозрачность','appearance'),('Оформление групп','group-appearance')):
+   section=next(section for section in c.subpages if section.title==title)
+   c.navigate(PAGES[section.parent_index][0]);section.click();c.feedback.hide();QTest.qWait(100)
+   c.screen().grabWindow(0,c.x(),c.y(),c.width(),c.height()).save(str(out/(name+'-native.png')))
   search=w.modules.search
   search.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint,True)
   search._query('');search.move(c.x()+190,c.y()+120);search.show();search.raise_();search.activateWindow();QTest.qWait(250)

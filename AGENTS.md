@@ -40,3 +40,11 @@ Use optional native acrylic for transient sheets/chrome with opaque fallback;
 reading surfaces remain opaque. Respect Windows transparency/high contrast, clip
 native material, and restore registered hotkeys on cancellation/deactivation.
 Never fake blur with screenshots. Compare native composition, not only API return codes.
+
+## Latest reference correction (0.11.1)
+The user rejected permanent explanatory copy and the previous composition. Follow
+current docs/NELVIRO_DESIGN.md: short task-oriented roots, separate persistent detail
+screens, one-line setting rows, on-demand help, and search that opens actual parameters.
+Do not restore broad button bars, duplicated title/name fields, technical paragraphs,
+or piles of expanding settings. Use settings_navigation.py, preserve all control/data
+and access contracts, and render root AND detail screens before declaring a design pass done.

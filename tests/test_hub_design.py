@@ -45,7 +45,7 @@ class HubDesignTests(unittest.TestCase):
         c.travel(-1)
         self.assertEqual(c.navigation.currentRow(),c.page_indices['search'])
         self.assertEqual(c.page_action_spec()[0],'Открыть поиск')
-        self.assertIn('Поиск',c.action_footer.context.text())
+        self.assertEqual(c.section_title.text(),'Поиск')
         c.travel(1)
         self.assertEqual(c.navigation.currentRow(),c.page_indices['timer'])
         c.travel(-1);c.navigate('desktop');c.travel(1)
@@ -64,6 +64,56 @@ class HubDesignTests(unittest.TestCase):
             self.assertGreater(action.caption.width(),20)
         actions[0].click()
         self.assertTrue(c.settings_search.hasFocus())
+
+    def test_detail_navigation_keeps_controls_values_and_restores_routes(self):
+        c=self.center;c._setting('hub_animations',False);c.navigate('island')
+        section=next(s for s in c.subpages if s.title=='Поведение')
+        section.click();self.assertIs(c.active_detail,section)
+        self.assertTrue(c.checks['cursor_retreat'].isVisible())
+        c.checks['cursor_retreat'].click()
+        self.assertFalse(self.w.settings.get('cursor_retreat'))
+        c.travel(-1);self.assertIsNone(c.active_detail)
+        self.assertEqual(c.section_title.text(),'Остров')
+        c.travel(1);self.assertIs(c.active_detail,section)
+        self.assertFalse(c.checks['cursor_retreat'].isChecked())
+        c.navigate('search');self.assertIsNone(c.active_detail)
+        self.assertEqual(c.page_deck.currentIndex(),0)
+
+    def test_setting_search_opens_the_matching_detail_and_focuses_control(self):
+        c=self.center;c.settings_search.setText('Сворачивание')
+        QTest.keyClick(c.settings_search,Qt.Key.Key_Return);QTest.qWait(30)
+        self.assertEqual(c.section_title.text(),'Поведение')
+        self.assertIsNotNone(c.active_detail)
+        self.assertTrue(c.values['collapse_delay'].isVisible())
+        self.assertTrue(c.values['collapse_delay'].hasFocus())
+        self.assertEqual(c.settings_search.text(),'')
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['island'])
+
+    def test_header_master_switch_is_shared_and_help_is_not_static_body_copy(self):
+        c=self.center;c.navigate('search')
+        self.assertTrue(c.checks['search_enabled'].isVisible())
+        self.assertFalse(c.checks['island_enabled'].isVisible())
+        c.checks['search_enabled'].click()
+        self.assertFalse(self.w.settings.get('search_enabled'))
+        self.assertFalse(c.module_switches['search_enabled'].isChecked())
+        self.assertEqual(c.action_footer.context.text(),'')
+
+    def test_exact_page_search_wins_over_an_embedded_setting(self):
+        c=self.center;c.settings_search.setText('таймер')
+        QTest.keyClick(c.settings_search,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+        self.assertIsNone(c.active_detail)
+
+    def test_all_preexisting_setting_controls_remain_available(self):
+        c=self.center
+        expected={'compact_width','compact_height','expanded_width','expanded_height','island_opacity','island_gap',
+            'hover_delay','collapse_delay','group_width','group_columns','group_opacity','group_hover_delay','group_collapse_delay','timer_minutes','timer_alarm_seconds'}
+        self.assertEqual(set(c.values),expected)
+        expected_toggles={'island_enabled','cursor_retreat','hide_fullscreen','volume_scroll_reverse','spectrum',
+            'spectrum_battery_save','overview_calendar','overview_focus','island_files','search_enabled','search_apps',
+            'search_files','search_glass','desktop_enabled','groups_locked','group_collect_shortcuts','timer_sound',
+            'hub_animations','autostart','layouts_enabled','workspaces_enabled','updates'}
+        self.assertEqual(set(c.checks),expected_toggles)
 
     def test_page_search_keyboard_navigation_and_clear(self):
         c=self.center
@@ -108,12 +158,11 @@ class HubDesignTests(unittest.TestCase):
     def test_refresh_keeps_uncommitted_number_input(self):
         c=self.center
         c.navigate('island')
-        from island.hub_ui import SettingsSection
-        section=next(s for s in c.findChildren(SettingsSection) if s.title=='Размер и прозрачность')
-        section.button.setChecked(True)
+        section=next(s for s in c.subpages if s.title=='Размер и прозрачность')
+        section.click()
         QTest.qWait(250)
         spin=c.values['compact_width']
-        c.pages.currentWidget().ensureWidgetVisible(spin)
+        c.detail_scroll.ensureWidgetVisible(spin)
         spin.setFocus()
         QTest.qWait(10)
         spin.lineEdit().setText('219')

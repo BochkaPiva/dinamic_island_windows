@@ -171,7 +171,7 @@ class SearchPresentation:
         self.apply_brand_theme()
         super().showEvent(event)
         from .native_material import apply_acrylic
-        self.backdrop_applied=apply_acrylic(self,light=resolved_palette(self.owner.settings)['bg']!='#161616',enabled=bool(self.owner.settings.get('search_glass')))
+        self.backdrop_applied=apply_acrylic(self,light=QColor(resolved_palette(self.owner.settings)['bg']).lightness()>127,enabled=bool(self.owner.settings.get('search_glass')))
         self.clip_surface()
 
     def clip_surface(self):

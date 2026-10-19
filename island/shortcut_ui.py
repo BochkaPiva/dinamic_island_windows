@@ -102,9 +102,9 @@ class ShortcutCapture(QWidget):
 
 
 class ShortcutDialog(QDialog):
-    def __init__(self,center,key,title):
+    def __init__(self,center,key,title,anchor=None):
         super().__init__(center,Qt.WindowType.Dialog|Qt.WindowType.FramelessWindowHint)
-        self.center=center;self.owner=center.owner;self.key=key
+        self.center=center;self.owner=center.owner;self.key=key;self.anchor=anchor
         self.colors=resolved_palette(self.owner.settings)
         self.material=False;self._restored=False
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -166,10 +166,10 @@ class ShortcutDialog(QDialog):
         super().showEvent(event)
         self.suspend()
         from .native_material import apply_acrylic
-        self.material=apply_acrylic(self,light=self.colors['bg']!='#161616')
+        self.material=apply_acrylic(self,light=QColor(self.colors['bg']).lightness()>127)
         path=QPainterPath();path.addRoundedRect(QRectF(self.rect()),12,12)
         if self.material:self.setMask(QRegion(path.toFillPolygon().toPolygon()))
-        anchor=self.center.key_editors.get(self.key)
+        anchor=self.anchor if self.anchor is not None else self.center.key_editors.get(self.key)
         if anchor is not None and anchor.isVisible():
             edge=anchor.mapToGlobal(QPoint(anchor.width(),anchor.height()))
             bounds=anchor.screen().availableGeometry()

@@ -88,6 +88,11 @@ class ControlCenter(QWidget, SettingsPages):
         self.resize(1120, 760)
         self.usage = ProcessUsage()
         self._workspace_ids = []
+        self.subpages=[]
+        self.setting_search_entries=[]
+        self.active_detail=None
+        self.extra_key_editors=[]
+        self.header_switches={}
         self._apply_theme()
         self.outer=QVBoxLayout(self)
         layout=self.outer
@@ -161,7 +166,7 @@ class ControlCenter(QWidget, SettingsPages):
         side.addWidget(version)
         body.addWidget(sidebar)
         content=QVBoxLayout()
-        content.setContentsMargins(26,20,18,0)
+        content.setContentsMargins(30,16,24,0)
         content.setSpacing(12)
         self.section_title=text('Модули')
         self.section_title.setObjectName('heading')
@@ -175,9 +180,25 @@ class ControlCenter(QWidget, SettingsPages):
         page_header.addWidget(self.section_title,1)
         self.page_action=button('Открыть',self.run_page_action)
         self.page_action.setObjectName('quiet')
+        self.page_action.setFixedWidth(28)
+        self.help_button=button('',self.show_page_help)
+        self.help_button.setIcon(icon('info',self.colors['muted'],18))
+        self.help_button.setObjectName('windowButton');self.help_button.setFixedSize(28,30)
+        self.help_button.setAccessibleName('О разделе');page_header.addWidget(self.help_button)
         page_header.addWidget(self.page_action)
+        self.master_slot=QHBoxLayout();self.master_slot.setContentsMargins(8,0,0,0)
+        page_header.addLayout(self.master_slot)
         content.addLayout(page_header)
-        content.addWidget(self.pages,1)
+        self.page_deck=QStackedWidget()
+        self.page_deck.addWidget(self.pages)
+        self.transition.setParent(self.page_deck)
+        from .scrolling import SmoothScrollArea
+        self.detail_scroll=SmoothScrollArea();self.detail_scroll.setWidgetResizable(True)
+        self.detail_host=QWidget();self.detail_layout=QVBoxLayout(self.detail_host)
+        self.detail_layout.setContentsMargins(0,0,0,0)
+        self.detail_scroll.setWidget(self.detail_host)
+        self.page_deck.addWidget(self.detail_scroll)
+        content.addWidget(self.page_deck,1)
         body.addLayout(content,1)
         layout.addLayout(body, 1)
         self.checks = {}
@@ -196,13 +217,14 @@ class ControlCenter(QWidget, SettingsPages):
         for _,_,factory in PAGES:
             getattr(self,factory)()
         self.navigation.currentRowChanged.connect(self.select_page)
+        self.navigation.itemClicked.connect(lambda _:self.navigate(PAGES[self.navigation.currentRow()][0]) if self.active_detail else None)
         self.navigation.setCurrentRow(0)
         self.settings_search.textChanged.connect(self.filter_pages)
         self.settings_search.returnPressed.connect(self.open_first_match)
         QShortcut(QKeySequence('Ctrl+F'),self,activated=self.focus_settings_search)
         self.action_footer=ActionFooter()
         self.resource_label=self.action_footer.context
-        self.resource_label.setText('Изменения сохраняются автоматически')
+        self.resource_label.setText('')
         self.shortcut_label=QLabel('')
         self.shortcut_label.hide()
         self.action_footer.add_action('Найти',('Ctrl','F'),self.focus_settings_search)
@@ -211,7 +233,7 @@ class ControlCenter(QWidget, SettingsPages):
         QShortcut(QKeySequence('Ctrl+K'),self,activated=self.show_page_actions)
         QShortcut(QKeySequence('Alt+Left'),self,activated=lambda:self.travel(-1))
         QShortcut(QKeySequence('Alt+Right'),self,activated=lambda:self.travel(1))
-        self._history=[self.navigation.currentRow()];self._history_index=0
+        self._history=[(self.navigation.currentRow(),None)];self._history_index=0
         self._travelling=False
         self.update_page_action()
         self.refresh_timer = QTimer(self)
@@ -238,12 +260,61 @@ class ControlCenter(QWidget, SettingsPages):
             'account':('Открыть канал',lambda:self._url(QUrl('https://t.me/Nelviro'))),
         }.get(key,('Открыть остров',self.owner._show_panel))
 
+    def show_page_help(self):
+        from PySide6.QtWidgets import QMessageBox
+        key=PAGES[max(0,self.navigation.currentRow())][0]
+        help_text={
+            'hub':'Выбери модуль для предпросмотра. Двойной щелчок открывает его настройки. Переключатели включают модули, профиль управляет их работой.',
+            'island':'Форма меняется сразу. Плавающий остров доступен подписчикам. В остальных разделах можно отдельно настроить размеры, звук и содержимое.',
+            'search':'Вводи имя приложения, файла или путь. Enter открывает выбранное, Ctrl+K показывает действия. Для файлов используется индекс Windows.',
+            'desktop':'Выбери группу слева. Название редактируется сверху; Enter сохраняет. Добавляй файлы кнопкой или перетаскиванием. Удаление группы не удаляет оригиналы. Ярлыки Nelviro сохраняет в своей библиотеке.',
+            'library':'Файлы хранятся как ссылки на оригиналы. Заметки сохраняются автоматически на этом компьютере. Быстрая заметка общая с островом.',
+            'timer':'Введи минуты прямо в цифры или используй колесо. Enter применяет, Esc отменяет. Отсчёт продолжается при скрытом окне.',
+            'workspaces':'Выбери окно и нажми зону. Окно изменит положение и размер. Рабочие наборы и зоны при перетаскивании подключаются через PowerToys.',
+            'shortcuts':'Нажми сочетание и введи новое. Используй Ctrl, Alt или Win с клавишей. Конфликтующие сочетания не заменят действующие.',
+            'integrations':'Настройки применяются сразу. Данные находятся на этом компьютере; автозапуск открывает трей и включённые модули.',
+            'updates':'Проверка ищет новую версию. После загрузки проверяется контрольная сумма; установка создаёт резервную копию и перезапускает приложение.',
+            'account':'Подписка на канал открывает плавающий остров, дополнительные группы, видеофайлы, камеру и закрепление. Проверка раз в 6 часов; последнее подтверждение действует до 72 часов без интернета.'}
+        QMessageBox.information(self,self.section_title.text(),help_text.get(key,''))
+
     def update_page_action(self):
         if hasattr(self,'action_footer'):
-            title,_=self.page_action_spec();self.page_action.setText(title+' ↗')
-            self.back_button.setEnabled(self._history_index>0)
+            title,_=self.page_action_spec();self.page_action.setText('↗')
+            self.page_action.setAccessibleName(title);self.page_action.setToolTip(title)
+            self.back_button.setEnabled(self._history_index>0 or self.active_detail is not None)
             self.forward_button.setEnabled(self._history_index<len(self._history)-1)
-            self.action_footer.context.setText(PAGES[max(0,self.navigation.currentRow())][1]+' · Сохраняется автоматически')
+            self.action_footer.context.setText('')
+            current=PAGES[max(0,self.navigation.currentRow())][0]+'_enabled'
+            for key,control in self.header_switches.items():control.setVisible(key==current and self.active_detail is None)
+
+    def record_route(self):
+        if not hasattr(self,'_history') or self._travelling:return
+        route=(self.navigation.currentRow(),self.active_detail)
+        if self._history[self._history_index]==route:return
+        self._history=self._history[:self._history_index+1]+[route]
+        self._history_index=len(self._history)-1
+
+    def close_detail(self):
+        if self.active_detail:
+            self.active_detail.body.hide();self.active_detail.body.setParent(self)
+            self.active_detail=None
+        self.page_deck.setCurrentIndex(0)
+        self.section_title.setText(PAGES[max(0,self.navigation.currentRow())][1])
+
+    def open_detail(self,section):
+        old=self.page_deck.grab() if self.isVisible() else None
+        self.transition.animation.stop();self.transition.done()
+        self.close_detail()
+        self.active_detail=section
+        self.detail_layout.addWidget(section.body)
+        section.body.show()
+        self.page_deck.setCurrentIndex(1)
+        self.section_title.setText(section.title)
+        self.detail_scroll.verticalScrollBar().setValue(0)
+        self.record_route();self.update_page_action()
+        section.body.setFocusPolicy(Qt.FocusPolicy.StrongFocus);section.body.setFocus()
+        if old is not None and self.owner.settings.get('hub_animations'):
+            self.transition.start(old,self.page_deck.grab())
 
     def run_page_action(self):
         self.page_action_spec()[1]()
@@ -261,7 +332,13 @@ class ControlCenter(QWidget, SettingsPages):
         index=self._history_index+step
         if 0<=index<len(self._history):
             self._history_index=index;self._travelling=True
-            self.navigation.setCurrentRow(self._history[index]);self._travelling=False
+            row,detail=self._history[index]
+            self.close_detail();self.settings_search.clear()
+            self.navigation.setCurrentRow(row)
+            if detail:self.open_detail(detail)
+            self._travelling=False;self.update_page_action()
+        elif step<0 and self.active_detail:
+            self.close_detail();self.record_route();self.update_page_action()
 
     def focus_settings_search(self):
         if self.sidebar_collapsed: self.toggle_sidebar()
@@ -280,23 +357,30 @@ class ControlCenter(QWidget, SettingsPages):
 
     def navigate(self,key):
         if self.settings_search.text(): self.settings_search.clear()
-        self.navigation.setCurrentRow(self.page_indices.get(key,0))
+        self.close_detail()
+        index=self.page_indices.get(key,0)
+        self.navigation.setCurrentRow(index)
+        self.record_route();self.update_page_action()
 
     def select_page(self,index):
         if index<0 or index==self.pages.currentIndex(): return
-        old=self.pages.grab() if self.isVisible() else None
+        old=self.page_deck.grab() if self.isVisible() else None
         self.transition.animation.stop()
         self.transition.hide()
         self.section_title.setText(PAGES[index][1])
-        if hasattr(self,'_history') and not self._travelling:
-            self._history=self._history[:self._history_index+1]+[index]
-            self._history_index=len(self._history)-1
+        self.close_detail()
+        self.record_route()
         self.update_page_action()
         self.pages.setCurrentIndex(index)
         self.pages.currentWidget().ensurePolished()
         if self.pages.currentWidget().layout(): self.pages.currentWidget().layout().activate()
         if old is not None and self.owner.settings.get('hub_animations'):
-            self.transition.start(old,self.pages.grab())
+            self.transition.start(old,self.page_deck.grab())
+
+    def index_setting(self,title,layout,control,detail=''):
+        parent=layout.parentWidget()
+        detail_page=next((section for section in self.subpages if section.body==parent or section.body.isAncestorOf(parent)),None) if parent else None
+        self.setting_search_entries.append((title+' '+detail,self.pages.count()-1,detail_page,control))
 
     def filter_pages(self,value):
         synonyms={'island':'чёлка челка музыка прозрачность эквалайзер', 'desktop':'группы папки ярлыки прозрачность',
@@ -304,17 +388,30 @@ class ControlCenter(QWidget, SettingsPages):
             'timer':'таймер минуты фокус звук','library':'заметки файлы текст','shortcuts':'клавиши сочетания хоткей'}
         count=0
         for i,(key,label,_) in enumerate(PAGES):
-            visible=value.casefold().strip() in (label+' '+synonyms.get(key,'')).casefold()
+            visible=value.casefold().strip() in (label+' '+synonyms.get(key,'')+' '+' '.join(entry[0] for entry in self.setting_search_entries if entry[1]==i)+' '+' '.join(section.title for section in self.subpages if section.parent_index==i)).casefold()
             self.navigation.item(i).setHidden(not visible)
             count+=visible
         self.search_empty.setVisible(not count)
 
     def open_first_match(self):
+        query=self.settings_search.text().strip().casefold()
+        exact=next((key for key,label,_ in PAGES if query==label.casefold()),None)
+        exact=exact or {'таймер':'timer','чёлка':'island','челка':'island','заметки':'library','группы':'desktop','обновление':'updates'}.get(query)
+        if exact:self.navigate(exact);return
+        matches=[entry for entry in self.setting_search_entries if query and query in entry[0].casefold()]
+        if matches:
+            _,row,section,control=matches[0]
+            self.navigate(PAGES[row][0])
+            if section:self.open_detail(section)
+            scroll=self.detail_scroll if section else self.pages.currentWidget()
+            scroll.ensureWidgetVisible(control);control.setFocus()
+            return
+        section=next((section for section in self.subpages if query and query in section.title.casefold()),None)
+        if section:
+            self.navigate(PAGES[section.parent_index][0]);self.open_detail(section);return
         for i in range(self.navigation.count()):
             if not self.navigation.item(i).isHidden():
-                self.navigation.setCurrentRow(i)
-                self.pages.setFocus()
-                return
+                self.navigate(PAGES[i][0]);self.pages.setFocus();return
 
     def toggle_maximized(self):
         self.showNormal() if self.isMaximized() else self.showMaximized()
@@ -344,7 +441,7 @@ class ControlCenter(QWidget, SettingsPages):
 
     def refresh_material(self):
         from .native_material import apply_acrylic
-        self.material=apply_acrylic(self,light=self.colors['bg']!='#161616')
+        self.material=apply_acrylic(self,light=self.owner.settings.get('hub_theme')=='light' or self.colors['bg'].upper()=='#F5F5F5')
         self.setStyleSheet(stylesheet(self.colors,glass=self.material))
         self.clip_material()
         self.update()
@@ -379,7 +476,9 @@ class ControlCenter(QWidget, SettingsPages):
 
     def keyPressEvent(self,event):
         if event.key()==Qt.Key.Key_Escape:
-            self.settings_search.clear() if self.settings_search.text() else self.close()
+            if self.active_detail:self.travel(-1)
+            elif self.settings_search.text():self.settings_search.clear()
+            else:self.close()
         else: super().keyPressEvent(event)
 
 
@@ -397,53 +496,36 @@ class ControlCenter(QWidget, SettingsPages):
         return layout
 
     def _module(self, layout, key, name, detail):
-        frame=QFrame()
-        frame.setObjectName('settingRow')
-        row = QHBoxLayout(frame)
-        row.setContentsMargins(0,8,0,8)
-        description = QVBoxLayout()
-        description.setSpacing(2)
-        description.addWidget(text(name))
-        if detail: description.addWidget(text(detail, True))
-        row.addLayout(description, 1)
-        checkbox = ToggleSwitch(name)
-        checkbox.setObjectName(key)
-        checkbox.toggled.connect(lambda value, k=key: self._setting(k, value))
-        row.addWidget(checkbox)
-        self.checks[key] = checkbox
+        checkbox=ToggleSwitch(name);checkbox.setObjectName(key)
+        checkbox.setToolTip(detail or name)
+        checkbox.toggled.connect(lambda value,k=key:self._setting(k,value))
+        self.checks[key]=checkbox
+        self.index_setting(name,layout,checkbox,detail)
+        if key in {'island_enabled','search_enabled','desktop_enabled'}:
+            self.header_switches[key]=checkbox;self.master_slot.addWidget(checkbox);checkbox.hide()
+            return
+        frame=QFrame();frame.setObjectName('settingRow');frame.setMinimumHeight(52)
+        row=QHBoxLayout(frame);row.setContentsMargins(0,7,0,7)
+        label=text(name);label.setToolTip(detail);row.addWidget(label,1);row.addWidget(checkbox)
         layout.addWidget(frame)
 
     def _workspaces_page(self):
         from .window_layout_ui import WindowLayoutPanel
-        layout=self._page()
-        self.visual_header(layout,'Окна и наборы','Выбери приложение и место на экране. Положение и размер меняются вместе.', 'workspaces')
-        frame,inside=self.card('Разместить окно')
-        self.window_layout=WindowLayoutPanel()
-        inside.addWidget(self.window_layout)
-        layout.addWidget(frame)
-        frame,inside=self.fold('Сохранённые наборы · PowerToys')
-        row=QHBoxLayout()
-        row.addWidget(button('Создать набор',self._workspace_editor))
-        row.addWidget(button('Обновить',self._refresh_workspaces))
-        inside.addLayout(row)
-        self.workspaces=QListWidget()
-        self.workspaces.setMinimumHeight(140)
-        self.workspaces.itemDoubleClicked.connect(lambda _:self._launch_workspace())
-        inside.addWidget(self.workspaces)
-        self.launch_button=button('Запустить выбранный набор',self._launch_workspace)
-        inside.addWidget(self.launch_button)
-        self.workspace_empty=text('',True);inside.addWidget(self.workspace_empty)
-        layout.addWidget(frame)
-        frame,inside=self.fold('Зоны при перетаскивании · PowerToys')
-        inside.addWidget(text('Shift при перетаскивании включает FancyZones. Окно занимает выбранную зону, если его минимальный размер это позволяет.',True))
-        inside.addWidget(button('Открыть редактор зон',self._zones_editor))
-        inside.addWidget(button('Подключение PowerToys →',lambda:self.navigate('integrations')))
-        layout.addWidget(frame)
-        layout.addStretch()
+        layout=self._page();frame,inside=self.card('Расположение');layout.addWidget(frame)
+        self.window_layout=WindowLayoutPanel();inside.addWidget(self.window_layout)
+        frame,links=self.card('');layout.addWidget(frame)
+        section,inside=self.fold('Рабочие наборы');links.addWidget(section)
+        row=QHBoxLayout();row.addWidget(button('Создать',self._workspace_editor));row.addStretch();row.addWidget(button('Обновить',self._refresh_workspaces));inside.addLayout(row)
+        self.workspaces=QListWidget();self.workspaces.setMinimumHeight(140);self.workspaces.itemDoubleClicked.connect(lambda _:self._launch_workspace());inside.addWidget(self.workspaces)
+        self.launch_button=button('Запустить',self._launch_workspace);inside.addWidget(self.launch_button,0,Qt.AlignmentFlag.AlignLeft)
+        self.workspace_empty=text('',True);inside.addWidget(self.workspace_empty);inside.addStretch()
+        section,inside=self.fold('Зоны при перетаскивании');links.addWidget(section)
+        frame,group=self.card('PowerToys');inside.addWidget(frame)
+        self.link(group,'Открыть редактор зон',self._zones_editor)
+        self.link(group,'Подключение',lambda:self.navigate('integrations'));inside.addStretch();layout.addStretch()
 
     def _setting(self, key, value):
-        if self.owner._toggle_setting(key, value):
-            self._message("Сохранено")
+        self.owner._toggle_setting(key,value)
         if key=='hub_theme': self._apply_theme()
         if key=='hub_animations' and not value: self.transition.animation.stop(); self.transition.done()
         self.refresh()
@@ -573,6 +655,8 @@ class ControlCenter(QWidget, SettingsPages):
         for key,widget in getattr(self,'module_switches',{}).items():
             widget.blockSignals(True); widget.setChecked(w.settings.get(key)); widget.blockSignals(False); widget.update()
         if hasattr(self,'hero_preview'): self.hero_preview.update()
+        for key,editor in self.extra_key_editors:
+            editor.setKeySequence(QKeySequence(w.settings.get(key).replace('Win+','Meta+')))
         for key,status in self.key_status.items():
             binding = w.hotkeys.get(key)
             value = w.settings.get(key)
@@ -608,7 +692,8 @@ class ControlCenter(QWidget, SettingsPages):
         from .brand import resolved_palette
         self.colors=resolved_palette(self.owner.settings)
         self.setStyleSheet(stylesheet(self.colors))
-        self.setFont(font(14))
+        self.setFont(font(15))
+        if hasattr(self,'help_button'):self.help_button.setIcon(icon('info',self.colors['muted'],18))
         if hasattr(self,'search_action'): self.search_action.setIcon(icon('search',self.colors['muted']))
         if hasattr(self,'collapse_navigation'): self.collapse_navigation.setIcon(icon('windows',self.colors['muted'],16))
         from .hub_ui import NAV_ICONS

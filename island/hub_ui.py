@@ -145,7 +145,7 @@ class ToggleSwitch(QCheckBox):
 
 
 class NavDelegate(QStyledItemDelegate):
-    def sizeHint(self,option,index): return QSize(205,62 if index.data(Qt.ItemDataRole.UserRole)=="shortcuts" else 40)
+    def sizeHint(self,option,index): return QSize(205,64 if index.data(Qt.ItemDataRole.UserRole)=="shortcuts" else 42)
 
     def paint(self,p,option,index):
         colors=self.parent().window().colors
@@ -157,7 +157,7 @@ class NavDelegate(QStyledItemDelegate):
         if index.data(Qt.ItemDataRole.UserRole)=='shortcuts':
             if not self.parent().property('collapsed'):
                 p.setFont(font(10,500));p.setPen(QColor(colors['muted']))
-                p.drawText(rect.adjusted(12,0,0,0),Qt.AlignmentFlag.AlignTop,'ПАРАМЕТРЫ')
+                p.drawText(rect.adjusted(12,0,0,0),Qt.AlignmentFlag.AlignTop,'Настройки')
             rect.setTop(rect.top()+22)
         p.setPen(Qt.PenStyle.NoPen)
         if selected or hovered:
@@ -167,11 +167,13 @@ class NavDelegate(QStyledItemDelegate):
             p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['accent']),1))
             p.drawRoundedRect(rect.adjusted(.5,.5,-.5,-.5),6,6)
         color=colors['text'] if selected else colors['muted']
-        glyph(p,NAV_ICONS.get(index.data(Qt.ItemDataRole.UserRole),'hub'),QRectF(rect.x()+12,rect.center().y()-8,16,16),color)
-        p.setFont(font(14,500 if selected else 400))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(colors['raised']))
+        tile=QRectF(rect.x()+8,rect.center().y()-13,26,26);p.drawRoundedRect(tile,6,6)
+        glyph(p,NAV_ICONS.get(index.data(Qt.ItemDataRole.UserRole),'hub'),tile.adjusted(5,5,-5,-5),color)
+        p.setFont(font(15,500 if selected else 400))
         p.setPen(QColor(color))
         if not self.parent().property("collapsed"):
-            p.drawText(QRectF(rect.x()+39,rect.y(),rect.width()-49,rect.height()),Qt.AlignmentFlag.AlignVCenter,index.data())
+            p.drawText(QRectF(rect.x()+44,rect.y(),rect.width()-52,rect.height()),Qt.AlignmentFlag.AlignVCenter,index.data())
         if index.data(Qt.ItemDataRole.UserRole)=='updates' and self.parent().window().owner.updates.state in {'available','ready'}:
             p.setBrush(QColor(colors['accent']))
             p.setPen(Qt.PenStyle.NoPen)
@@ -293,6 +295,12 @@ class CatalogRow(QPushButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clicked.connect(callback)
 
+    def mouseDoubleClickEvent(self,event):
+        destination=self.property('destination')
+        if event.button()==Qt.MouseButton.LeftButton and destination:
+            self.window().navigate(destination);event.accept()
+        else:super().mouseDoubleClickEvent(event)
+
     def paintEvent(self,event):
         c=self.window().colors
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -303,8 +311,8 @@ class CatalogRow(QPushButton):
         p.setBrush(QColor(c['raised']));p.drawRoundedRect(QRectF(10,(self.height()-32)/2,32,32),7,7)
         self.icon().paint(p,16,(self.height()-20)//2,20,20)
         width=max(1,self.width()-68)
-        p.setPen(QColor(c['text']));p.setFont(font(14,500))
-        p.drawText(QRectF(54,9,width,20),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,width))
+        p.setPen(QColor(c['text']));p.setFont(font(15,400))
+        p.drawText(QRectF(54,9 if self.detail else 0,width,20 if self.detail else self.height()),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,width))
         p.setPen(QColor(c['muted']));p.setFont(font(12))
         p.drawText(QRectF(54,30,width,18),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.detail,Qt.TextElideMode.ElideRight,width))
         if self.hasFocus():
@@ -403,13 +411,13 @@ class SettingsSection(QFrame):
 def stylesheet(c,*,glass=False):
     sidebar="transparent" if glass else c["side"]
     return f"""
-        QWidget {{background:transparent;color:{c['text']};font-family:'Golos Text';font-size:14px;}}
+        QWidget {{background:transparent;color:{c['text']};font-family:'Golos Text';font-size:15px;}}
         QDialog,QMessageBox {{background:{c['surface']};color:{c['text']};}}
         QMenu,QToolTip {{background:{c['raised']};color:{c['text']};border:1px solid {c['line']};border-radius:12px;padding:6px;}}
         QMenu::item {{padding:8px 14px;border-radius:5px;}}
         QMenu::item:selected {{background:{c['selection']};}}
         QLabel#brand {{font-size:15px;font-weight:600;}}
-        QLabel#heading {{font-size:21px;font-weight:500;margin:0 0 4px 0;}}
+        QLabel#heading {{font-size:20px;font-weight:500;margin:0 0 4px 0;}}
         QLabel#heroTitle {{font-size:22px;font-weight:600;}}
         QLabel#cardTitle {{font-size:16px;font-weight:600;}}
         QLabel#secondary,QLabel#hint {{color:{c['muted']};font-size:12px;}}
@@ -420,17 +428,17 @@ def stylesheet(c,*,glass=False):
         QPushButton#hintAction {{background:transparent;border:0;padding:0;}}
         QPushButton#hintAction:hover,QPushButton#hintAction:focus {{background:{c['selection']};}}
         QFrame#sectionWrapper {{background:transparent;border:0;}}
-        QFrame#inspector {{background:{c['surface']};border:1px solid {c['line']};border-radius:10px;}}
+        QFrame#inspector {{background:{c['surface']};border:0;border-radius:13px;}}
         QLabel#tableHeading {{color:{c['muted']};font-size:12px;padding:5px 10px;}}
         QLabel#toast {{background:{c['raised']};border:1px solid {c['line']};border-radius:10px;padding:10px 15px;color:{c['text']};}}
         QLabel#resource {{color:{c['muted']};font-size:10px;}}
-        QFrame#card {{background:{c['surface']};border:1px solid {c['line']};border-radius:9px;}}
+        QFrame#card {{background:{c['surface']};border:0;border-radius:13px;}}
         QFrame#groupPane {{background:transparent;border:0;}}
         QFrame#sidebar {{background:{sidebar};border:0;border-radius:0;}}
         QFrame#hero {{background:{c['surface']};border:0;border-radius:8px;}}
         QFrame#segments {{background:{c['field']};border:1px solid {c['line']};border-radius:10px;}}
-        QFrame#settingRow {{border:0;border-bottom:1px solid {c['line']};}}
-        QPushButton {{background:{c['raised']};border:1px solid {c['line']};border-radius:6px;padding:6px 12px;}}
+        QFrame#settingRow {{border:0;}}
+        QPushButton {{background:{c['raised']};border:0;border-radius:7px;padding:7px 12px;}}
         QPushButton:hover {{background:{c['selection']};}}
         QPushButton:pressed {{background:{c['line']};}}
         QPushButton:checked {{background:{c['selection']};border-color:{c['accent']};}}
@@ -454,14 +462,18 @@ def stylesheet(c,*,glass=False):
         QPushButton#catalogRow:focus {{border:1px solid {c["accent"]};}}
         QPushButton#segment {{background:transparent;border:0;padding:7px 10px;color:{c['muted']};}}
         QPushButton#segment:checked {{background:{c['selection']};color:{c['text']};}}
-        QLineEdit,QComboBox,QSpinBox,QKeySequenceEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:6px;padding:6px;selection-background-color:{c['selection']};}}
-        QLineEdit:focus,QComboBox:focus,QSpinBox:focus,QKeySequenceEdit:focus {{border-color:{c['accent']};}}
-        QPlainTextEdit {{background:{c['field']};border:1px solid {c['line']};border-radius:6px;padding:10px;selection-background-color:{c['selection']};}}
+        QLineEdit,QComboBox,QSpinBox,QKeySequenceEdit {{background:{c['field']};border:0;border-radius:6px;padding:7px;selection-background-color:{c['selection']};}}
+        QLineEdit:focus,QComboBox:focus,QSpinBox:focus,QKeySequenceEdit:focus {{border:1px solid {c['muted']};}}
+        QFrame#settingRow QSpinBox,QFrame#settingRow QComboBox {{background:transparent;}}
+        QFrame#settingRow QComboBox:hover,QFrame#settingRow QSpinBox:hover {{background:{c['raised']};}}
+        QLineEdit#groupName {{background:transparent;border:0;font-size:18px;padding:3px 0;}}
+        QPlainTextEdit {{background:{c['field']};border:0;border-radius:10px;padding:14px;selection-background-color:{c['selection']};}}
         QComboBox::drop-down {{border:0;width:22px;}}
+        QComboBox::down-arrow {{image:none;}}
         QSpinBox::up-button,QSpinBox::down-button {{background:transparent;border:0;width:18px;}}
         QSpinBox::up-button:hover,QSpinBox::down-button:hover {{background:{c['raised']};}}
         QComboBox QAbstractItemView {{background:{c['raised']};color:{c['text']};selection-background-color:{c['selection']};padding:6px;border:1px solid {c['line']};}}
-        QListWidget {{background:{c['field']};border:1px solid {c['line']};border-radius:10px;padding:5px;outline:0;}}
+        QListWidget {{background:{c['field']};border:0;border-radius:10px;padding:5px;outline:0;}}
         QListWidget#navigation {{background:transparent;border:0;padding:0;}}
         QListWidget::item {{padding:8px;border-radius:7px;}}
         QListWidget::item:selected {{background:{c['selection']};color:{c['text']};}}

@@ -149,10 +149,9 @@ class PresentationTests(unittest.TestCase):
 
     def test_page_scroll_is_inertial_and_stops_when_hidden(self):
         w=self.w;w.show_hub();c=w.control_center;c.resize(900,600);c.navigate("island")
-        from island.hub_ui import SettingsSection
-        next(s for s in c.findChildren(SettingsSection) if s.title=="Размер и прозрачность").button.setChecked(True)
+        next(s for s in c.subpages if s.title=="Размер и прозрачность").click()
         QTest.qWait(250)
-        scroll=c.pages.currentWidget();bar=scroll.verticalScrollBar()
+        scroll=c.detail_scroll;bar=scroll.verticalScrollBar()
         self.assertGreater(bar.maximum(),60)
         bar.setValue(0)
         event=QWheelEvent(QPointF(20,20),QPointF(20,20),QPoint(),QPoint(0,-120),

@@ -1,120 +1,85 @@
-# Nelviro interface · 0.11
+# Nelviro settings · 0.11.1
 
-## Approved direction
+## Brief
 
-The latest user clarification takes precedence over Brandbook v1.0's Glacier UI
-accent: settings, search and desktop groups use neutral black/gray surfaces and
-selection, visually guided by the supplied Raycast screenshots. Preserve the
-original N identity and licensed Golos Text. Do not copy Raycast assets or code.
-Reference: https://manual.raycast.com/settings .
+The user rejected the preceding recoloring/catalog passes. The new baseline is the
+supplied Raycast Settings screenshots: quiet neutral surfaces, readable grouped rows,
+clear hierarchy, and direct navigation. Persistent explanation paragraphs, repeated
+labels, broad action bars and expanding piles of controls are removed.
 
-`island/brand.py` owns semantic colors. Dark: background #161616, sidebar #1C1C1C,
-settings sections #242424, raised controls #303030, selection #343434, text #F2F2F2.
-The light palette is neutral too. No blue/teal selection, gradients, glow or fake blur. The original logo may retain
-its color. The later shortcut-sheet reference adds real acrylic on transient
-panels and the settings chrome; reading surfaces stay opaque.
+Preserve the N mark and Golos Text; stay in Python/PySide6/Qt Widgets. Frontend Design
+(Anthropic) and UI UX Pro Max are advisory. Their web-stack defaults do not apply.
+The reference and the user's explicit black/gray direction take priority.
 
-## Composition
+## Tokens and composition
 
-- A quiet, thin title bar. Integrated sidebar with 40 px navigation rows; a separate
-  Parameters group for shortcuts, application, updates and community.
-- The sidebar folds to icons. Every icon retains a tooltip and accessible name.
-  Ctrl+F unfolds it and focuses settings search. Page IDs remain stable.
-- The shell names the current section once. Descriptions are short and subordinate.
-- Modules form one compact catalog, with a single selected inspector. Only the
-  selected preview is visible; no grid of simultaneously animated cards.
-- Settings group related rows on one charcoal surface. Label left, control right.
-  Additional settings use the common disclosure. No cards nested in cards.
-- Useful previews use real existing models. Do not invent illustrations for ordinary
-  application settings, hotkeys, notes or window management. The group editor comes
-  before its optional preview. Focus keeps its editable, live timer.
-- Community shows real connection status, one primary action, a literal feature
-  comparison and one selectable form preview. Keep its widget tree persistent on
-  controller/access notifications; never rebuild the UI on each refresh.
+- Background #111111; sidebar #202020; group #1C1C1C; raised #303030;
+  text #F2F2F2; secondary #A6A6A6. Light mode uses the neutral LIGHT palette.
+- Golos Text: 15 px body/navigation, 20 px section title, 14 px group title,
+  12–13 px subordinate status. No tracked uppercase eyebrows.
+- Sidebar 218 px, collapsible to 54 px; 42 px navigation rows. Content has a
+  shared header with history, help, launch action and the module master switch.
+- Related controls share one rounded surface, with subtle internal separators.
+  A setting is normally one 52 px row: name left, control right.
+- No permanent help paragraph under each label. Tooltips and the header information
+  action explain settings on demand. Keep actionable error, pairing, download and
+  recovery instructions visible when that state actually needs them.
+- A detail screen is a task, not another simultaneous column. Back/Escape returns
+  to the parent; forward restores the previous detail. No destruction/recreation
+  of forms when navigating.
 
-## Components and tokens
+```
+[sidebar]  [back / forward] Section              [help] [launch] [on]
+           Group
+           ┌─────────────────────────────────────────────┐
+           │ Name                                control │
+           │ Next task                         summary › │
+           └─────────────────────────────────────────────┘
+```
 
-Reuse `hub_ui.py`: Navigation/NavDelegate, CatalogRow, ToggleSwitch,
-SettingsSection, ElidedLabel, WindowHeader, ContentTransition, icon and stylesheet.
-shortcut_ui.py provides ShortcutButton, ShortcutCapture and ShortcutDialog.
-SettingsPages
-card/number and ControlCenter._module build consistent groups and setting rows.
-Use existing vector glyphs from ui_tokens.py; no emoji or new icon package.
+## Navigation and scenarios
 
-Body text 14 px, supporting text 11–12 px, group title 14 px, page title 21 px.
-Rows ~56 px for a two-line catalog; 40 px navigation. Settings/controls use 6–8 px
-radii. Use 4/8 px spacing increments; no giant promotional hero.
-`brand.MOTION`: response 120 ms, toggle 180 ms, groups 320 ms, island 380 ms.
-Respect hub_animations; do not poll a second media source to animate a preview.
-No hidden preview clocks or permanent decorative motion.
+Keep the 11 stable root page IDs. There are 10 detail screens:
+Island: size/opacity, behavior, sound, content, video/camera;
+Desktop: group appearance; Focus: completion; Windows: workspaces and drag zones;
+Application: PowerToys. Each detail has a persistent body in one shared scroll viewport.
 
-## Compatibility
+Settings search indexes actual parameter names and help, not only section labels.
+An exact page name/alias wins; a parameter match opens its containing detail, scrolls
+to its control and focuses it. Ctrl+F, Ctrl+K, Alt+Left/Right and Escape remain available.
+History includes detail routes and replaces its forward branch on new navigation.
+The active sidebar item returns to its root. Only one live preview remains active.
 
-Keep CloudIsland.exe, installer AppId, Cloud Island data/autostart/IPC identities,
-DPAPI context, installation binding, stored keys/data formats and Telegram protocol.
-The membership model remains free plus channel-member capabilities, without payment.
-The video feature is local files and camera, not a promised browser video stream.
-Search uses the same optional native acrylic adapter with an opaque fallback; the rounded mask follows its animated height. No screen pixels are used as a runtime background.
+Groups: select an ID-bound record, edit its name in place, add/drop files. The `…`
+menu contains Rename, Show on desktop and Delete. No duplicate title/name/Save rows.
+Appearance is a separate screen. Existing collection/save/restore semantics stay intact.
 
-## Verification and maintenance
+Focus: editable timer, start/pause, reset and presets first; completion settings second.
+Files and notes: two clear tabs, compact actions, persistent local models.
+Community: connection state/action and a short real comparison. Preserve its widget
+objects across controller notifications; never rebuild the panel on refresh.
 
-Run desktop unittest discovery, `tools/check_hub_design.py`, and
-`tools/check_raycast_ui.py OUTPUT` in fresh Windows processes at actual DPR 1/1.5/2.
-Inspect every page in dark/light at logical widths 900/1120, keyboard actions,
-empty/long text, reduced motion and hidden timers. A scale factor multiplies Windows
-native scale: record devicePixelRatioF, not only QT_SCALE_FACTOR.
-Run packaging/build.ps1 for packaged self-test and dependency/license audit.
-The complete function/access map and verification limits are in
-[NELVIRO_RAYCAST_UI.md](NELVIRO_RAYCAST_UI.md).
-New pages must reuse these components. Do not reintroduce blue selection, giant
-preview grids, decorative headers or duplicate labels as features are added.
+## Native material and implementation
 
-## Shortcut interaction and materials
+`brand.py` owns colors, `hub_ui.py` the shell and shared controls.
+`settings_navigation.py` provides SettingsLink, SettingsSubpage, SettingsSurface and
+SettingsCombo. `settings_pages.py` composes screens; ControlCenter routes them.
+Use the existing glyph system; no emoji or borrowed Raycast assets.
 
-The latest cropped Raycast reference is a behavior reference too: clicking a
-keycap opens a 474 px floating recorder, with large separate keys and a quiet
-footer containing the action, Save/Return and Cancel/Escape. No row of native
-text input + Apply + Manual + Disable buttons. Advanced manual/disable actions
-remain in the row menu. Validation and conflicts stay inside the sheet.
-Suspend only Nelviro's registered hotkeys while capturing; restore them on cancel,
-close or deactivation. Restore before atomic rebind so existing conflict/rollback
-logic remains authoritative. Support Cyrillic layouts via native virtual letter keys.
+Optional native acrylic is used for chrome/transient surfaces with opaque fallback,
+Windows transparency/high contrast respected, and rounded native masks. Product
+backgrounds never use screenshots. Main reading surfaces remain opaque. Native
+composition captures must be made over owned fixtures; QWidget.grab omits DWM blur.
+Use palette lightness to select dark/light material, never a hardcoded background equality.
 
-native_material.py isolates the optional Windows 11 composition accent API in a
-private WinDLL. It is undocumented and may be unavailable: the interface must work
-with a fully opaque fallback. Respect Windows transparency and high-contrast
-preferences. Native blur is used, never captured pixels/blurred wallpaper assets.
-Main content is opaque; only title/sidebar chrome and the shortcut sheet expose
-the material. Rounded native masks clip the accent to the actual window contour.
-A positive DWM HRESULT alone is insufficient proof: the layered-window transient
-backdrop was visually opaque in the checker/band fixture and is not used.
-Inspect the composed native sheet over an owned fixture, because QWidget.grab()
-does not include compositor blur. tools/check_shortcut_ui.py checks cancel, save,
-duplicate preservation and records native composition. The opaque fallback is
-covered by offscreen GUI tests; no global keyboard hook is installed.
+Motion follows brand.MOTION and hub_animations. Hidden previews and scroll timers stop.
+Forms retain controls/drafts; settings keep atomic persistence and validation. Never
+change installation identities, data formats, membership protocol or access limits for design.
 
-## Whole-window composition pass
+## Checks
 
-The 218 px sidebar and content header are shared by every settings page. Back/forward
-buttons and Alt+Left/Right follow actual section history; navigating after going back
-replaces the forward branch. Ctrl+F focuses section search. The bottom ActionFooter
-contains separately drawn key hints and real Find/Actions controls. Ctrl+K opens a
-context menu for the current section, rather than a decorative shortcut label.
-HintButton sizes itself from its child layout so hints never get clipped.
-
-Settings group labels sit above a single bordered charcoal surface. The module
-catalog uses icon tiles, a column header and one selected inspector. Group collections
-use an icon/title/detail delegate; IDs and saved editor drafts are unchanged. Community
-uses the same bounded surfaces for connection state and its comparison table.
-
-The launcher is 720 logical pixels wide (bounded by the available monitor). Empty
-queries suggest the five existing Nelviro commands. Category labels live inside result
-rows rather than becoming selectable dummy items. Rows retain their Result model and
-existing async generation guards. Return opens; Ctrl+K or Actions opens the real menu.
-File results offer reveal/copy-path, and every state offers Search Settings. A popup
-must not trigger deactivation hiding of its owning launcher. Escape, arrows, wheel
-scroll, long-name elision, opaque mode and reduced motion remain supported.
-
-This is an iterative visual pass against the supplied Raycast references, not a claim
-of pixel-identical completion. Native composition examples and a launcher action check
-are recorded by tools/check_launcher_actions.py over owned Qt fixture windows.
+Run desktop tests, tools/check_raycast_ui.py (root AND detail screens), native group
+management and launcher/shortcut checks. Test dark/light, widths 900/1120, actual
+DPR 1/1.5/2, long titles, search routing, back/forward and reduced motion. Complete
+packaging/build.ps1 including packaged self-test and dependency/license audit.
+See NELVIRO_RAYCAST_UI.md for the preservation map, actual captures and results.

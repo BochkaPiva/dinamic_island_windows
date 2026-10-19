@@ -45,13 +45,19 @@ with tempfile.TemporaryDirectory() as folder:
             previews=[p for p in c.catalog_stack.findChildren(ModulePreview) if p.isVisible()]
             assert len(previews)<=1
         c.catalog_buttons['island'].click()
-        from island.hub_ui import SettingsSection
-        c.resize(900,600);c.navigate('island')
-        for section in c.findChildren(SettingsSection):
-            if section.window()!=c or not section.isVisible(): continue
-            section.button.setChecked(True);QTest.qWait(10)
-            assert c.pages.currentWidget().horizontalScrollBar().maximum()==0,section.title
-            section.button.setChecked(False)
+        for theme in ('dark','light'):
+            c._setting('hub_theme',theme)
+            for width,height in ((1120,760),(900,600)):
+                c.resize(width,height)
+                for i,section in enumerate(c.subpages):
+                    from island.settings_pages import PAGES
+                    c.navigate(PAGES[section.parent_index][0]);section.click();QTest.qWait(20)
+                    assert c.active_detail is section
+                    horizontal=c.detail_scroll.horizontalScrollBar().maximum()
+                    assert horizontal==0,(section.title,theme,width,horizontal)
+                    c.grab().save(str(out/f'detail-{i}-{theme}-{width}.png'))
+                    report['pages'].append({'detail':section.title,'theme':theme,'width':width,'horizontal':horizontal})
+                    c.travel(-1);assert c.active_detail is None
         c.navigate('hub')
         c.toggle_sidebar();QTest.qWait(20)
         assert c.sidebar.width()==54

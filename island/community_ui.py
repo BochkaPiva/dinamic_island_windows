@@ -182,12 +182,11 @@ class CommunityBenefits(QWidget):
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0);root.setSpacing(12)
         table=QFrame();table.setObjectName('card')
         grid=QGridLayout(table);grid.setContentsMargins(16,14,16,14);grid.setHorizontalSpacing(20);grid.setVerticalSpacing(16)
-        for column,title in enumerate(('Возможности','Без входа','С подпиской')):
+        for column,title in enumerate(('Возможности','Для всех','Подписчикам')):
             label=text(title);label.setObjectName('paneTitle');grid.addWidget(label,0,column)
         for row,values in enumerate((('Форма','Чёлка','Чёлка и остров'),
             ('Группы на рабочем столе','2 активные','Все группы'),
-            ('Поиск, заметки, таймер','Доступны','Доступны'),
-            ('Видеофайлы, камера, закрепление','—','Доступны')),1):
+            ('Видео, камера, закрепление','—','Доступны')),1):
             for column,value in enumerate(values):
                 grid.addWidget(text(value,column>0),row,column)
         grid.setColumnStretch(0,1)
@@ -235,10 +234,10 @@ class CommunityPanel(QWidget):
         inside.setContentsMargins(16, 14, 16, 14)
         inside.setSpacing(12)
         self.status = text('')
-        self.status.setObjectName('secondary')
+        self.status.setObjectName('paneTitle')
         self.status.setAccessibleName('Состояние подключения Telegram')
         self.title = text('')
-        self.title.setObjectName('paneTitle')
+        self.title.setObjectName('secondary')
         self.detail = text('', True)
         self.message = text('', True)
         for label in (self.status, self.title, self.detail, self.message):
@@ -344,7 +343,7 @@ class CommunityPanel(QWidget):
             status, title = 'Ожидаем подтверждение', 'Продолжи в Telegram'
             detail = 'В боте нажми «Проверить подписку». После подтверждения возможности откроются автоматически.'
         else:
-            status, title = 'Без оплаты · без пароля', 'Расширенные возможности'
+            status, title = 'Telegram не подключён', 'Расширенные возможности'
             detail = 'Подпишись на Nelviro в Telegram, чтобы открыть дополнительные инструменты. Подключение займёт пару шагов.'
         if controller and controller.candidate is not None:
             status = 'Подключаем расширенные возможности…'
@@ -352,7 +351,9 @@ class CommunityPanel(QWidget):
             detail = 'Сервис проверки ещё не подключён. Базовые инструменты уже доступны без входа.'
         self.status.setText('Проверяем подключение…' if busy else status)
         self.title.setText(title)
-        self.detail.setText(detail)
+        self.title.setVisible(pairing and not active)
+        self.detail.setText(detail if pairing or connected and not active or active and permit.state=='grace' else 'Базовые инструменты работают без входа.' if not configured else '')
+        self.detail.setVisible(bool(self.detail.text()))
         self.message.setText(controller.message if controller else '')
         self.message.setVisible(bool(self.message.text()))
         self.primary.setText('Проверяем…' if busy else 'Открыть канал' if not configured else

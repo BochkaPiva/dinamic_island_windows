@@ -5,6 +5,8 @@ from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QComboBox,QPushBut
 from .window_layouts import zones,list_windows,place_window
 
 
+from .settings_navigation import SettingsCombo as QComboBox
+
 class ZonePicker(QWidget):
     selected=Signal(int)
     def __init__(self):
@@ -52,7 +54,7 @@ class ZonePicker(QWidget):
 class WindowLayoutPanel(QWidget):
     def __init__(self):
         super().__init__()
-        root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0);root.setSpacing(12)
+        root=QVBoxLayout(self);root.setContentsMargins(0,14,0,14);root.setSpacing(14)
         row=QHBoxLayout();self.windows=QComboBox();self.windows.setMinimumWidth(0)
         self.windows.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.windows.setMinimumContentsLength(15)
@@ -65,7 +67,7 @@ class WindowLayoutPanel(QWidget):
         self.preset.setAccessibleName('Раскладка окна')
         root.addWidget(self.preset)
         self.picker=ZonePicker();root.addWidget(self.picker)
-        self.status=QLabel('Выбери приложение и нажми на нужную зону. Размер окна изменится вместе с положением.')
+        self.status=QLabel('')
         self.status.setObjectName('secondary');self.status.setWordWrap(True);root.addWidget(self.status)
         self.preset.currentIndexChanged.connect(self.change_preset)
         self.picker.selected.connect(self.place)

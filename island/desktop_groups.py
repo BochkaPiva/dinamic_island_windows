@@ -929,7 +929,6 @@ class DesktopGroups(QObject):
         self.owner.show_hub()
         center=self.owner.control_center
         center.navigate("desktop")
-        center.group_tabs.setCurrentIndex(0)
         if identifier:
             center.group_editor.select_id(identifier)
 
