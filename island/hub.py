@@ -119,10 +119,11 @@ class CalendarPeek(QWidget):
         center = self.today.addDays(round(self.position))
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QColor("#e1e1e7"))
+        from .island_material import island_ink
+        painter.setPen(island_ink(self.window()))
         painter.setFont(gs.font(10,600))
         painter.drawText(0,15,loc.toString(center,"MMM").capitalize())
-        painter.setPen(QColor("#64646f"))
+        painter.setPen(QColor("#777777") if island_ink(self.window()).lightness()<128 else QColor("#ADADB8"))
         painter.drawText(self.width()-34,15,"‹")
         painter.drawText(self.width()-14,15,"›")
         cell = self.width()/7
@@ -135,19 +136,19 @@ class CalendarPeek(QWidget):
             edge = min(1.,max(.15, min(x+cell,self.width()-x)/cell))
             painter.setOpacity(edge)
             painter.setFont(gs.font(8,500))
-            painter.setPen(QColor("#6e6e7a"))
+            painter.setPen(QColor("#777777") if island_ink(self.window()).lightness()<128 else QColor("#ADADB8"))
             painter.drawText(QRectF(x,24,cell,16),Qt.AlignmentFlag.AlignCenter,loc.toString(date,"ddd")[:2])
             rect = QRectF(x,43,cell,23)
             if offset == 0:
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(QColor("#4e86ff"))
                 painter.drawEllipse(rect.center(),10.5,10.5)
-            painter.setPen(QColor("#ffffff" if offset == 0 else "#a9a9b4"))
+            painter.setPen(QColor("#ffffff") if offset==0 else island_ink(self.window()))
             painter.setFont(gs.font(9,600 if offset == 0 else 400))
             painter.drawText(rect,Qt.AlignmentFlag.AlignCenter,str(date.day()))
         painter.restore()
         painter.setFont(gs.font(8,400))
-        painter.setPen(QColor("#666671"))
+        painter.setPen(QColor("#777777") if island_ink(self.window()).lightness()<128 else QColor("#ADADB8"))
         caption = "Сегодня" if round(self.position) == 0 else loc.toString(center,"d MMMM")
         painter.drawText(QRectF(0,73,self.width(),16),Qt.AlignmentFlag.AlignCenter,caption)
 
@@ -342,6 +343,25 @@ class NotchHub(QWidget):
     timer_finished = Signal()
     source_selected = Signal(str)
 
+    def apply_material_colors(self,ink):
+        if getattr(self,'_material_ink',None)==ink:return
+        self._material_ink=ink
+        secondary='#555555' if ink=='#171717' else '#BFC0C7'
+        for label in (self.artist,self.battery,self.elapsed,self.duration,self.focus_caption,self.note_status):label.setStyleSheet('color:'+secondary+';background:transparent;')
+        extra='' if ink!='#171717' else """
+            QLabel {color:#171717;}
+            QPushButton {color:#363636;}
+            QPushButton:hover, QPushButton:checked {background:rgba(0,0,0,24);color:#111111;}
+            QSlider::groove:horizontal {background:rgba(0,0,0,35);}
+            QSlider::sub-page:horizontal {background:#363636;}
+            QSlider::handle:horizontal {background:#171717;}
+        """
+        self.setStyleSheet(self._material_base_qss+extra)
+        for readout in self.findChildren(TimerReadout):
+            if not hasattr(readout,'_material_base_qss'):readout._material_base_qss=readout.styleSheet()
+            readout.setStyleSheet(readout._material_base_qss+'QLineEdit#timerReadout {color:'+ink+';}')
+        self.update()
+
     def __init__(self, owner, store: Path):
         super().__init__(owner.card)
         self.owner, self.store = owner, store
@@ -366,6 +386,7 @@ class NotchHub(QWidget):
             QListWidget, QPlainTextEdit {background:#111115;color:#d0d0d6;border:0;border-radius:10px;padding:8px;selection-background-color:#2d4b8e;}
             QListWidget::item {padding:5px;} QListWidget::item:selected {background:#263559;}
         """)
+        self._material_base_qss=self.styleSheet()
         root = QVBoxLayout(self)
         root.setContentsMargins(22, 10, 22, 13)
         root.setSpacing(9)

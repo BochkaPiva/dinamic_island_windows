@@ -45,7 +45,7 @@ class IslandGlassTests(unittest.TestCase):
   self.assertEqual(effective_appearance(self.w),Appearance())
   self.assertEqual(self.w.settings.get('island_material'),'glass');self.assertEqual(self.w.settings.get('island_color'),'#327FAC')
   self.member();self.assertEqual(effective_appearance(self.w),Appearance(True,'#327FAC'))
-  self.w._toggle_setting('island_material','black');self.assertEqual(effective_appearance(self.w),Appearance())
+  self.w._toggle_setting('island_material','black');self.assertEqual(effective_appearance(self.w),Appearance(False,'#327FAC'))
  def test_classic_pixels_and_transparent_outside_glass(self):
   path=QPainterPath();path.addRoundedRect(QRectF(0,0,180,38),19,19)
   for appearance in (Appearance(),Appearance(True,'#FFFFFF')):
@@ -78,21 +78,33 @@ class IslandGlassTests(unittest.TestCase):
 
  def test_glass_motion_uses_smooth_alpha_without_polygon_mask(self):
   self.member()
-  with patch('island.native_material.island_transparency_available',return_value=True):
+  with patch('island.native_material.island_transparency_available',return_value=True),patch('island.glass_backend.GlassBackdrop') as backend:
+   backend.return_value.configure.return_value=True
    self.w._toggle_setting('island_material','glass');self.w._toggle_setting('island_style','floating');self.w.show()
    self.assertTrue(self.w.mask().isEmpty())
    self.w.card.set_retreat(.8,.5);self.assertTrue(self.w.mask().isEmpty())
    self.w.card.set_retreat(0,.5);self.w.media_stage.begin('file','Fixture');QTest.qWait(20)
    self.assertTrue(self.w.mask().isEmpty());self.w.media_stage.close_media();QTest.qWait(20)
    self.assertFalse(self.w.media_stage.engaged)
- def test_optical_shape_contains_soft_shading_and_cached_illumination(self):
-  from island.island_material import reflected_light
+ def test_material_has_no_fake_specular_spots_or_white_outline(self):
   path=QPainterPath();path.addRoundedRect(QRectF(0,0,180,38),19,19)
   image=QImage(360,76,QImage.Format.Format_ARGB32_Premultiplied);image.setDevicePixelRatio(2);image.fill(Qt.GlobalColor.transparent)
   p=QPainter(image);p.setRenderHint(QPainter.RenderHint.Antialiasing);paint_island(p,path,Appearance(True),native=True);p.end()
   self.assertEqual(image.pixelColor(0,0).alpha(),0)
   self.assertTrue(any(0<image.pixelColor(x,y).alpha()<100 for x in range(40) for y in range(20)))
-  self.assertGreater(image.pixelColor(35,22).red(),image.pixelColor(180,38).red())
-  self.assertIs(reflected_light(180,38),reflected_light(180,38))
+  self.assertEqual(image.pixelColor(35,22),image.pixelColor(180,38))
+ def test_color_applies_to_both_materials_and_preview_cancel_restores_solid_color(self):
+  self.member();self.w._toggle_setting('island_color','#FFFFFF')
+  self.assertEqual(effective_appearance(self.w),Appearance(False,'#FFFFFF'))
+  from island.island_material import island_ink
+  self.assertEqual(island_ink(self.w).name(),'#171717')
+  self.assertIn('#171717',self.w.notch_idle.styleSheet())
+  d=self.dialog();d.choose(QColor('#112233'));d.live_preview()
+  self.assertEqual(effective_appearance(self.w),Appearance(False,'#112233'))
+  self.assertEqual(island_ink(self.w).name(),'#f2f2f2')
+  d.reject();d.deleteLater();self.assertEqual(effective_appearance(self.w),Appearance(False,'#FFFFFF'))
+  self.w._toggle_setting('island_material','glass');self.assertEqual(effective_appearance(self.w),Appearance(True,'#FFFFFF'))
+  self.free();self.assertEqual(effective_appearance(self.w),Appearance())
+
 
 if __name__=='__main__':unittest.main()

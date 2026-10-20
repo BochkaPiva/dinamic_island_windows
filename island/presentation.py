@@ -41,6 +41,7 @@ class IslandVisibility(QObject):
 
     def refresh_region(self):
         w=self.owner
+        if getattr(w,"_glass_backend",None):w._glass_backend.sync()
         media=bool(getattr(w,'media_stage',None) and w.media_stage.engaged)
         region=None
         if w.floating_mode() and not media:

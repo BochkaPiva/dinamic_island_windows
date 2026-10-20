@@ -12,3 +12,10 @@ winrt-Windows.Foundation.Collections==3.2.1
 winrt-Windows.Media.Control==3.2.1
 winrt-Windows.Storage.Streams==3.2.1
 typing_extensions==4.16.0
+winrt-Windows.UI==3.2.1
+winrt-Windows.UI.Composition==3.2.1
+winrt-Windows.UI.Composition.Desktop==3.2.1
+winrt-Windows.UI.Composition.Interop==3.2.1
+winrt-Windows.System==3.2.1
+winrt-Windows.System.Interop==3.2.1
+winrt-Windows.Foundation.Numerics==3.2.1

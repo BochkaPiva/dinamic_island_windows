@@ -107,7 +107,7 @@ class ModulePreview(QWidget):
     def island(self, p, c):
         w = self.width()
         from .style import island_outline
-        from .island_material import paint_island,effective_appearance
+        from .island_material import paint_island,effective_appearance,appearance_ink
         floating=self.display_style=='floating' if self.display_style else self.owner.floating_mode()
         p.save();p.translate(12,6 if floating else 0)
         paint_island(p,island_outline(w-24,self.height()-12 if floating else self.height()-6,floating),self.appearance_override or effective_appearance(self.owner))
@@ -121,17 +121,17 @@ class ModulePreview(QWidget):
             self.cover=rounded_art(data,art_size,8,self.devicePixelRatioF())
         art_y=(self.height()-art_size)/2-5
         p.drawPixmap(24,round(art_y),self.cover)
-        p.setPen(QColor('#F5F6F8')); p.setFont(font(12,500))
+        p.setPen(appearance_ink(self.appearance_override or effective_appearance(self.owner))); p.setFont(font(12,500))
         calendar=w>=400
         width=max(35,int(w*.48)-75) if calendar else w-105
         title=snap.title if snap and snap.title else 'Нет воспроизведения'
         p.drawText(QRectF(74,self.height()/2-20,width,20),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(title,Qt.TextElideMode.ElideRight,width))
-        p.setPen(QColor('#AFB7C3')); p.setFont(font(10))
+        p.setPen(QColor('#555555') if appearance_ink(self.appearance_override or effective_appearance(self.owner)).lightness()<128 else QColor('#BFC0C7')); p.setFont(font(10))
         artist=snap.artist if snap and snap.artist else 'Музыка появится здесь'
         p.drawText(QRectF(74,self.height()/2+2,width,18),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(artist,Qt.TextElideMode.ElideRight,width))
-        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#E2E2E2'))
+        p.setPen(Qt.PenStyle.NoPen); p.setBrush(appearance_ink(self.appearance_override or effective_appearance(self.owner)))
         levels=self.owner.status_mark.levels
         left=24+art_size/2-(len(levels)*3+max(0,len(levels)-1)*4)/2
         for i,level in enumerate(levels):
@@ -148,7 +148,7 @@ class ModulePreview(QWidget):
             if i==3:
                 p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#333333'))
                 p.drawRoundedRect(QRectF(x,46,cell,24),7,7)
-            p.setPen(QColor('#E2E2E2' if i==3 else '#F5F6F8')); p.setFont(font(11,500))
+            p.setPen(QColor('#E2E2E2') if i==3 else appearance_ink(self.appearance_override or effective_appearance(self.owner))); p.setFont(font(11,500))
             p.drawText(QRectF(x,46,cell,24),Qt.AlignmentFlag.AlignCenter,str(day.day))
 
     def groups(self,p,c):
@@ -264,16 +264,16 @@ class FormPreview(ModulePreview):
         x=(self.width()-width)/2;y=23 if self.display_style=='floating' else 8
         p.save();p.translate(x,y)
         path=island_outline(width,height,self.display_style=='floating')
-        from .island_material import effective_appearance,paint_island
+        from .island_material import effective_appearance,paint_island,appearance_ink
         paint_island(p,path,self.appearance_override or effective_appearance(self.owner));p.setClipPath(path)
         data=self.owner.snapshot.thumb if self.owner and self.owner.snapshot else b''
         if self.cover is None or self.cover_key!=data:
             self.cover_key=data;self.cover=rounded_art(data,24,6,self.devicePixelRatioF())
         p.drawPixmap(20,7,self.cover)
-        p.setPen(QColor('#F5F6F8'));p.setFont(font(10,500))
+        p.setPen(appearance_ink(self.appearance_override or effective_appearance(self.owner)));p.setFont(font(10,500))
         p.drawText(QRectF(52,0,max(20,width-118),38),Qt.AlignmentFlag.AlignCenter,
             self.owner.activities.text() if self.owner and self.owner.activities.current()!='media' else 'Музыка')
-        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#E2E2E2'))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(appearance_ink(self.appearance_override or effective_appearance(self.owner)))
         levels=self.owner.status_mark.levels if self.owner else (0,)*5
         for i,level in enumerate(levels):
             height=3+max(0,min(1,level))*15
