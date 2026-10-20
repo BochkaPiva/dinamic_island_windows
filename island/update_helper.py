@@ -59,7 +59,8 @@ def validate_handoff(path,directory):
     if path.parent.name!=value['version'] or Path(value['installer']).is_symlink():
         raise ValueError('Неверный путь установщика')
     installer=Path(value['installer']).resolve()
-    if installer.parent!=path.parent or installer.name!=f"CloudIsland-Setup-{value['version']}-win-x64.exe" or installer.is_symlink():
+    allowed_names={f"{brand}-Setup-{value['version']}-win-x64.exe" for brand in ('Nelviro','CloudIsland')}
+    if installer.parent!=path.parent or installer.name not in allowed_names or installer.is_symlink():
         raise ValueError('Неверный путь установщика')
     verify_installer(installer,value['sha256'],value['size'])
     source=Path(value['source_exe']).resolve()

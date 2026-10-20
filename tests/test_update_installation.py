@@ -38,6 +38,8 @@ class ReleaseTrustTests(unittest.TestCase):
             (directory/'SHA256SUMS.txt').write_bytes(b'checksums')
             channel=build_channel(directory,f'# Changelog\n\n## v{__version__}\n\nНаш релиз\n\n## v0.0.0\nOld')
             info=release_info(channel,current='0.0.0')
+            self.assertEqual(info['installer']['name'],name)
+            self.assertEqual([a['name'] for a in channel['assets']],[name,'SHA256SUMS.txt'])
             self.assertEqual(info['notes'],'Наш релиз')
             self.assertEqual(info['installer']['size'],11)
             self.assertEqual(info['checksums']['size'],9)
@@ -261,6 +263,49 @@ class HelperTests(unittest.TestCase):
             with self.assertRaises(ValueError): validate_handoff(outside,self.directory)
         with patch('island.update_helper.process_image',return_value=None):
             with self.assertRaises(ValueError): validate_handoff(self.manifest,self.directory)
+
+    def test_primary_and_legacy_names_pass_real_download_handoff(self):
+        for brand in ('Nelviro','CloudIsland'):
+            with self.subTest(brand=brand):
+                release=payload(__version__,b'MZinstaller')
+                asset=release['assets'][0]
+                asset['name']=f'{brand}-Setup-{__version__}-win-x64.exe'
+                asset['browser_download_url']=REPO_URL+'/releases/download/v'+__version__+'/'+asset['name']
+                manager=UpdateChecker(directory=self.directory)
+                manager.info=release_info(release,current='0.0.0')
+                checksum=(self.value['sha256']+'  '+asset['name']).encode()
+                def response(url):
+                    return io.BytesIO(checksum if url.endswith('SHA256SUMS.txt') else b'MZinstaller')
+                with patch('island.update_manager.open_release',side_effect=response):
+                    manager._download(manager.info)
+                QTest.qWait(10)
+                self.assertEqual(manager.state,'ready')
+                checked=[]
+                def launch(command,**kwargs):
+                    checked.append(validate_handoff(Path(command[-1]),self.directory))
+                    return Mock(wait=Mock(return_value=0))
+                with patch('island.update_helper.process_image',return_value=self.source), \
+                     patch('island.update_manager.subprocess.Popen',side_effect=launch):
+                    manager._handoff({'source_exe':str(self.source),'parent_pid':123})
+                self.assertEqual(len(checked),1)
+                self.assertEqual(Path(checked[0]['installer']).name,asset['name'])
+                manager.deleteLater()
+
+    def test_handoff_rejects_other_names_versions_and_outside_paths(self):
+        for name in ('Other.exe',f'Nelviro-Setup-9.9.9-win-x64.exe',
+                     f'Nelviro-Setup-{__version__}-win-x64.exe.bak'):
+            with self.subTest(name=name):
+                candidate=self.stage/name
+                candidate.write_bytes(self.installer.read_bytes())
+                atomic_json(self.manifest,{**self.value,'installer':str(candidate)})
+                with patch('island.update_helper.process_image',return_value=self.source):
+                    with self.assertRaisesRegex(ValueError,'Неверный путь установщика'):
+                        validate_handoff(self.manifest,self.directory)
+        outside=self.directory/f'Nelviro-Setup-{__version__}-win-x64.exe'
+        outside.write_bytes(self.installer.read_bytes())
+        atomic_json(self.manifest,{**self.value,'installer':str(outside)})
+        with self.assertRaisesRegex(ValueError,'Неверный путь установщика'):
+            validate_handoff(self.manifest,self.directory)
 
     def test_backup_retains_all_owned_data_without_recursive_cache(self):
         backup=snapshot_data(self.directory,__version__)
