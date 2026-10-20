@@ -30,17 +30,20 @@ Copy-Item -LiteralPath 'LICENSE','THIRD_PARTY.md' -Destination 'dist/CloudIsland
 Copy-Item -LiteralPath 'build/licenses' -Destination 'dist/CloudIsland' -Recurse -Force
 python tools/audit_bundle.py dist/CloudIsland
 if ($LASTEXITCODE -ne 0) { throw 'Bundle audit failed' }
-Compress-Archive -Path 'dist/CloudIsland/*' -DestinationPath "dist/release/CloudHub-$version-preview-win-x64.zip" -Force
+Compress-Archive -Path 'dist/CloudIsland/*' -DestinationPath "dist/release/Nelviro-Portable-$version-win-x64.zip" -Force
 if (-not $SkipInstaller) {
     $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if (-not $iscc) { throw 'Inno Setup 6 not installed' }
     & $iscc "/DAppVersion=$version" 'packaging/installer.iss'
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
-    Copy-Item -LiteralPath "packaging/Output/CloudIsland-Setup-$version-win-x64.exe" -Destination $release -Force
+    Copy-Item -LiteralPath "packaging/Output/Nelviro-Setup-$version-win-x64.exe" -Destination $release -Force
+    # Existing updaters accept this exact filename. Keep byte-identical compatibility
+    # bytes; public primary downloads and the current updater use the Nelviro name.
+    Copy-Item -LiteralPath "packaging/Output/Nelviro-Setup-$version-win-x64.exe" -Destination (Join-Path $release "CloudIsland-Setup-$version-win-x64.exe") -Force
 }
 $checksums = Get-ChildItem -LiteralPath $release -File | Sort-Object Name | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $($_.Name)"
 }
 $checksums | Set-Content -LiteralPath 'dist/release/SHA256SUMS.txt' -Encoding ascii
-Write-Host "Cloud Hub ${version}: private candidate in dist/release; no automatic publication"
+Write-Host "Nelviro ${version}: private candidate in dist/release; no automatic publication"

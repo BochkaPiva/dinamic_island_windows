@@ -56,3 +56,11 @@ current docs/NELVIRO_DESIGN.md. Keep shared live models, direct actions and neut
 colors. Native DWM acrylic blurs the external desktop; optics.py refracts only the
 app-owned internal light field. Never call that external-desktop refraction, warp
 labels, or capture the screen as a product backdrop. Preserve opaque fallback.
+
+## Island material (0.12)
+Classic black remains the default and free. Glass and color are separate member
+capabilities; preserve saved appearance across expiry and render black until renewal.
+Use island_material.py and color_ui.py. Rounded islands use per-pixel translucency
+and softly shaded curved reflections; accent Acrylic is rectangular and must not be enabled on this
+shape. Do not describe this as desktop refraction or blur. Respect system transparency
+and high contrast with an opaque fallback. Keep shortcut/install/data identities.

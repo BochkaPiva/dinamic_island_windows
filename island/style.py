@@ -43,11 +43,11 @@ def rounded_art(data, size, radius=7, ratio=1.0):
         # Original vector note: no dependency on a font's music glyph coverage.
         from PySide6.QtCore import QPointF
         from PySide6.QtGui import QPen
-        p.setPen(QPen(QColor("#B4DFF2"), max(1., size*.035),
+        p.setPen(QPen(QColor("#E5E5E5"), max(1., size*.035),
                       Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.56,size*.65))
         p.drawLine(QPointF(size*.56,size*.28),QPointF(size*.72,size*.34))
-        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor("#B4DFF2"))
+        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor("#E5E5E5"))
         p.drawEllipse(QRectF(size*.34,size*.58,size*.24,size*.16))
     else:
         source = source.scaled(round(size * ratio), round(size * ratio),
@@ -164,6 +164,8 @@ class NotchCard(QWidget):
             return False
         self._retreat, self._retreat_x, self._retreat_wake, self._retreat_spread = values
         self.update()
+        owner=self.parentWidget()
+        if getattr(owner,'island_material',False) and hasattr(owner,'_visibility'):owner._visibility.refresh_region()
         return True
 
     def retreat_boundary(self, x):
@@ -238,4 +240,5 @@ class NotchCard(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.fillPath(self.notch_path(), QColor("black"))
+        from .island_material import effective_appearance,paint_island
+        paint_island(p,self.notch_path(),effective_appearance(self.parentWidget()),native=getattr(self.parentWidget(),'island_material',False))

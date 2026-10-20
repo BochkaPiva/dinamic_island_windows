@@ -24,7 +24,7 @@ PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 SetupIconFile=cloud.ico
-UninstallDisplayIcon={app}\CloudIsland.exe
+UninstallDisplayIcon={app}\_internal\island\assets\brand\Nelviro.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
@@ -34,7 +34,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=Output
-OutputBaseFilename=CloudIsland-Setup-{#AppVersion}-win-x64
+OutputBaseFilename=Nelviro-Setup-{#AppVersion}-win-x64
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -50,23 +50,46 @@ Source: "..\THIRD_PARTY.md"; DestDir: "{app}"
 Source: "..\build\licenses\*"; DestDir: "{app}\licenses"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\CloudIsland.exe"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\CloudIsland.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\CloudIsland.exe"; IconFilename: "{app}\_internal\island\assets\brand\Nelviro.ico"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\CloudIsland.exe"; IconFilename: "{app}\_internal\island\assets\brand\Nelviro.ico"; Check: WantDesktopShortcut
 
 [InstallDelete]
 ; Application runtime contains no user data. Never retain plugins from a previous Qt.
 Type: filesandordirs; Name: "{app}\_internal"
 #ifndef ValidationBuild
-Type: files; Name: "{autoprograms}\Cloud Hub.lnk"
-Type: files; Name: "{autodesktop}\Cloud Hub.lnk"
-Type: files; Name: "{autoprograms}\Cloud Island.lnk"
-Type: files; Name: "{autodesktop}\Cloud Island.lnk"
+Type: files; Name: "{autoprograms}\Cloud Hub.lnk"; Check: OwnedShortcut('{autoprograms}\Cloud Hub.lnk')
+Type: files; Name: "{autodesktop}\Cloud Hub.lnk"; Check: OwnedShortcut('{autodesktop}\Cloud Hub.lnk')
+Type: files; Name: "{autoprograms}\Cloud Island.lnk"; Check: OwnedShortcut('{autoprograms}\Cloud Island.lnk')
+Type: files; Name: "{autodesktop}\Cloud Island.lnk"; Check: OwnedShortcut('{autodesktop}\Cloud Island.lnk')
 #endif
 
 [Run]
 Filename: "{app}\CloudIsland.exe"; Description: "{cm:LaunchProgram,Nelviro}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+var
+  PreserveDesktopShortcut: Boolean;
+
+function OwnedShortcut(Path: String): Boolean;
+var
+  Shell, Link: Variant;
+begin
+  Result := False;
+  if not FileExists(ExpandConstant(Path)) then exit;
+  try
+    Shell := CreateOleObject('WScript.Shell');
+    Link := Shell.CreateShortcut(ExpandConstant(Path));
+    Result := CompareText(Link.TargetPath, ExpandConstant('{app}\CloudIsland.exe')) = 0;
+  except
+    Result := False;
+  end;
+end;
+
+function WantDesktopShortcut: Boolean;
+begin
+  Result := WizardIsTaskSelected('desktopicon') or PreserveDesktopShortcut;
+end;
+
 procedure CloseIsland;
 var
   ResultCode: Integer;
@@ -79,6 +102,8 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  PreserveDesktopShortcut := OwnedShortcut('{autodesktop}\Cloud Hub.lnk') or
+    OwnedShortcut('{autodesktop}\Cloud Island.lnk') or OwnedShortcut('{autodesktop}\Nelviro.lnk');
   CloseIsland;
   Result := '';
 end;

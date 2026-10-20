@@ -20,7 +20,7 @@ class Settings:
                 "search_enabled": True, "layouts_enabled": True, "workspaces_enabled": True,
                 "manage_powertoys": False,
                 "compact_width": 180, "compact_height": 38,
-                "island_style": "notch", "island_gap": 16, "expanded_width": 560, "expanded_height": 170, "island_opacity": 100,
+                "island_style": "notch", "island_material":"black", "island_color":"#000000", "island_gap": 16, "expanded_width": 560, "expanded_height": 170, "island_opacity": 100,
                 "island_files": False,
                 "overview_calendar": True, "overview_focus": True,
                 "hover_delay": 180, "collapse_delay": 600, "cursor_retreat": True,
@@ -55,6 +55,9 @@ class Settings:
         if self.values["profile"] not in {"auto", "work", "battery", "game"}:
             self.values["profile"] = "auto"
         if self.values['island_style'] not in {'notch','floating'}: self.values['island_style']='notch'
+        from .island_material import valid_color
+        if self.values['island_material'] not in {'black','glass'}:self.values['island_material']='black'
+        if not valid_color(self.values['island_color']):self.values['island_color']='#000000'
         if self.values['hub_theme'] not in {'dark','light','system'}: self.values['hub_theme']='dark'
 
     def get(self, key):
@@ -63,6 +66,10 @@ class Settings:
     def set(self, key, value):
         if key not in self.DEFAULTS or type(value) is not type(self.DEFAULTS[key]):
             raise ValueError("Invalid setting")
+        from .island_material import valid_color
+        if key=='island_material' and value not in {'black','glass'}:raise ValueError('Unknown island material')
+        if key=='island_color' and not valid_color(value):raise ValueError('Invalid RGB color')
+        if key=='island_color':value=value.upper()
         if key == "profile" and value not in {"auto", "work", "battery", "game"}:
             raise ValueError("Unknown profile")
         if key=='island_style' and value not in {'notch','floating'}: raise ValueError('Unknown island style')

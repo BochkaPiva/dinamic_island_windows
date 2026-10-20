@@ -29,7 +29,7 @@ class IslandVisibility(QObject):
     def apply(self):
         w=self.owner
         if getattr(w,'media_stage',None) and w.media_stage.engaged:
-            w.clearMask();self._clip_signature=None
+            self.refresh_region()
             w.setWindowOpacity(w.settings.get('island_opacity')/100)
             return
         retreat_alpha=1.
@@ -37,20 +37,22 @@ class IslandVisibility(QObject):
             _,retreat_alpha=floating_retreat(w._notch_stage.retreat,w.settings.get('island_gap'),w.settings.get('compact_height'))
         w.setWindowOpacity(w.settings.get('island_opacity')/100*self.fraction*retreat_alpha)
         w.move(w.x(),w._island_top())
-        # Native screen-edge clipping keeps the rigid capsule from appearing on
-        # a monitor above this one. Children move with the window, without a warp.
-        clip=None
-        if w.floating_mode():
+        self.refresh_region()
+
+    def refresh_region(self):
+        w=self.owner
+        media=bool(getattr(w,'media_stage',None) and w.media_stage.engaged)
+        region=None
+        if w.floating_mode() and not media:
             screen=next((s for s in QApplication.screens() if s.name()==w.settings.get('monitor')),QApplication.primaryScreen())
-            local=screen.geometry().translated(-w.pos())
-            visible=w.rect().intersected(local)
-            if visible!=w.rect(): clip=visible
-        signature=(clip.x(),clip.y(),clip.width(),clip.height()) if clip is not None else None
-        if signature!=self._clip_signature:
-            if clip is None: w.clearMask()
-            elif not clip.isEmpty(): w.setMask(QRegion(clip))
-            else: w.setWindowOpacity(0)
-            self._clip_signature=signature
+            visible=w.rect().intersected(screen.geometry().translated(-w.pos()))
+            if visible!=w.rect():
+                clip=QRegion(visible);region=clip if region is None else region.intersected(clip)
+        if region!=self._clip_signature:
+            if region is None:w.clearMask()
+            elif not region.isEmpty():w.setMask(region)
+            else:w.setWindowOpacity(0)
+            self._clip_signature=region
 
     def set_visible(self, visible):
         if self.desired==visible and (self.moving or self.owner.isVisible()==visible): return

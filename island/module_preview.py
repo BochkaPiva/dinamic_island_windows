@@ -20,6 +20,7 @@ class ModulePreview(QWidget):
         self.setAccessibleName({'island':'Открыть остров', 'desktop':'Наведи, чтобы раскрыть группу',
             'search':'Открыть быстрый поиск'}.get(kind,'Предпросмотр раздела'))
         self.display_style=None
+        self.appearance_override=None
         self.reveal=0.
         self.hover_animation=QVariantAnimation(self)
         self.hover_animation.setDuration(320)
@@ -105,30 +106,37 @@ class ModulePreview(QWidget):
 
     def island(self, p, c):
         w = self.width()
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor('#000000'))
+        from .style import island_outline
+        from .island_material import paint_island,effective_appearance
         floating=self.display_style=='floating' if self.display_style else self.owner.floating_mode()
-        p.drawRoundedRect(QRectF(12,12 if floating else -22,w-24,self.height()-24 if floating else self.height()+10),22,22)
+        p.save();p.translate(12,6 if floating else 0)
+        paint_island(p,island_outline(w-24,self.height()-12 if floating else self.height()-6,floating),self.appearance_override or effective_appearance(self.owner))
+        p.restore()
         snap = self.owner.snapshot
         data = snap.thumb if snap and snap.thumb else b''
-        if self.cover is None or data != self.cover_key:
-            self.cover_key=data
-            self.cover=rounded_art(data,40,10,self.devicePixelRatioF())
-        p.drawPixmap(24,24,self.cover)
+        art_size=32 if self.height()<110 else 40
+        cover_key=(data,art_size,self.devicePixelRatioF())
+        if self.cover is None or cover_key != self.cover_key:
+            self.cover_key=cover_key
+            self.cover=rounded_art(data,art_size,8,self.devicePixelRatioF())
+        art_y=(self.height()-art_size)/2-5
+        p.drawPixmap(24,round(art_y),self.cover)
         p.setPen(QColor('#F5F6F8')); p.setFont(font(12,500))
         calendar=w>=400
         width=max(35,int(w*.48)-75) if calendar else w-105
         title=snap.title if snap and snap.title else 'Нет воспроизведения'
-        p.drawText(QRectF(74,25,width,20),Qt.AlignmentFlag.AlignVCenter,
+        p.drawText(QRectF(74,self.height()/2-20,width,20),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(title,Qt.TextElideMode.ElideRight,width))
         p.setPen(QColor('#AFB7C3')); p.setFont(font(10))
         artist=snap.artist if snap and snap.artist else 'Музыка появится здесь'
-        p.drawText(QRectF(74,47,width,18),Qt.AlignmentFlag.AlignVCenter,
+        p.drawText(QRectF(74,self.height()/2+2,width,18),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(artist,Qt.TextElideMode.ElideRight,width))
         p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#E2E2E2'))
-        for i,level in enumerate(self.owner.status_mark.levels):
-            h=3+max(0,min(1,level))*16
-            p.drawRoundedRect(QRectF(26+i*7,self.height()-20-h/2,3,h),1.5,1.5)
+        levels=self.owner.status_mark.levels
+        left=24+art_size/2-(len(levels)*3+max(0,len(levels)-1)*4)/2
+        for i,level in enumerate(levels):
+            h=3+max(0,min(1,level))*12
+            p.drawRoundedRect(QRectF(left+i*7,art_y+art_size+8-h/2,3,h),1.5,1.5)
         if not calendar: return
         today=date.today(); left=w*.53; cell=(w-left-22)/7
         for i in range(7):
@@ -197,11 +205,12 @@ class ModulePreview(QWidget):
         p.drawText(QRectF(150,49,self.width()-175,42),Qt.AlignmentFlag.AlignVCenter,'Под рукой')
 
     def search(self,p,c):
+        box=QRectF(20,(self.height()-min(62,self.height()-24))/2,self.width()-40,min(62,self.height()-24))
         p.setPen(QPen(QColor(c['line']),1));p.setBrush(QColor(c['surface']))
-        p.drawRoundedRect(QRectF(20,16,self.width()-40,62),18,18)
-        glyph(p,'search',QRectF(38,35,23,23),c['accent'])
+        p.drawRoundedRect(box,18,18)
+        glyph(p,'search',QRectF(38,box.center().y()-11.5,23,23),c['accent'])
         p.setPen(QColor(c['muted']));p.setFont(font(15))
-        p.drawText(QRectF(76,21,self.width()-110,52),Qt.AlignmentFlag.AlignVCenter,'Что открыть?')
+        p.drawText(QRectF(76,box.top(),self.width()-110,box.height()),Qt.AlignmentFlag.AlignVCenter,'Что открыть?')
 
 
 class FocusPreview(QWidget):
@@ -255,7 +264,8 @@ class FormPreview(ModulePreview):
         x=(self.width()-width)/2;y=23 if self.display_style=='floating' else 8
         p.save();p.translate(x,y)
         path=island_outline(width,height,self.display_style=='floating')
-        p.fillPath(path,QColor('black'));p.setClipPath(path)
+        from .island_material import effective_appearance,paint_island
+        paint_island(p,path,self.appearance_override or effective_appearance(self.owner));p.setClipPath(path)
         data=self.owner.snapshot.thumb if self.owner and self.owner.snapshot else b''
         if self.cover is None or self.cover_key!=data:
             self.cover_key=data;self.cover=rounded_art(data,24,6,self.devicePixelRatioF())

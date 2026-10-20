@@ -98,3 +98,13 @@ management and launcher/shortcut checks. Test dark/light, widths 900/1120, actua
 DPR 1/1.5/2, long titles, search routing, back/forward and reduced motion. Complete
 packaging/build.ps1 including packaged self-test and dependency/license audit.
 See NELVIRO_RAYCAST_UI.md for the preservation map, actual captures and results.
+
+
+### Оформление острова · 0.12
+Чёрный материал бесплатный и стандартный. Подписчики выбирают стекло и оттенок
+в разделе «Остров». Цветовой круг, яркость, RGB и HEX синхронизированы; до
+«Применить» меняется только предпросмотр. Потеря доступа не стирает настройки.
+Стекло острова — альфа-прозрачность, тёмная читаемая сердцевина и световая кромка.
+Системный Acrylic не используется на острове: его прямоугольная область выходит
+за форму. Внешнее размытие и преломление не заявляются. Это ограничение не
+относится к существующему акрилу прямоугольных панелей настроек.

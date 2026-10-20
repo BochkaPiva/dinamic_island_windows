@@ -14,7 +14,7 @@ def build_channel(directory,changelog):
     section=re.search(r'^## '+re.escape(tag)+r'\s*\n(.*?)(?=^## |\Z)',changelog,re.M|re.S)
     if not section: raise ValueError('Missing release notes')
     assets=[]
-    for name in (f'CloudIsland-Setup-{__version__}-win-x64.exe','SHA256SUMS.txt'):
+    for name in (f'Nelviro-Setup-{__version__}-win-x64.exe',f'CloudIsland-Setup-{__version__}-win-x64.exe','SHA256SUMS.txt'):
         path=directory/name
         with path.open('rb') as stream: digest=hashlib.file_digest(stream,'sha256').hexdigest()
         assets.append({'name':name,'size':path.stat().st_size,'browser_download_url':REPO_URL+'/releases/download/'+tag+'/'+name,
