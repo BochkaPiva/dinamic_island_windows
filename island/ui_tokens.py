@@ -18,6 +18,8 @@ def glyph(painter, name, rect, color=TEXT):
     p.setBrush(Qt.BrushStyle.NoBrush)
     if name == "search":
         p.drawEllipse(QRectF(4,3,12,12)); p.drawLine(14,14,21,21)
+    elif name == "info":
+        p.drawEllipse(QRectF(3,3,18,18));p.drawLine(12,10,12,17);p.drawPoint(12,7)
     elif name == "folder":
         path = QPainterPath()
         path.moveTo(3,8); path.lineTo(3,6); path.quadTo(3,4,5,4)

@@ -109,15 +109,17 @@ class TimerSearchTests(unittest.TestCase):
         self.assertTrue(self.hub.alarm.active)
         self.hub.alarm.player.assert_not_called()
 
-    def test_empty_search_is_compact_and_results_never_require_horizontal_scroll(self):
+    def test_empty_search_suggests_commands_and_results_never_require_horizontal_scroll(self):
         search=self.w.modules.search
         search._query("")
-        self.assertEqual(search.results.count(),0)
-        self.assertLessEqual(search.height(),145)
+        self.assertEqual(search.results.count(),5)
+        self.assertTrue(all(search.results.item(i).data(Qt.ItemDataRole.UserRole).kind=="command" for i in range(5)))
+        self.assertEqual(search.results.item(0).data(Qt.ItemDataRole.UserRole+1),"Команды Nelviro")
+        self.assertLessEqual(search.height(),460)
         self.assertEqual(search.results.horizontalScrollBarPolicy(),Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.assertEqual(search.results.verticalScrollBarPolicy(),Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         search._set_rows([Result("Very long title "*100,"C:/"+"folder/"*100,"target")])
-        self.assertLessEqual(search.width(),640)
+        self.assertLessEqual(search.width(),720)
 
 
 if __name__=="__main__":

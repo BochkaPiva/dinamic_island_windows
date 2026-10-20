@@ -1,83 +1,100 @@
-# Nelviro interface
+# Nelviro settings · 0.11.2
 
-The original continuous N mark and Glacier/Graphite palette come from the
-approved Nelviro brandbook v1.0. Brand assets live in `island/assets/brand`;
-`island/brand.py` is the shared desktop color source. Golos Text remains the
-bundled, licensed font. The installer and running application use the same ICO.
+## Brief
 
-## Interface rules
+The user rejected the preceding recoloring/catalog passes. The new baseline is the
+supplied Raycast Settings screenshots: quiet neutral surfaces, readable grouped rows,
+clear hierarchy, and direct navigation. Persistent explanation paragraphs, repeated
+labels, broad action bars and expanding piles of controls are removed.
 
-- One quiet application title; no Pro labels, promotional hero or permanent load counters.
-- Two columns of actionable modules. The island, groups and search have previews;
-  focus uses the existing editable timer and its real remaining-time ring.
-- Use existing models. Never create a second audio capture, file index or timer
-  just to animate a preview. Audio repaint requests are coalesced to 30 fps and
-  cancelled when the preview page hides. No synthetic equalizer activity.
-- All settings remain reachable through navigation and setting search. Existing
-  keyboard activation, animation preference and native timer editing remain available.
-- Dark and light palettes share semantic roles. Floating search uses one rounded
-  translucent surface, with an opaque option. Native blur is not claimed: the
-  existing Windows layered-window fallback intentionally disables DWM material
-  because it draws an unwanted rectangular backplate.
-- Small preview widths show media only rather than squeezing seven calendar dates.
+Preserve the N mark and Golos Text; stay in Python/PySide6/Qt Widgets. Frontend Design
+(Anthropic) and UI UX Pro Max are advisory. Their web-stack defaults do not apply.
+The reference and the user's explicit black/gray direction take priority.
 
-## Compatibility boundary
+## Tokens and composition
 
-Nelviro is the visible product name. Keep the legacy `CloudIsland.exe`, installer
-AppId, `%LOCALAPPDATA%/Cloud Island`, autostart registry value, IPC identity,
-DPAPI context and subscription installation ID. Renaming these is a separate
-data migration, not a visual change. This update does not change the Telegram
-service, permissions or membership policy.
+- Background #111111; sidebar #202020; group #1C1C1C; raised #303030;
+  text #F2F2F2; secondary #A6A6A6. Light mode uses the neutral LIGHT palette.
+- Golos Text: 15 px body/navigation, 20 px section title, 14 px group title,
+  12–13 px subordinate status. No tracked uppercase eyebrows.
+- Sidebar 218 px, collapsible to 54 px; 42 px navigation rows. Content has a
+  shared header with history, help, launch action and the module master switch.
+- Related controls share one rounded surface, with subtle internal separators.
+  A setting is normally one 52 px row: name left, control right.
+- No permanent help paragraph under each label. Tooltips and the header information
+  action explain settings on demand. Keep actionable error, pairing, download and
+  recovery instructions visible when that state actually needs them.
+- A detail screen is a task, not another simultaneous column. Back/Escape returns
+  to the parent; forward restores the previous detail. No destruction/recreation
+  of forms when navigating.
 
-## Validation
+```
+[sidebar]  [back / forward] Section              [help] [launch] [on]
+           Group
+           ┌─────────────────────────────────────────────┐
+           │ Name                                control │
+           │ Next task                         summary › │
+           └─────────────────────────────────────────────┘
+```
 
-Run `python -m unittest discover -s tests -q` in the desktop environment and
-`packaging/build.ps1` for the packaged self-test, license collection and bundle
-audit. Visually inspect the module screen in dark/light modes at 1120 px and
-the minimum 900 px width, plus search and desktop groups. Use the update helper
-for an installation test so rollback and data snapshots remain active.
+## Navigation and scenarios
 
-## Layout and island update (0.9)
+Keep the 11 stable root page IDs. There are 9 detail screens:
+Island: size/opacity, behavior, sound, content, video/camera;
+Desktop: group appearance; Windows: workspaces and drag zones;
+Application: PowerToys. Each detail has a persistent body in one shared scroll viewport.
 
-Section headers carry live or explanatory previews. Secondary controls use
-collapsible sections; settings pages share inertial wheel scrolling and native
-pixel touchpad input. The Windows/HONOR page is removed. Community navigation
-is prominent and the comparison shows only implemented capabilities.
+Settings search indexes actual parameter names and help, not only section labels.
+An exact page name/alias wins; a parameter match opens its containing detail, scrolls
+to its control and focuses it. Ctrl+F, Ctrl+K, Alt+Left/Right and Escape remain available.
+History includes detail routes and replaces its forward branch on new navigation.
+The active sidebar item returns to its root. Home now has six interactive tiles:
+island, groups, search, focus, notes and windows. These use the actual shared models;
+no independent audio/video service or idle animation is added. The visible home
+focus readout updates once per second, regardless of which tile is hovered.
+Shortcuts and Updates keep stable root IDs but are entered through Application or
+settings search, reducing the sidebar. Bottom Ctrl+F / Ctrl+K hints remain visible.
+Island forms are direct buttons beside a live preview, rather than a hidden menu.
 
-The free notch remains available. Channel members can choose a floating shape
-and gap. A saved floating choice is retained when access expires, but the
-renderer safely uses the free notch. No group data is removed.
+Groups: select an ID-bound record, edit its name in place, add/drop files. The `…`
+menu contains Rename, Show on desktop and Delete. No duplicate title/name/Save rows.
+Appearance is a separate screen. Existing collection/save/restore semantics stay intact.
 
-Visibility has a separate, reversible opacity/position timeline. Foreground,
-move/size-end, minimize-end and foreground-location WinEvents trigger state
-checks. Location events are coalesced, and a polling fallback remains. Runtime
-services stop in fullscreen; expanded content is not collapsed halfway through
-its exit. Interrupted timelines preserve their current rendered fraction.
+Focus: ring and timer aligned; presets in a wrapping grid, start/reset alongside; completion settings are a second group on the same screen.
+Files and notes: two clear tabs, compact actions, persistent local models.
+Community: connection state/action and a short real comparison. Preserve its widget
+objects across controller notifications; never rebuild the panel on refresh.
 
-Window placement is an explicit action against a chosen local HWND/PID, with
-monitor work-area/DPI, minimum-size checks and post-placement size verification.
-It does not install global snap/keyboard hooks or replace the separate optional
-PowerToys Shift-drag behavior. Windows with larger minimum sizes cannot fit a
-narrow zone; elevated/nonresponsive windows may reject placement.
+## Native material and implementation
 
-Validation: 175 desktop tests, three native fixture placements (halves, thirds,
-60/40), four registered/unregistered native event hooks, packaged Qt/WinRT
-self-test and bundle audit. Dark/light pages were rendered and inspected. An
-attempted live fullscreen fixture could not obtain foreground under Windows'
-focus policy; real browser Alt-Tab is not claimed as manually verified. Reversal,
-hide/show and reduced-motion behavior are covered by GUI tests.
+`brand.py` owns colors, `hub_ui.py` the shell and shared controls.
+`settings_navigation.py` provides SettingsLink, SettingsSubpage, SettingsSurface and
+SettingsCombo. `settings_pages.py` composes screens; ControlCenter routes them.
+Use the existing glyph system; no emoji or borrowed Raycast assets.
 
-The final 0.9.1 packaging isolates window-placement Win32 function signatures
-in a private DLL interface. A real-API regression test now opens the window
-catalog before invoking cursor/fullscreen geometry, covering shared ctypes
-signature conflicts that separate mocked tests missed in 0.9.0.
+Optional native acrylic is used for chrome/transient surfaces with opaque fallback,
+Windows transparency/high contrast respected, and rounded native masks. Product
+backgrounds never use screenshots. Text editors remain opaque. Native
+composition captures must be made over owned fixtures; QWidget.grab omits DWM blur.
+The shared glass surfaces sample the app-owned neutral light field and displace its
+pixels in a narrow 12 px edge band. Their centers and child controls remain sharp.
+The optical images cache by geometry/theme/DPR, not a free-running animation timer;
+the full-window light-field cache holds at most two images. Edge maps reuse their
+geometry when scrolling. Only the broad backdrop samples use logical resolution;
+rims and labels remain at native DPR. The owned-window CPU scroll check measured
+about 16 ms median / 18 ms p95 at DPR 2 (not a compositor FPS measurement). This is internal scene
+refraction, not refraction of external windows. Windows acrylic itself only blurs.
+No wallpaper/screenshot background, desktop capture or browser shader dependency.
+Use palette lightness to select dark/light material, never a hardcoded background equality.
 
-## Floating cursor avoidance (0.9.2)
+Motion follows brand.MOTION and hub_animations. Hidden previews and scroll timers stop.
+Forms retain controls/drafts; settings keep atomic persistence and validation. Never
+change installation identities, data formats, membership protocol or access limits for design.
 
-The floating capsule uses rigid upward movement with a short dissolve. Its path
-and compact texture never deform; notch-specific cloud warping is limited to
-the bezel form. Cursor damping remains continuous on reversals. A screen-local
-mask prevents display bleed, while the native HWND center stays on the selected
-monitor. Visibility and retreat opacity multiply. The invisible island remains
-a Qt-visible input sensor for top-edge activation and uses click-through over
-tabs. The physical edge also counts as inside the expanded panel across its gap.
+## Checks
+
+Run desktop tests, tools/check_raycast_ui.py (root AND detail screens), native group
+management and launcher/shortcut checks. Test dark/light, widths 900/1120, actual
+DPR 1/1.5/2, long titles, search routing, back/forward and reduced motion. Complete
+packaging/build.ps1 including packaged self-test and dependency/license audit.
+See NELVIRO_RAYCAST_UI.md for the preservation map, actual captures and results.

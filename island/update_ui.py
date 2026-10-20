@@ -8,25 +8,27 @@ from . import __version__
 from .style import app_icon
 
 
-class UpdatePanel(QFrame):
+from .settings_navigation import SettingsSurface
+
+class UpdatePanel(SettingsSurface):
     def __init__(self,owner,parent=None):
         super().__init__(parent)
         self.owner=owner
         self.manager=owner.updates
         self.setObjectName('card')
         root=QVBoxLayout(self)
-        root.setContentsMargins(24,24,24,24)
+        root.setContentsMargins(20,20,20,20)
         root.setSpacing(16)
         header=QHBoxLayout()
         emblem=QLabel()
-        emblem.setPixmap(app_icon().pixmap(56,56))
+        emblem.setPixmap(app_icon().pixmap(40,40))
         header.addWidget(emblem)
         header.addSpacing(10)
         words=QVBoxLayout()
         self.title=QLabel('Nelviro')
         self.title.setObjectName('heading')
         words.addWidget(self.title)
-        self.version=QLabel(f'Установлена версия {__version__}')
+        self.version=QLabel(f'Версия {__version__}')
         self.version.setObjectName('secondary')
         words.addWidget(self.version)
         header.addLayout(words,1)
@@ -63,10 +65,6 @@ class UpdatePanel(QFrame):
         self.notes.setMaximumHeight(230)
         self.notes.setAccessibleName('Изменения в новой версии')
         root.addWidget(self.notes)
-        assurance=QLabel('После установки Nelviro откроется снова. Настройки, заметки, группы и таймер сохранятся.')
-        assurance.setWordWrap(True)
-        assurance.setObjectName('secondary')
-        root.addWidget(assurance)
         self.backup=QPushButton('Открыть резервную копию')
         self.backup.setObjectName('quiet')
         self.backup.clicked.connect(self.open_backup)

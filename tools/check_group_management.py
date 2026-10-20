@@ -69,6 +69,8 @@ with tempfile.TemporaryDirectory() as folder:
     w._system_timer.stop()
     w._notch_pointer_timer.stop()
     w._notch_pointer.enabled=False
+    # Five-group management fixture; membership limits have their own signed-permit tests.
+    w.access.distribution='preview';w.access.reload()
     manager=w.modules.desktop
     try:
         for group in list(manager.store.groups): manager.store.remove(group['id'])
@@ -108,7 +110,7 @@ with tempfile.TemporaryDirectory() as folder:
         QTest.qWait(120)
         menu_action(panel,'rename',value='Личное')
         assert manager.store.find(ids[3])['title']=='Личное'
-        assert editor.groups.item(3).text().startswith('04  Личное')
+        assert editor.groups.item(3).text().startswith('Личное')
         menu_action(panel,'settings')
         assert center.isVisible() and editor.selected_id==ids[3]
         center.hide()
@@ -118,7 +120,7 @@ with tempfile.TemporaryDirectory() as folder:
         assert ids[3] not in manager.panels
         manager.open_settings(created)
         schedule_dialog(delete=True)
-        QTest.mouseClick(editor.remove,Qt.MouseButton.LeftButton)
+        editor.delete_action.trigger()
         assert manager.store.find(created) is None
         assert original.read_text(encoding='utf-8')=='Original retained'
         assert [g['id'] for g in GroupStore(folder).groups]==[i for i in ids if i!=ids[3]]
@@ -131,7 +133,7 @@ with tempfile.TemporaryDirectory() as folder:
         assert center.size().width()==900,('minimum grew',center.size().width())
         assert center.size().height()==600,('minimum grew',center.size().height())
         scroll=center.pages.currentWidget()
-        for widget in (editor.create,editor.remove,editor.name,editor.add_files,editor.remove_links):
+        for widget in (editor.create,editor.more,editor.name,editor.add_files,editor.remove_links):
             assert widget.isVisible()
             scroll.ensureWidgetVisible(widget)
             QTest.qWait(20)
@@ -142,7 +144,7 @@ with tempfile.TemporaryDirectory() as folder:
         editor.files.add_paths([str(original)])
         QTest.qWait(100)
         center.grab().save(str(out/'groups-editor.png'))
-        center.group_tabs.setCurrentIndex(1)
+        center.open_detail(center.group_settings)
         QTest.qWait(80)
         center.grab().save(str(out/'appearance.png'))
         assert not failures,failures
@@ -150,7 +152,7 @@ with tempfile.TemporaryDirectory() as folder:
             'native_create_dialog':True,'popup_rename':True,'popup_selects_matching_settings':True,
             'cancel_keeps_group':True,'popup_delete_safe_after_menu':True,'editor_delete':True,
             'original_file_preserved':True,'reload_keeps_ids_and_changes':True,
-            'small_window_controls_accessible_by_scroll':True,'separate_appearance_tab':True}
+            'small_window_controls_accessible_by_scroll':True,'separate_appearance_screen':True}
         (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
         print(json.dumps(report))
     finally:

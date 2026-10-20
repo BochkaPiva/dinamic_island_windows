@@ -108,7 +108,7 @@ class ModulePreview(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor('#000000'))
         floating=self.display_style=='floating' if self.display_style else self.owner.floating_mode()
-        p.drawRoundedRect(QRectF(12,12 if floating else -22,w-24,102 if floating else 130),22,22)
+        p.drawRoundedRect(QRectF(12,12 if floating else -22,w-24,self.height()-24 if floating else self.height()+10),22,22)
         snap = self.owner.snapshot
         data = snap.thumb if snap and snap.thumb else b''
         if self.cover is None or data != self.cover_key:
@@ -116,7 +116,7 @@ class ModulePreview(QWidget):
             self.cover=rounded_art(data,40,10,self.devicePixelRatioF())
         p.drawPixmap(24,24,self.cover)
         p.setPen(QColor('#F5F6F8')); p.setFont(font(12,500))
-        calendar=w>=320
+        calendar=w>=400
         width=max(35,int(w*.48)-75) if calendar else w-105
         title=snap.title if snap and snap.title else 'Нет воспроизведения'
         p.drawText(QRectF(74,25,width,20),Qt.AlignmentFlag.AlignVCenter,
@@ -125,10 +125,10 @@ class ModulePreview(QWidget):
         artist=snap.artist if snap and snap.artist else 'Музыка появится здесь'
         p.drawText(QRectF(74,47,width,18),Qt.AlignmentFlag.AlignVCenter,
             p.fontMetrics().elidedText(artist,Qt.TextElideMode.ElideRight,width))
-        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#B4DFF2'))
+        p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#E2E2E2'))
         for i,level in enumerate(self.owner.status_mark.levels):
             h=3+max(0,min(1,level))*16
-            p.drawRoundedRect(QRectF(26+i*7,82-h/2,3,h),1.5,1.5)
+            p.drawRoundedRect(QRectF(26+i*7,self.height()-20-h/2,3,h),1.5,1.5)
         if not calendar: return
         today=date.today(); left=w*.53; cell=(w-left-22)/7
         for i in range(7):
@@ -138,16 +138,16 @@ class ModulePreview(QWidget):
             p.drawText(QRectF(x,27,cell,15),Qt.AlignmentFlag.AlignCenter,
                 ('Пн','Вт','Ср','Чт','Пт','Сб','Вс')[day.weekday()])
             if i==3:
-                p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#233C49'))
+                p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#333333'))
                 p.drawRoundedRect(QRectF(x,46,cell,24),7,7)
-            p.setPen(QColor('#B4DFF2' if i==3 else '#F5F6F8')); p.setFont(font(11,500))
+            p.setPen(QColor('#E2E2E2' if i==3 else '#F5F6F8')); p.setFont(font(11,500))
             p.drawText(QRectF(x,46,cell,24),Qt.AlignmentFlag.AlignCenter,str(day.day))
 
     def groups(self,p,c):
         records=self.owner.modules.desktop.store.groups
         group=records[0] if records else {'title':'Создай свою группу','items':[]}
         p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(c['raised']))
-        p.drawRoundedRect(QRectF(20,16,self.width()-40,40+60*self.reveal),12,12)
+        p.drawRoundedRect(QRectF(20,16,self.width()-40,40+min(60,max(0,self.height()-64))*self.reveal),12,12)
         glyph(p,'folder',QRectF(34,28,18,18),c['muted'])
         p.setPen(QColor(c['text']));p.setFont(font(12,500))
         p.drawText(QRectF(62,27,self.width()-104,22),Qt.AlignmentFlag.AlignVCenter,
@@ -158,13 +158,15 @@ class ModulePreview(QWidget):
         items=group['items'][:3]
         for i,item in enumerate(items):
             cell=(self.width()-60)/3; x=30+i*cell
-            glyph(p,'note',QRectF(x+cell/2-10,61,20,20),c['accent'])
+            compact=self.height()<110
+            glyph(p,'note',QRectF(x+cell/2-(8 if compact else 10),59 if compact else 61,16 if compact else 20,16 if compact else 20),c['accent'])
+            if compact:continue
             p.setFont(font(9));p.setPen(QColor(c['muted']))
             p.drawText(QRectF(x,88,cell,16),Qt.AlignmentFlag.AlignCenter,
                 p.fontMetrics().elidedText(Path(item).stem,Qt.TextElideMode.ElideRight,int(cell-8)))
         if not items:
             p.setFont(font(11));p.setPen(QColor(c['muted']))
-            p.drawText(QRectF(30,63,self.width()-60,35),Qt.AlignmentFlag.AlignCenter,'Приложения и файлы — вместе')
+            p.drawText(QRectF(30,58 if self.height()<110 else 63,self.width()-60,18 if self.height()<110 else 35),Qt.AlignmentFlag.AlignCenter,'Перетащи файлы' if self.height()<110 else 'Приложения и файлы — вместе')
 
     def illustration(self,p,c):
         if self.kind=='shortcuts':
@@ -196,15 +198,15 @@ class ModulePreview(QWidget):
 
     def search(self,p,c):
         p.setPen(QPen(QColor(c['line']),1));p.setBrush(QColor(c['surface']))
-        p.drawRoundedRect(QRectF(20,35,self.width()-40,62),18,18)
-        glyph(p,'search',QRectF(38,54,23,23),c['accent'])
+        p.drawRoundedRect(QRectF(20,16,self.width()-40,62),18,18)
+        glyph(p,'search',QRectF(38,35,23,23),c['accent'])
         p.setPen(QColor(c['muted']));p.setFont(font(15))
-        p.drawText(QRectF(76,40,self.width()-110,52),Qt.AlignmentFlag.AlignVCenter,'Что открыть?')
+        p.drawText(QRectF(76,21,self.width()-110,52),Qt.AlignmentFlag.AlignVCenter,'Что открыть?')
 
 
 class FocusPreview(QWidget):
     """The shared timer inside its progress ring; editing remains native."""
-    def __init__(self, hub):
+    def __init__(self, hub, readout_size=24):
         from PySide6.QtWidgets import QVBoxLayout
         from .timer import TimerReadout
         super().__init__()
@@ -212,7 +214,7 @@ class FocusPreview(QWidget):
         self.setFixedHeight(132)
         row=QVBoxLayout(self)
         row.setContentsMargins(0,0,0,0)
-        self.readout=TimerReadout(hub,24)
+        self.readout=TimerReadout(hub,readout_size)
         self.readout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.readout.setFixedWidth(100)
         row.addWidget(self.readout,0,Qt.AlignmentFlag.AlignCenter)
@@ -221,7 +223,7 @@ class FocusPreview(QWidget):
         c=self.window().colors
         p=QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        box=QRectF(self.width()/2-58,8,116,116)
+        box=QRectF(self.width()/2-min(self.height(),self.width())*.41,self.height()/2-min(self.height(),self.width())*.41,min(self.height(),self.width())*.82,min(self.height(),self.width())*.82)
         p.setPen(QPen(QColor(c['line']),3));p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawEllipse(box)
         total=max(60,self.hub.owner.settings.get('timer_minutes')*60)
@@ -235,7 +237,7 @@ class FormPreview(ModulePreview):
     """Compact, live form demonstration with the same outline as the HWND."""
     def __init__(self,owner,style,callback=None):
         super().__init__(owner,'island',callback)
-        self.display_style=style;self.setFixedHeight(112);self.setMinimumWidth(180)
+        self.display_style=style;self.setFixedHeight(80);self.setMinimumWidth(180)
 
     def paintEvent(self,event):
         from .style import island_outline
@@ -248,7 +250,7 @@ class FormPreview(ModulePreview):
         p.drawRoundedRect(QRectF(self.rect()),14,14)
         p.setClipRect(self.rect().adjusted(8,8,-8,-8))
         p.setBrush(QColor(c['raised']))
-        for i in range(3):p.drawRoundedRect(QRectF(18+i*42,78,32,4),2,2)
+
         width=min(210,self.width()-40);height=38
         x=(self.width()-width)/2;y=23 if self.display_style=='floating' else 8
         p.save();p.translate(x,y)
@@ -261,7 +263,7 @@ class FormPreview(ModulePreview):
         p.setPen(QColor('#F5F6F8'));p.setFont(font(10,500))
         p.drawText(QRectF(52,0,max(20,width-118),38),Qt.AlignmentFlag.AlignCenter,
             self.owner.activities.text() if self.owner and self.owner.activities.current()!='media' else 'Музыка')
-        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#B4DFF2'))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#E2E2E2'))
         levels=self.owner.status_mark.levels if self.owner else (0,)*5
         for i,level in enumerate(levels):
             height=3+max(0,min(1,level))*15

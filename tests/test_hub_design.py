@@ -15,6 +15,7 @@ from island.app import IslandWindow
 from island.storage import Settings
 from island.hub_ui import ToggleSwitch,ModuleCard
 from island import __version__
+from island.settings_pages import PAGES
 
 
 class HubDesignTests(unittest.TestCase):
@@ -39,6 +40,82 @@ class HubDesignTests(unittest.TestCase):
         QTest.qWait(10)
         self.temp.cleanup()
 
+    def test_context_actions_and_history_follow_current_page(self):
+        c=self.center
+        c.navigate('search');c.navigate('timer')
+        c.travel(-1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['search'])
+        self.assertEqual(c.page_action_spec()[0],'Открыть поиск')
+        self.assertEqual(c.section_title.text(),'Поиск')
+        c.travel(1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['timer'])
+        c.travel(-1);c.navigate('desktop');c.travel(1)
+        self.assertEqual(c.navigation.currentRow(),c.page_indices['desktop'])
+        with patch.object(self.w.modules.desktop,'arrange') as arrange:
+            c.run_page_action();arrange.assert_called_once()
+
+    def test_footer_key_hints_are_visible_and_fit_at_minimum_width(self):
+        from island.hub_ui import HintButton
+        c=self.center;c.resize(900,600);QTest.qWait(20)
+        actions=c.action_footer.findChildren(HintButton)
+        self.assertEqual(len(actions),2)
+        for action in actions:
+            self.assertGreaterEqual(action.width(),action.minimumSizeHint().width())
+            self.assertTrue(action.isVisible())
+            self.assertGreater(action.caption.width(),20)
+        actions[0].click()
+        self.assertTrue(c.settings_search.hasFocus())
+
+    def test_detail_navigation_keeps_controls_values_and_restores_routes(self):
+        c=self.center;c._setting('hub_animations',False);c.navigate('island')
+        section=next(s for s in c.subpages if s.title=='Поведение')
+        section.click();self.assertIs(c.active_detail,section)
+        self.assertTrue(c.checks['cursor_retreat'].isVisible())
+        c.checks['cursor_retreat'].click()
+        self.assertFalse(self.w.settings.get('cursor_retreat'))
+        c.travel(-1);self.assertIsNone(c.active_detail)
+        self.assertEqual(c.section_title.text(),'Остров')
+        c.travel(1);self.assertIs(c.active_detail,section)
+        self.assertFalse(c.checks['cursor_retreat'].isChecked())
+        c.navigate('search');self.assertIsNone(c.active_detail)
+        self.assertEqual(c.page_deck.currentIndex(),0)
+
+    def test_setting_search_opens_the_matching_detail_and_focuses_control(self):
+        c=self.center;c.settings_search.setText('Сворачивание')
+        QTest.keyClick(c.settings_search,Qt.Key.Key_Return);QTest.qWait(30)
+        self.assertEqual(c.section_title.text(),'Поведение')
+        self.assertIsNotNone(c.active_detail)
+        self.assertTrue(c.values['collapse_delay'].isVisible())
+        self.assertTrue(c.values['collapse_delay'].hasFocus())
+        self.assertEqual(c.settings_search.text(),'')
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['island'])
+
+    def test_header_master_switch_is_shared_and_help_is_not_static_body_copy(self):
+        c=self.center;c.navigate('search')
+        self.assertTrue(c.checks['search_enabled'].isVisible())
+        self.assertFalse(c.checks['island_enabled'].isVisible())
+        c.checks['search_enabled'].click()
+        self.assertFalse(self.w.settings.get('search_enabled'))
+        self.assertFalse(c.module_switches['search_enabled'].isChecked())
+        self.assertEqual(c.action_footer.context.text(),'')
+
+    def test_exact_page_search_wins_over_an_embedded_setting(self):
+        c=self.center;c.settings_search.setText('таймер')
+        QTest.keyClick(c.settings_search,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+        self.assertIsNone(c.active_detail)
+
+    def test_all_preexisting_setting_controls_remain_available(self):
+        c=self.center
+        expected={'compact_width','compact_height','expanded_width','expanded_height','island_opacity','island_gap',
+            'hover_delay','collapse_delay','group_width','group_columns','group_opacity','group_hover_delay','group_collapse_delay','timer_minutes','timer_alarm_seconds'}
+        self.assertEqual(set(c.values),expected)
+        expected_toggles={'island_enabled','cursor_retreat','hide_fullscreen','volume_scroll_reverse','spectrum',
+            'spectrum_battery_save','overview_calendar','overview_focus','island_files','search_enabled','search_apps',
+            'search_files','search_glass','desktop_enabled','groups_locked','group_collect_shortcuts','timer_sound',
+            'hub_animations','autostart','layouts_enabled','workspaces_enabled','updates'}
+        self.assertEqual(set(c.checks),expected_toggles)
+
     def test_page_search_keyboard_navigation_and_clear(self):
         c=self.center
         c.settings_search.setText('обновление')
@@ -47,7 +124,7 @@ class HubDesignTests(unittest.TestCase):
         self.assertEqual(c.pages.currentIndex(),c.page_indices['updates'])
         c.navigate('desktop')
         self.assertEqual(c.settings_search.text(),'')
-        self.assertTrue(all(not c.navigation.item(i).isHidden() for i in range(c.navigation.count())))
+        self.assertEqual({PAGES[i][0] for i in range(c.navigation.count()) if not c.navigation.item(i).isHidden()}, {key for key,_,_ in PAGES}-{'shortcuts','updates'})
         c.settings_search.setText('nonexistent')
         self.assertTrue(c.search_empty.isVisible())
 
@@ -82,12 +159,11 @@ class HubDesignTests(unittest.TestCase):
     def test_refresh_keeps_uncommitted_number_input(self):
         c=self.center
         c.navigate('island')
-        from island.hub_ui import SettingsSection
-        section=next(s for s in c.findChildren(SettingsSection) if s.title=='Размер и прозрачность')
-        section.button.setChecked(True)
+        section=next(s for s in c.subpages if s.title=='Размер и прозрачность')
+        section.click()
         QTest.qWait(250)
         spin=c.values['compact_width']
-        c.pages.currentWidget().ensureWidgetVisible(spin)
+        c.detail_scroll.ensureWidgetVisible(spin)
         spin.setFocus()
         QTest.qWait(10)
         spin.lineEdit().setText('219')
@@ -118,6 +194,8 @@ class HubDesignTests(unittest.TestCase):
         self.assertEqual(before,store.path.read_bytes())
 
     def test_focus_preview_edits_shared_timer_and_starts_it(self):
+        self.center.catalog_buttons["timer"].click()
+        QTest.qWait(20)
         self.center.overview_timer.setFocus()
         self.center.overview_timer.selectAll()
         QTest.keyClicks(self.center.overview_timer,'7')
@@ -139,6 +217,86 @@ class HubDesignTests(unittest.TestCase):
         self.assertFalse(c.transition.isVisible())
         self.assertIsNone(c.transition.old)
         self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+
+    def test_collapsed_navigation_has_keyboard_escape_and_keeps_page_ids(self):
+        c=self.center
+        c.toggle_sidebar()
+        self.assertEqual(c.sidebar.width(),54)
+        c.navigate('desktop')
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['desktop'])
+        c.focus_settings_search()
+        self.assertFalse(c.sidebar_collapsed)
+        self.assertTrue(c.settings_search.hasFocus())
+        self.assertTrue(all(c.navigation.item(i).toolTip() for i in range(c.navigation.count())))
+
+    def test_dashboard_tiles_share_live_models_and_stop_timers_when_hidden(self):
+        from island.module_preview import ModulePreview
+        c=self.center
+        c.catalog_buttons['timer'].click()
+        self.assertTrue(c.overview_timer.isVisible())
+        self.assertTrue(c.focus_tick.isActive())
+        c.catalog_buttons['search'].click()
+        self.assertTrue(c.focus_tick.isActive())
+        self.assertEqual(c.catalog_stack.count(),6)
+        self.assertEqual(sum(p.isVisible() for p in c.catalog_stack.findChildren(ModulePreview)),3)
+        c.hero_preview.audio_changed([.5]*5)
+        self.assertTrue(c.hero_preview.clock.isActive())
+        c.navigate('integrations')
+        self.assertFalse(c.focus_tick.isActive())
+        self.assertFalse(c.hero_preview.clock.isActive())
+
+    def test_search_demo_filters_and_opens_the_actual_section(self):
+        from island.dashboard import SearchDemo
+        c=self.center;c.navigate('search')
+        demo=c.findChild(SearchDemo)
+        demo.input.setText('таймер')
+        self.assertEqual(sum(not button.isHidden() for _,button in demo.commands),1)
+        QTest.keyClick(demo.input,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+        c.navigate('search');demo.input.setText('нет такой команды')
+        self.assertTrue(demo.empty.isVisible())
+        QTest.keyClick(demo.input,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['search'])
+
+    def test_focus_presets_fit_at_minimum_width_and_share_minutes(self):
+        from PySide6.QtWidgets import QPushButton
+        c=self.center;c.resize(900,600);c.navigate('timer');QTest.qWait(20)
+        buttons={button.text():button for button in c.pages.currentWidget().findChildren(QPushButton)}
+        for minutes in (5,15,25,45,60):
+            button=buttons[str(minutes)+' мин']
+            self.assertTrue(button.parentWidget().rect().contains(button.geometry()))
+            button.click();self.assertEqual(self.w.settings.get('timer_minutes'),minutes)
+        readout=c.timer_header.readout
+        self.assertAlmostEqual(readout.geometry().center().y(),c.timer_header.height()/2,delta=1)
+
+    def test_form_picker_shows_effective_access_without_erasing_saved_choice(self):
+        c=self.center
+        self.w.settings.set('island_style','floating')
+        with patch.object(self.w,'floating_mode',return_value=False):
+            c.refresh()
+            self.assertTrue(c.form_buttons['notch'].isChecked())
+            self.assertFalse(c.form_buttons['floating'].isChecked())
+            self.assertEqual(c.island_preview.display_style,'notch')
+            self.assertEqual(self.w.settings.get('island_style'),'floating')
+        with patch.object(self.w,'floating_mode',return_value=True):
+            c.refresh()
+            self.assertTrue(c.form_buttons['floating'].isChecked())
+            self.assertFalse(c.form_buttons['notch'].isChecked())
+
+    def test_long_group_name_does_not_expand_editor_or_hide_panel_menu(self):
+        from PySide6.QtCore import QPoint
+        c=self.center;c._setting('hub_animations',False);c.resize(900,600);c.navigate('desktop')
+        group=self.w.modules.desktop.store.groups[0]
+        group['title']='Р'*60
+        self.w.modules.desktop.store.changed.emit()
+        QTest.qWait(30)
+        self.assertEqual(c.pages.currentWidget().horizontalScrollBar().maximum(),0)
+        self.assertEqual(c.group_editor.title.text(),'Р'*60)
+        self.assertEqual(c.group_editor.title.toolTip(),'Р'*60)
+        panel=self.w.modules.desktop.panels[group['id']]
+        panel.header.layout().activate()
+        point=panel.mapFromGlobal(panel.menu_button.mapToGlobal(QPoint(0,0)))
+        self.assertLessEqual(point.x()+panel.menu_button.width(),panel.width())
 
     def test_update_install_flushes_notes_and_supplies_remaining_timer(self):
         hub=self.w.notch_hub

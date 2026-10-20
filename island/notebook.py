@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QListWidget, Q
     QPlainTextEdit, QLineEdit, QPushButton, QLabel, QFileDialog)
 from PySide6.QtWidgets import QApplication, QPlainTextDocumentLayout
 from PySide6.QtGui import QTextDocument
+from .hub_ui import CollectionDelegate,icon
 
 
 class Notebook(QWidget):
@@ -35,15 +36,18 @@ class Notebook(QWidget):
         self.filter.textChanged.connect(self.refilter)
         left.addWidget(self.filter)
         self.list = QListWidget()
+        self.list.setItemDelegate(CollectionDelegate(self.list))
+        self.list.setMouseTracking(True)
         self.list.setMaximumWidth(230)
         self.list.currentRowChanged.connect(self.select)
         left.addWidget(self.list,1)
-        add = QPushButton("＋ Новая заметка")
+        add = QPushButton("Новая заметка")
         add.clicked.connect(self.add)
         left.addWidget(add)
         root.addLayout(left,1)
         right = QVBoxLayout()
         self.title = QLineEdit()
+        self.title.setObjectName("groupName")
         self.title.setPlaceholderText("Название заметки")
         self.title.setMaxLength(100)
         self.title.textEdited.connect(self.edited)
@@ -53,7 +57,7 @@ class Notebook(QWidget):
         self.editor.textChanged.connect(self.edited)
         right.addWidget(self.editor,1)
         bar = QHBoxLayout()
-        self.status = QLabel("Автосохранение · локально")
+        self.status = QLabel("")
         bar.addWidget(self.status,1)
         for title,callback in (("Копировать",lambda: QApplication.clipboard().setText(self.editor.toPlainText())),
                                ("Экспорт…",self.export)):
@@ -73,6 +77,7 @@ class Notebook(QWidget):
         self.list.clear()
         self.list.addItem("Быстрая заметка · остров")
         self.list.addItems([r["title"] or "Без названия" for r in self.records])
+        for index in range(self.list.count()):self.list.item(index).setIcon(icon('note'))
         self.list.blockSignals(False)
         self.list.setCurrentRow(selected)
 

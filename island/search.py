@@ -11,7 +11,7 @@ import subprocess
 import time
 from PySide6.QtCore import Qt, QObject, QTimer, QUrl, QEvent, Signal, QProcess, QFileInfo
 from PySide6.QtGui import QDesktopServices, QKeyEvent
-from PySide6.QtWidgets import QWidget, QListWidgetItem, QFileIconProvider
+from PySide6.QtWidgets import QWidget, QListWidgetItem, QFileIconProvider, QMenu, QApplication
 from .search_ui import SearchPresentation
 
 
@@ -130,7 +130,7 @@ class SearchPalette(SearchPresentation, QWidget):
             self.hide()
         elif self.enabled:
             screen = self.owner.screen().availableGeometry()
-            self.resize(min(600,screen.width()-40),self.height())
+            self.resize(min(720,screen.width()-40),self.height())
             self.move(screen.center().x()-self.width()//2, screen.top()+max(60, screen.height()//6))
             self.show()
             self.raise_()
@@ -174,7 +174,7 @@ class SearchPalette(SearchPresentation, QWidget):
         if self.pending is not None:
             self.pending.cancel()
         terms = query.casefold().split()
-        rows = [r for r in self._commands() if all(t in r.title.casefold() for t in terms)] if terms else []
+        rows = [r for r in self._commands() if all(t in r.title.casefold() for t in terms)] if terms else self._commands()
         if terms and self.owner.settings.get("search_apps"):
             rows += [r for r in self.catalog if all(t in r.title.casefold() for t in terms)][:40]
         direct = Path(os.path.expandvars(query.strip(' "'))) if query.strip() else None
@@ -207,6 +207,14 @@ class SearchPalette(SearchPresentation, QWidget):
             existing.add(result.target)
         if self.results.currentRow() < 0 and self.results.count():
             self.results.setCurrentRow(0)
+        previous=None
+        for i in range(self.results.count()):
+            item=self.results.item(i)
+            kind=item.data(Qt.ItemDataRole.UserRole).kind
+            group={'command':'Команды Nelviro','app':'Приложения','store':'Приложения'}.get(kind,'Файлы и папки')
+            item.setData(Qt.ItemDataRole.UserRole+1,group if group!=previous else '')
+            previous=group
+        self.open_action.setEnabled(bool(self.results.count()))
         self.update_presentation()
 
     def _indexed(self):
@@ -245,8 +253,29 @@ class SearchPalette(SearchPresentation, QWidget):
         else:
             self.status.setText("Файл недоступен или Windows не смогла его открыть")
 
+    def show_actions(self):
+        item=self.results.currentItem()
+        menu=QMenu(self)
+        if item:
+            result=item.data(Qt.ItemDataRole.UserRole)
+            menu.addAction('Открыть',self.activate).setShortcut('Return')
+            if result.kind not in {'command','store'}:
+                menu.addAction('Показать расположение',lambda:QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(result.target).parent))))
+                menu.addAction('Скопировать путь',lambda:QApplication.clipboard().setText(result.target))
+            menu.addSeparator()
+        menu.addAction('Настройки поиска',self.open_settings)
+        self._actions_open=True
+        try:menu.exec(self.footer.mapToGlobal(self.footer.rect().topRight()))
+        finally:self._actions_open=False
+        if self.isVisible():self.input.setFocus()
+
+    def open_settings(self):
+        self.hide();self.owner.show_hub();self.owner.control_center.navigate('search')
+
     def eventFilter(self, obj, event):
         if isinstance(event, QKeyEvent) and event.type() == QEvent.Type.KeyPress:
+            if event.key()==Qt.Key.Key_K and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self.show_actions();return True
             if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
                 self.results.setCurrentRow(max(0, min(self.results.count()-1,
                     self.results.currentRow()+(1 if event.key() == Qt.Key.Key_Down else -1))))
@@ -268,7 +297,7 @@ class SearchPalette(SearchPresentation, QWidget):
         super().hideEvent(event)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
+        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow() and not getattr(self,"_actions_open",False):
             self.hide()
         super().changeEvent(event)
 

@@ -148,8 +148,10 @@ class PresentationTests(unittest.TestCase):
         self.assertTrue(self.w.isVisible());self.assertEqual(self.w._visibility.fraction,1)
 
     def test_page_scroll_is_inertial_and_stops_when_hidden(self):
-        w=self.w;w.show_hub();c=w.control_center;c.resize(900,600);QTest.qWait(60)
-        scroll=c.pages.currentWidget();bar=scroll.verticalScrollBar()
+        w=self.w;w.show_hub();c=w.control_center;c.resize(900,600);c.navigate("island")
+        next(s for s in c.subpages if s.title=="Размер и прозрачность").click()
+        QTest.qWait(250)
+        scroll=c.detail_scroll;bar=scroll.verticalScrollBar()
         self.assertGreater(bar.maximum(),60)
         bar.setValue(0)
         event=QWheelEvent(QPointF(20,20),QPointF(20,20),QPoint(),QPoint(0,-120),
@@ -158,7 +160,7 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(bar.value(),0)
         QTest.qWait(60)
         self.assertGreater(bar.value(),0);self.assertLess(bar.value(),60)
-        c.navigate('island')
+        c.navigate('hub')
         self.assertFalse(scroll.smooth_scroll.timer.isActive())
 
 
