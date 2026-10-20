@@ -98,6 +98,8 @@ class IslandWindow(QWidget):
         self._update_info = None
         self._manual_update = False
         self.resize(180, 38)
+        self.island_material=False
+        self._island_color_preview=None
         self.card = NotchCard(self)
         self.card.setGeometry(self.rect())
         self.art_label = ArtLabel(self.card)
@@ -216,8 +218,25 @@ class IslandWindow(QWidget):
         if not hasattr(self,'_visibility'): return
         self._notch_stage._signature=None
         self._place()
+        self.refresh_island_material()
         self.card.update()
         if self.control_center: self.control_center.refresh()
+
+    def refresh_island_material(self):
+        from .island_material import effective_appearance
+        from .native_material import island_transparency_available
+        appearance=effective_appearance(self)
+        self.island_material=appearance.glass and island_transparency_available()
+        if hasattr(self,'_visibility'):self._visibility.refresh_region()
+        self.card.update()
+        if hasattr(self,'_notch_stage'):self._notch_stage.surface.update()
+
+    def preview_island_color(self,color=None):
+        self._island_color_preview=color
+        self.refresh_island_material()
+        if self.control_center:
+            self.control_center.island_preview.update()
+            self.control_center.hero_preview.update()
 
     def _foreground_changed(self):
         if self._closed: return
@@ -287,11 +306,13 @@ class IslandWindow(QWidget):
         # DWM owns taskbar Peek fading, independently of Qt visibility/z-order.
         # Apply to the real HWND on every show, including a recreated window.
         exclude_from_peek(self)
+        self.refresh_island_material()
 
     def resizeEvent(self, event):
         self.card.setGeometry(self.rect())
         if hasattr(self, "_notch_stage"):
             self._notch_stage.sync()
+        if hasattr(self,"_visibility"):self._visibility.refresh_region()
 
     def enterEvent(self, event):
         if not self._notch_pointer.covered and not self._island_expanded:
@@ -500,6 +521,11 @@ class IslandWindow(QWidget):
                 self.control_center.navigate('account')
                 self.control_center._message('Плавающий остров открывается после подписки на канал')
             return False
+        feature='island.glass' if key=='island_material' and enabled=='glass' else 'island.color' if key=='island_color' else None
+        if feature and not self.access.feature(feature).allowed:
+            if self.control_center:
+                self.control_center.navigate('account');self.control_center._message('Стекло и цвет открываются после подписки на канал')
+            return False
         if key.startswith("hotkey_"):
             from .hotkey import parse_shortcut
             try:
@@ -530,6 +556,7 @@ class IslandWindow(QWidget):
             self.art_label.set_image(self._notch_art(self.snapshot.thumb, min(40,self.settings.get("compact_height")-12),7))
             self._notch_stage._signature = None
             self._place()
+        if key in {"island_material","island_color"}:self.refresh_island_material()
         if key == "island_opacity":
             self._visibility.apply()
         if key in {"island_style","island_gap"}:

@@ -34,6 +34,7 @@ class ReleaseTrustTests(unittest.TestCase):
             directory=Path(folder)
             name=f'CloudIsland-Setup-{__version__}-win-x64.exe'
             (directory/name).write_bytes(b'MZinstaller')
+            (directory/f'Nelviro-Setup-{__version__}-win-x64.exe').write_bytes(b'MZinstaller')
             (directory/'SHA256SUMS.txt').write_bytes(b'checksums')
             channel=build_channel(directory,f'# Changelog\n\n## v{__version__}\n\nНаш релиз\n\n## v0.0.0\nOld')
             info=release_info(channel,current='0.0.0')
@@ -56,6 +57,14 @@ class ReleaseTrustTests(unittest.TestCase):
         bad['assets'][0]=dict(good['assets'][0],size=True)
         self.assertIsNone(release_info(bad)['installer'])
         self.assertIsNone(release_info(good,current='9.0.0'))
+
+    def test_nelviro_primary_and_legacy_update_names_are_both_supported(self):
+        old=payload();primary=dict(old['assets'][0]);primary['name']='Nelviro-Setup-9.0.0-win-x64.exe'
+        primary['browser_download_url']=REPO_URL+'/releases/download/v9.0.0/'+primary['name']
+        for assets in ([primary,old['assets'][0],old['assets'][1]],[old['assets'][0],primary,old['assets'][1]]):
+            self.assertEqual(release_info({**old,'assets':assets})['installer']['name'],primary['name'])
+        self.assertEqual(release_info(old)['installer']['name'],old['assets'][0]['name'])
+        self.assertIsNone(release_info({**old,'assets':[primary,primary]}))
 
     def test_redirects_only_allow_secure_known_hosts(self):
         for url in ('https://github.com/a','https://release-assets.githubusercontent.com/a',

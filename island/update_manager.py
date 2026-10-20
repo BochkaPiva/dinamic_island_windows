@@ -53,15 +53,20 @@ def release_info(payload,current=__version__):
     value='.'.join(map(str,version))
     result={'version':value,'url':payload['html_url'],'notes':str(payload.get('body') or '')[:30000],
             'installer':None,'checksums':None}
+    seen=set()
+    primary=f'Nelviro-Setup-{value}-win-x64.exe'
+    legacy=f'CloudIsland-Setup-{value}-win-x64.exe'
     for asset in payload.get('assets',[]) if isinstance(payload.get('assets',[]),list) else []:
         if not isinstance(asset,dict): continue
         name=asset.get('name')
-        key='installer' if name==f'CloudIsland-Setup-{value}-win-x64.exe' else 'checksums' if name=='SHA256SUMS.txt' else None
+        key='installer' if name in (primary,legacy) else 'checksums' if name=='SHA256SUMS.txt' else None
         expected=REPO_URL+'/releases/download/'+tag+'/'+str(name)
         size=asset.get('size')
         if key and asset.get('browser_download_url')==expected and type(size) is int and 0<size<=(MAX_INSTALLER if key=='installer' else 65536):
-            if result[key] is not None: return None
-            result[key]={'name':name,'url':expected,'size':size,'digest':asset.get('digest')}
+            if name in seen:return None
+            seen.add(name)
+            if key!='installer' or name==primary or result[key] is None:
+                result[key]={'name':name,'url':expected,'size':size,'digest':asset.get('digest')}
     return result
 
 

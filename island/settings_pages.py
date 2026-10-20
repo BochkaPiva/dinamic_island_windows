@@ -144,10 +144,10 @@ class SettingsPages:
         self.catalog_stack=DashboardDeck(self.select_catalog)
         for index,(key,title,setting,glyph) in enumerate((('island','Остров','island_enabled','island'),('desktop','Группы','desktop_enabled','folder'),('search','Поиск','search_enabled','search'),('timer','Фокус',None,'timer'),('library','Материалы',None,'note'),('workspaces','Окна',None,'windows'))):
             panel=SettingsSurface();panel.setObjectName('card');panel.setMinimumHeight(176)
-            inside=QVBoxLayout(panel);inside.setContentsMargins(16,12,16,12);inside.setSpacing(6)
+            inside=QVBoxLayout(panel);inside.setContentsMargins(16,10,16,10);inside.setSpacing(6)
             header=QHBoxLayout()
             select=self.action(title,lambda _,i=index:self.select_catalog(i));select.setObjectName('tileTitle');select.setIcon(icon(glyph,self.colors['text'],20))
-            select.setAccessibleName('Предпросмотр: '+title);header.addWidget(select,1);self.catalog_buttons[key]=select
+            select.setFixedHeight(30);select.setAccessibleName('Предпросмотр: '+title);header.addWidget(select,1);self.catalog_buttons[key]=select
             if setting:
                 toggle=ToggleSwitch(title);toggle.toggled.connect(lambda v,k=setting:self._setting(k,v));header.addWidget(toggle);self.module_switches[setting]=toggle
             inside.addLayout(header)
@@ -159,7 +159,7 @@ class SettingsPages:
                 self.focus_preview=FocusPreview(self.owner.notch_hub,readout_size=18);self.focus_preview.setFixedHeight(84)
                 self.overview_timer=self.focus_preview.readout;inside.addWidget(self.focus_preview)
             elif key=='library':
-                sample=QLabel();sample.setTextFormat(Qt.TextFormat.PlainText);sample.setObjectName('noteSample');sample.setWordWrap(True);sample.setMinimumHeight(84)
+                sample=QLabel();sample.setTextFormat(Qt.TextFormat.PlainText);sample.setObjectName('noteSample');sample.setWordWrap(True);sample.setFixedHeight(84)
                 def refresh_note(label=sample):label.setText(self.owner.notch_hub.notes.toPlainText()[:140] or 'Записать мысль…')
                 refresh_note();self.owner.notch_hub.notes.textChanged.connect(refresh_note);inside.addWidget(sample)
             else:
@@ -167,11 +167,11 @@ class SettingsPages:
                 picker=ZonePicker();picker.setFixedHeight(84);picker.selected.connect(lambda _:self.navigate('workspaces'));inside.addWidget(picker)
             footer=QHBoxLayout()
             if key=='timer':
-                self.overview_start=self.action('Начать',lambda:self.start_dashboard_focus());self.overview_start.setObjectName('quiet');footer.addWidget(self.overview_start)
+                self.overview_start=self.action('Начать',lambda:self.start_dashboard_focus());self.overview_start.setObjectName('quiet');self.overview_start.setFixedHeight(30);footer.addWidget(self.overview_start)
             for status_key in ([key] if setting else ['layouts','workspaces'] if key=='workspaces' else []):
-                status=text('',True);footer.addWidget(status);self.module_status[status_key]=status
+                status=text('',True);status.setFixedHeight(30);footer.addWidget(status);self.module_status[status_key]=status
                 if key=='workspaces':status.hide()
-            footer.addStretch();open_button=self.action('Открыть',lambda _,k=key:self.navigate(k));open_button.setObjectName('quiet');footer.addWidget(open_button)
+            footer.addStretch();open_button=self.action('Открыть',lambda _,k=key:self.navigate(k));open_button.setObjectName('quiet');open_button.setFixedHeight(30);footer.addWidget(open_button)
             inside.addLayout(footer);self.catalog_stack.addWidget(panel)
         layout.addWidget(self.catalog_stack)
         self.policy_label=text('',True);self.policy_label.hide()
@@ -204,6 +204,18 @@ class SettingsPages:
             if key=='floating':control.setToolTip('Плавающий остров — для подписчиков канала')
         hero_layout.addLayout(forms)
         self.index_setting('Форма острова',hero_layout,self.form_buttons['floating'])
+        self.material_buttons={}
+        materials=QHBoxLayout();materials.setSpacing(6)
+        for title,key in (('Чёрный','black'),('Стекло','glass')):
+            control=self.action(title,lambda _,value=key:self._setting('island_material',value))
+            control.setObjectName('segment');control.setCheckable(True);materials.addWidget(control,1);self.material_buttons[key]=control
+        hero_layout.addLayout(materials)
+        self.material_buttons['glass'].setToolTip('Стеклянная поверхность — для подписчиков канала')
+        self.index_setting('Материал стекло',hero_layout,self.material_buttons['glass'])
+        from .color_ui import ColorButton
+        self.island_color_button=ColorButton(self.open_island_color)
+        self.island_color_button.setToolTip('Оттенок применяется к стеклу; светлая кромка и тёмный центр сохраняют читаемость')
+        self.choice(hero_layout,'Цвет стекла',self.island_color_button)
         self.screen_picker=QComboBox();self.screen_picker.addItem('Основной','')
         for screen in QApplication.screens():self.screen_picker.addItem(screen.name(),screen.name())
         self.screen_picker.currentIndexChanged.connect(lambda _:self._setting('monitor',self.screen_picker.currentData()))
@@ -244,8 +256,14 @@ class SettingsPages:
         layout.addStretch()
 
 
+    def open_island_color(self):
+        if not self.owner.access.feature('island.color').allowed:
+            self.navigate('account');self._message('Цвет стекла открывается после подписки на канал');return
+        from .color_ui import IslandColorDialog
+        dialog=IslandColorDialog(self);dialog.exec();dialog.deleteLater();self.refresh()
+
     def reset_island(self):
-        for key in ("compact_width","compact_height","expanded_width","expanded_height","island_opacity","island_gap","island_style","hover_delay","collapse_delay"):
+        for key in ("compact_width","compact_height","expanded_width","expanded_height","island_opacity","island_gap","island_style","island_material","hover_delay","collapse_delay"):
             self._setting(key,self.owner.settings.DEFAULTS[key])
 
     def search_page(self):

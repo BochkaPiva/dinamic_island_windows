@@ -12,11 +12,11 @@ from .protected_storage import protect,unprotect
 
 FREE_FEATURES=frozenset({'island.overview','search.basic','notes.local','timer.basic','desktop.groups'})
 PRO_FEATURES=FREE_FEATURES | frozenset({'island.focus','island.notes','island.mirror','island.video',
-    'island.pin','island.activities.pin','island.floating','files.bridge','desktop.widgets','workspaces.scenes'})
+    'island.glass','island.color','island.pin','island.activities.pin','island.floating','files.bridge','desktop.widgets','workspaces.scenes'})
 FREE_LIMITS={'desktop.groups.active':2,'desktop.widgets.active':1}
 PRO_LIMITS={'desktop.groups.active':None,'desktop.widgets.active':None}
 # Preserve current island utilities; membership adds groups and future optional modules.
-COMMUNITY_BASE_FEATURES = PRO_FEATURES - frozenset({'island.mirror','island.video','island.activities.pin','island.floating','desktop.widgets'})
+COMMUNITY_BASE_FEATURES = PRO_FEATURES - frozenset({'island.glass','island.color','island.mirror','island.video','island.activities.pin','island.floating','desktop.widgets'})
 
 
 @dataclass(frozen=True)

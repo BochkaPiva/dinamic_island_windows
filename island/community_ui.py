@@ -197,6 +197,8 @@ class CommunityBenefits(QWidget):
         right.addWidget(text('Группы рабочего стола'))
         count=text('2 → все');count.setObjectName('heroTitle');right.addWidget(count,1,Qt.AlignmentFlag.AlignCenter)
         right.addWidget(text('Больше места для своих приложений',True));grid.addWidget(groups,0,1)
+        glass=SettingsSurface();glass.setObjectName('card');glass_row=QHBoxLayout(glass);glass_row.setContentsMargins(16,16,16,16)
+        glass_row.addWidget(text('Стекло и цвет острова'),1);glass_row.addWidget(text('Подписчикам',True));root.addWidget(glass)
         media=SettingsSurface();media.setObjectName('card');bottom=QHBoxLayout(media);bottom.setContentsMargins(16,16,16,16)
         bottom.addWidget(text('Видео, камера, закрепление'),1);bottom.addWidget(text('Подписчикам',True));root.addWidget(media)
         self.setAccessibleName('Без входа: чёлка и две группы. С подпиской: плавающий остров и дополнительные группы.')

@@ -632,6 +632,10 @@ class ControlCenter(QWidget, SettingsPages):
         self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
         effective_style='floating' if w.floating_mode() else 'notch'
         for style,control in self.form_buttons.items():control.setChecked(style==effective_style)
+        from .island_material import effective_appearance
+        material=effective_appearance(w)
+        for key,control in self.material_buttons.items():control.setChecked(key==('glass' if material.glass else 'black'))
+        self.island_color_button.set_color(w.settings.get('island_color'),not w.access.feature('island.color').allowed)
         self.island_preview.display_style=effective_style
         self.island_preview.update()
         bridge = w.powertoys

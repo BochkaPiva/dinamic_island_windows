@@ -315,7 +315,7 @@ class MediaStage(QObject):
         self.play_button.setVisible(kind=='file');self.resume_button.setVisible(kind=='window')
         self.time_label.setText('Камера работает только пока открыто зеркало' if kind=='camera' else '')
         self.canvas.setMinimumHeight(1)
-        self.state='entering';w.clearMask()
+        self.state='entering';w._visibility.refresh_region()
         self.panel.setGeometry(0,0,480,320);self.panel.ensurePolished();self.panel.layout().activate()
         self.morph.capture();self.layout()
         screen=QApplication.screenAt(w.geometry().center()) or w.screen()
@@ -353,6 +353,7 @@ class MediaStage(QObject):
             self.panel.hide();self.morph.setGeometry(self.owner.card.rect());self.morph.show();self.morph.raise_();self.morph.update()
         self.title.setText(self.title.fontMetrics().elidedText(self.full_title,Qt.TextElideMode.ElideRight,max(40,self.panel.width()-120)))
         self.refresh_thumbnail()
+        self.owner._visibility.refresh_region()
 
     def refresh_thumbnail(self):
         if not self.thumbnail:return
