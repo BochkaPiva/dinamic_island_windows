@@ -157,6 +157,10 @@ def main():
         report['performance_scope']='Same four groups and opened-then-hidden Hub, 8 seconds each; not a battery or long-running benchmark'
         print('Real 0.5.1 single-file → PySide6 onedir upgrade: PASS',flush=True)
 
+        # Modern helper must accept the public Nelviro filename too.
+        primary=stage/f'Nelviro-Setup-{__version__}-win-x64.exe'
+        shutil.copy2(staged,primary)
+        staged=primary
         manager=UpdateChecker(directory=data)
         manager.path=str(staged);manager.sha256=digest(staged)
         manager.info={'version':__version__,'installer':{'size':staged.stat().st_size}}
