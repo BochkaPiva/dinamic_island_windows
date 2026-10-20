@@ -9,7 +9,7 @@ out = root / "build" / "licenses"
 out.mkdir(parents=True, exist_ok=True)
 runtime_names=('PySide6-Essentials','PySide6-Addons','shiboken6','numpy','PyAudioWPatch','winrt-runtime',
     'winrt-Windows.Foundation','winrt-Windows.Foundation.Collections','winrt-Windows.Media.Control',
-    'winrt-Windows.Storage.Streams','typing_extensions','cryptography','cffi','pycparser','pyinstaller')
+    'winrt-Windows.Storage.Streams','winrt-Windows.UI','winrt-Windows.UI.Composition','winrt-Windows.UI.Composition.Desktop','winrt-Windows.UI.Composition.Interop','winrt-Windows.System','winrt-Windows.System.Interop','winrt-Windows.Foundation.Numerics','typing_extensions','cryptography','cffi','pycparser','pyinstaller')
 for dist in map(distribution,runtime_names):
     name = dist.metadata["Name"]
     target = out / name

@@ -206,7 +206,7 @@ class SettingsPages:
         self.index_setting('Форма острова',hero_layout,self.form_buttons['floating'])
         self.material_buttons={}
         materials=QHBoxLayout();materials.setSpacing(6)
-        for title,key in (('Чёрный','black'),('Стекло','glass')):
+        for title,key in (('Обычный','black'),('Стекло','glass')):
             control=self.action(title,lambda _,value=key:self._setting('island_material',value))
             control.setObjectName('segment');control.setCheckable(True);materials.addWidget(control,1);self.material_buttons[key]=control
         hero_layout.addLayout(materials)
@@ -214,8 +214,8 @@ class SettingsPages:
         self.index_setting('Материал стекло',hero_layout,self.material_buttons['glass'])
         from .color_ui import ColorButton
         self.island_color_button=ColorButton(self.open_island_color)
-        self.island_color_button.setToolTip('Оттенок применяется к стеклу; светлая кромка и тёмный центр сохраняют читаемость')
-        self.choice(hero_layout,'Цвет стекла',self.island_color_button)
+        self.island_color_button.setToolTip('Цвет применяется к обоим материалам. Контраст текста подстраивается автоматически.')
+        self.choice(hero_layout,'Цвет острова',self.island_color_button)
         self.screen_picker=QComboBox();self.screen_picker.addItem('Основной','')
         for screen in QApplication.screens():self.screen_picker.addItem(screen.name(),screen.name())
         self.screen_picker.currentIndexChanged.connect(lambda _:self._setting('monitor',self.screen_picker.currentData()))
@@ -258,7 +258,7 @@ class SettingsPages:
 
     def open_island_color(self):
         if not self.owner.access.feature('island.color').allowed:
-            self.navigate('account');self._message('Цвет стекла открывается после подписки на канал');return
+            self.navigate('account');self._message('Цвет острова открывается после подписки на канал');return
         from .color_ui import IslandColorDialog
         dialog=IslandColorDialog(self);dialog.exec();dialog.deleteLater();self.refresh()
 

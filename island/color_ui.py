@@ -58,7 +58,7 @@ class ColorWheel(QWidget):
 class ColorButton(QPushButton):
     def __init__(self,callback):
         super().__init__();self.color='#000000';self.locked=False;self.setFixedSize(188,38)
-        self.setCursor(Qt.CursorShape.PointingHandCursor);self.setAccessibleName('Цвет стекла');self.clicked.connect(callback)
+        self.setCursor(Qt.CursorShape.PointingHandCursor);self.setAccessibleName('Цвет острова');self.clicked.connect(callback)
     def set_color(self,color,locked=False):
         self.color=color;self.locked=locked;self.setAccessibleDescription('Подписчикам' if locked else color);self.update()
     def paintEvent(self,event):
@@ -75,11 +75,11 @@ class IslandColorDialog(QDialog):
         super().__init__(center,Qt.WindowType.Dialog|Qt.WindowType.FramelessWindowHint)
         self.center=center;self.owner=center.owner;self.colors=center.colors;self.material=False
         self.color=QColor(self.owner.settings.get('island_color'));self._syncing=False
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground);self.setWindowTitle('Цвет стекла');self.setFixedWidth(600)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground);self.setWindowTitle('Цвет острова');self.setFixedWidth(600)
         from .hub_ui import stylesheet
         self.setStyleSheet(stylesheet(self.colors)+'QDialog {background:transparent;}')
         root=QVBoxLayout(self);root.setContentsMargins(24,18,24,18);root.setSpacing(14)
-        title=QLabel('Цвет стекла');title.setObjectName('paneTitle');root.addWidget(title)
+        title=QLabel('Цвет острова');title.setObjectName('paneTitle');root.addWidget(title)
         columns=QHBoxLayout();columns.setSpacing(22);root.addLayout(columns)
         self.wheel=ColorWheel();columns.addWidget(self.wheel)
         controls=QVBoxLayout();controls.setSpacing(10);columns.addLayout(controls,1)
@@ -110,7 +110,7 @@ class IslandColorDialog(QDialog):
         for value,number in zip(self.rgb,(self.color.red(),self.color.green(),self.color.blue())):value.setValue(number)
         self.brightness.setValue(round(self.color.valueF()*1000));self.hex.setText(self.color.name().upper());self._syncing=False
         self.save_button.setEnabled(True);self.error.hide()
-        self.preview.appearance_override=Appearance(True,self.color.name());self.preview.update()
+        self.preview.appearance_override=Appearance(self.owner.settings.get('island_material')=='glass',self.color.name());self.preview.update()
         if not self.preview_timer.isActive():self.preview_timer.start()
     def rgb_changed(self):
         if not self._syncing:self.choose(QColor(*(value.value() for value in self.rgb)))

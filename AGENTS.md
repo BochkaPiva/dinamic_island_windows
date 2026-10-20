@@ -64,3 +64,12 @@ Use island_material.py and color_ui.py. Rounded islands use per-pixel translucen
 and softly shaded curved reflections; accent Acrylic is rectangular and must not be enabled on this
 shape. Do not describe this as desktop refraction or blur. Respect system transparency
 and high contrast with an opaque fallback. Keep shortcut/install/data identities.
+
+## Frosted material correction (0.12.1)
+The user rejected painted lighting as plastic. Do not restore fake specular spots,
+white frames or the reflected_light implementation. glass_backend.py hosts a clipped
+Windows Composition host backdrop in an input-transparent, nonactivating native
+surface below the Qt content. No screen capture is allowed. Respect system policy;
+use an opaque matte fallback where native host backdrop is unavailable. Color is
+member-only and applies to BOTH solid and glass materials; solid uses exact RGB
+and adaptive foreground contrast. Keep all backdrop lifecycle and focus tests.

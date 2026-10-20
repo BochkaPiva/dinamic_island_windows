@@ -37,9 +37,30 @@ def self_test(report, audio=False):
     return 0 if not audio or result["loopback"] else 2
 
 
+def material_self_test(report):
+    from PySide6.QtWidgets import QApplication,QWidget
+    from winrt.windows.ui.composition import Compositor
+    from winrt.windows.ui.composition.interop import create_desktop_window_target
+    from winrt.windows.system.interop import create_dispatcher_queue_controller
+    from winrt.windows.system import DispatcherQueue
+    from winrt.windows.foundation.numerics import Vector2
+    from island.glass_backend import GlassBackdrop
+    app=QApplication([]);owner=QWidget();backend=None
+    result={'composition_imports':True,'native_available':False,'window_shown':False,'data_accessed':False}
+    try:
+        backend=GlassBackdrop(owner);result['native_available']=True
+    except (OSError,RuntimeError):pass
+    finally:
+        if backend:backend.close()
+        owner.close();app.processEvents()
+    Path(report).write_text(json.dumps(result,indent=2),encoding='utf-8')
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", metavar="REPORT")
+    parser.add_argument("--material-self-test", metavar="REPORT")
     parser.add_argument("--audio-self-test", metavar="REPORT")
     parser.add_argument("--diagnostics", metavar="REPORT", help="Read runtime state from the current same-user instance")
     parser.add_argument("--quit", action="store_true", help="Gracefully close the current user's running instance")
@@ -58,6 +79,7 @@ def main():
         result=query_status()
         Path(args.diagnostics).write_text(json.dumps(result,indent=2),encoding="utf-8")
         return 0 if result.get("running") else 1
+    if args.material_self_test:return material_self_test(args.material_self_test)
     if args.self_test or args.audio_self_test:
         return self_test(args.self_test or args.audio_self_test, bool(args.audio_self_test))
     if args.quit:

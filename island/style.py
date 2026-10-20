@@ -91,7 +91,8 @@ class TransportButton(QPushButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.translate(self.width()/2, self.height()/2)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#f4f4f6" if self.isEnabled() else "#53535d"))
+        from .island_material import island_ink
+        p.setBrush(island_ink(self.window()) if self.isEnabled() else QColor("#73737d"))
         s = self.glyph / 2
         if self.kind == "pause":
             for x in (-s*.65, s*.2):
@@ -125,7 +126,8 @@ class SpectrumMark(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#d7e3f6" if self.available else "#59616d"))
+        from .island_material import island_ink
+        p.setBrush(island_ink(self.window()) if self.available else QColor("#72747a"))
         for i, level in enumerate(self.levels):
             height = 2 + max(0, min(1, level)) * (self.height()-3)
             p.drawRoundedRect(QRectF(i*6, (self.height()-height)/2, 3, height), 1.5, 1.5)

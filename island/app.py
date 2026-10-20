@@ -99,6 +99,8 @@ class IslandWindow(QWidget):
         self._manual_update = False
         self.resize(180, 38)
         self.island_material=False
+        self._glass_backend=None
+        self._glass_backend_failed=False
         self._island_color_preview=None
         self.card = NotchCard(self)
         self.card.setGeometry(self.rect())
@@ -226,8 +228,23 @@ class IslandWindow(QWidget):
         from .island_material import effective_appearance
         from .native_material import island_transparency_available
         appearance=effective_appearance(self)
-        self.island_material=appearance.glass and island_transparency_available()
+        enabled=appearance.glass and island_transparency_available()
+        if enabled and self._glass_backend is None and not self._glass_backend_failed:
+            try:
+                from .glass_backend import GlassBackdrop
+                self._glass_backend=GlassBackdrop(self)
+            except (ImportError,OSError,RuntimeError,AttributeError):self._glass_backend_failed=True
+        try:self.island_material=bool(self._glass_backend and self._glass_backend.configure(enabled))
+        except (OSError,RuntimeError):
+            self._glass_backend.close();self._glass_backend=None;self._glass_backend_failed=True;self.island_material=False
         if hasattr(self,'_visibility'):self._visibility.refresh_region()
+        from .island_material import island_ink
+        ink=island_ink(self).name()
+        for label in (self.notch_idle,self.notch_notice):label.setStyleSheet('color:'+ink+';background:transparent;')
+        if hasattr(self.notch_hub,'apply_material_colors'):self.notch_hub.apply_material_colors(ink)
+        self.status_mark.update()
+        if hasattr(self,'media_stage'):
+            self.media_stage.title.setStyleSheet('color:'+ink+';background:transparent;')
         self.card.update()
         if hasattr(self,'_notch_stage'):self._notch_stage.surface.update()
 
@@ -701,6 +718,7 @@ class IslandWindow(QWidget):
         self._manual_update = False
 
     def cleanup(self):
+        if self._glass_backend:self._glass_backend.close();self._glass_backend=None
         if self._closed:
             return
         self._closed = True
