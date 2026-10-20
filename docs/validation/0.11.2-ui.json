@@ -1,0 +1,39 @@
+{
+  "version": "0.11.2",
+  "desktop_tests": 226,
+  "native_cases": 240,
+  "actual_dpr": [
+    1.0,
+    1.5,
+    2.0
+  ],
+  "themes": [
+    "dark",
+    "light"
+  ],
+  "logical_widths": [
+    900,
+    1120
+  ],
+  "horizontal_overflow": false,
+  "qt_errors": false,
+  "frozen_interface": {
+    "version": "0.11.2",
+    "frozen_ui_opened": true,
+    "qt_runtime_errors": false,
+    "graceful_exit": true,
+    "isolated_data": true,
+    "installed_profile_used": false
+  },
+  "scroll_cpu_fixture": {
+    "dpr": 1.99999999995,
+    "material": true,
+    "scroll_cpu_median_ms": 15.88,
+    "p95_ms": 17.61,
+    "samples": 32,
+    "scope": "CPU event processing, not compositor frame latency"
+  },
+  "installer_sha256": "ebc510abfe0ecc11be2b8fc9bf68ea68b13023689762b3f90a17d4ce8c65bfb1",
+  "glass_scope": "Internal app-owned light-field refraction; external desktop native acrylic blur only",
+  "publication": "Draft PR candidate; public channel not promoted"
+}

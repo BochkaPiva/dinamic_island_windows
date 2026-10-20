@@ -7,6 +7,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QLabel, QPushButton
 from .community_client import CommunityClient, CommunityError
 from . import build_config
+from .settings_navigation import SettingsSurface
 
 
 MESSAGES = {
@@ -180,29 +181,24 @@ class CommunityBenefits(QWidget):
         self.owner=owner
         from .module_preview import FormPreview
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0);root.setSpacing(12)
-        table=QFrame();table.setObjectName('card')
-        grid=QGridLayout(table);grid.setContentsMargins(16,14,16,14);grid.setHorizontalSpacing(20);grid.setVerticalSpacing(16)
-        for column,title in enumerate(('Возможности','Для всех','Подписчикам')):
-            label=text(title);label.setObjectName('paneTitle');grid.addWidget(label,0,column)
-        for row,values in enumerate((('Форма','Чёлка','Чёлка и остров'),
-            ('Группы на рабочем столе','2 активные','Все группы'),
-            ('Видео, камера, закрепление','—','Доступны')),1):
-            for column,value in enumerate(values):
-                grid.addWidget(text(value,column>0),row,column)
-        grid.setColumnStretch(0,1)
-        root.addWidget(table)
+        grid=QGridLayout();grid.setSpacing(14);root.addLayout(grid)
+        island=SettingsSurface();island.setObjectName('card');left=QVBoxLayout(island);left.setContentsMargins(16,14,16,14)
+        left.addWidget(text('Форма острова'))
         if owner:
-            controls=QHBoxLayout()
-            self.preview=FormPreview(owner,'floating')
-            self.preview.setFixedHeight(100)
-            self.preview_buttons=[]
+            self.preview=FormPreview(owner,'floating');self.preview.setFixedHeight(96);left.addWidget(self.preview)
+            controls=QHBoxLayout();self.preview_buttons=[]
             for style,title in (('notch','Чёлка'),('floating','Остров')):
-                button=QPushButton(title);button.setObjectName('segment');button.setCheckable(True)
-                button.setChecked(style=='floating')
-                button.clicked.connect(lambda _,s=style:self.select_preview(s))
-                controls.addWidget(button);self.preview_buttons.append((style,button))
-            controls.addStretch()
-            root.addLayout(controls);root.addWidget(self.preview)
+                button=QPushButton(title);button.setObjectName('segment');button.setCheckable(True);button.setChecked(style=='floating')
+                button.clicked.connect(lambda _,s=style:self.select_preview(s));controls.addWidget(button);self.preview_buttons.append((style,button))
+            left.addLayout(controls)
+        else:left.addWidget(text('Чёлка → плавающий остров',True))
+        grid.addWidget(island,0,0)
+        groups=SettingsSurface();groups.setObjectName('card');right=QVBoxLayout(groups);right.setContentsMargins(16,14,16,14)
+        right.addWidget(text('Группы рабочего стола'))
+        count=text('2 → все');count.setObjectName('heroTitle');right.addWidget(count,1,Qt.AlignmentFlag.AlignCenter)
+        right.addWidget(text('Больше места для своих приложений',True));grid.addWidget(groups,0,1)
+        media=SettingsSurface();media.setObjectName('card');bottom=QHBoxLayout(media);bottom.setContentsMargins(16,16,16,16)
+        bottom.addWidget(text('Видео, камера, закрепление'),1);bottom.addWidget(text('Подписчикам',True));root.addWidget(media)
         self.setAccessibleName('Без входа: чёлка и две группы. С подпиской: плавающий остров и дополнительные группы.')
 
     def select_preview(self,style):
@@ -228,7 +224,7 @@ class CommunityPanel(QWidget):
         if not owner or not hasattr(owner, 'snapshot'):
             owner = None
         self.owner = owner
-        hero = QFrame(self)
+        hero = SettingsSurface(self)
         hero.setObjectName('card')
         inside = QVBoxLayout(hero)
         inside.setContentsMargins(16, 14, 16, 14)

@@ -14,13 +14,13 @@ from .timer import TimerReadout
 from .settings_navigation import SettingsSurface, SettingsCombo as QComboBox
 
 
-PAGES = (("hub","Модули","overview_page"),
+PAGES = (("hub","Главная","overview_page"),
          ("island","Остров","island_page"),
          ("search","Поиск","search_page"),
          ("desktop","Рабочий стол","desktop_page"),
          ("library","Заметки и файлы","library_page"),
          ("timer","Фокус","timer_page"),
-         ("workspaces","Окна и наборы","_workspaces_page"),
+         ("workspaces","Окна","_workspaces_page"),
          ("shortcuts","Горячие клавиши","shortcuts_page"),
          ("integrations","Приложение","application_page"),
          ("updates","Обновления","updates_page"),
@@ -135,109 +135,79 @@ class SettingsPages:
 
     def overview_page(self):
         from .control_center import text
-        from .hub_ui import ToggleSwitch,icon,CatalogRow
+        from .hub_ui import ToggleSwitch,icon
+        from .dashboard import DashboardDeck
         from .module_preview import ModulePreview,FocusPreview
-        layout=self._page()
-
-        body=QHBoxLayout();body.setSpacing(22)
-        catalog_frame=QFrame();catalog_frame.setObjectName('card')
-        catalog=QVBoxLayout(catalog_frame);catalog.setContentsMargins(6,6,6,6);catalog.setSpacing(2)
-        columns=QHBoxLayout()
-        name=text('Модули',True);name.setObjectName('tableHeading');columns.addWidget(name,1)
-        enabled=text('',True);enabled.setObjectName('tableHeading');columns.addWidget(enabled)
-
-        self.module_status={}
-        self.module_switches={}
-        self.catalog_buttons={}
-        self.catalog_group=QButtonGroup(self)
-        self.catalog_stack=QStackedWidget()
-        self.catalog_stack.setMinimumWidth(245)
-        self.catalog_stack.setMaximumWidth(300)
-        self.catalog_stack.setMinimumHeight(230)
-        specs=(('island','Остров','Музыка, календарь и звук','island_enabled','island'),
-            ('desktop','Группы','Файлы и приложения','desktop_enabled','folder'),
-            ('search','Быстрый поиск','Открыть одной строкой','search_enabled','search'),
-            ('timer','Фокус','Время для важного',None,'timer'),
-            ('library','Заметки и файлы','Всё под рукой',None,'note'),
-            ('workspaces','Окна и наборы','Порядок на экране',None,'windows'))
-        for index,(key,title,detail,setting,glyph_name) in enumerate(specs):
-            row=QHBoxLayout();row.setSpacing(4)
-            select=CatalogRow(title,'',lambda _,i=index:self.select_catalog(i))
-            select.setObjectName('catalogRow');select.setCheckable(True);select.setProperty('destination',key)
-            select.setIcon(icon(glyph_name,self.colors['muted'],20))
-            select.setMinimumHeight(56)
-            self.catalog_group.addButton(select,index)
-            self.catalog_buttons[key]=select
-            row.addWidget(select,1)
+        from .settings_navigation import SettingsSurface
+        layout=self._page();layout.setSpacing(16)
+        self.module_status={};self.module_switches={};self.catalog_buttons={}
+        self.catalog_stack=DashboardDeck(self.select_catalog)
+        for index,(key,title,setting,glyph) in enumerate((('island','Остров','island_enabled','island'),('desktop','Группы','desktop_enabled','folder'),('search','Поиск','search_enabled','search'),('timer','Фокус',None,'timer'),('library','Материалы',None,'note'),('workspaces','Окна',None,'windows'))):
+            panel=SettingsSurface();panel.setObjectName('card');panel.setMinimumHeight(176)
+            inside=QVBoxLayout(panel);inside.setContentsMargins(16,12,16,12);inside.setSpacing(6)
+            header=QHBoxLayout()
+            select=self.action(title,lambda _,i=index:self.select_catalog(i));select.setObjectName('tileTitle');select.setIcon(icon(glyph,self.colors['text'],20))
+            select.setAccessibleName('Предпросмотр: '+title);header.addWidget(select,1);self.catalog_buttons[key]=select
             if setting:
-                toggle=ToggleSwitch(title)
-                toggle.toggled.connect(lambda value,k=setting:self._setting(k,value))
-                row.addWidget(toggle)
-                self.module_switches[setting]=toggle
-            catalog.addLayout(row)
-            panel=QFrame();panel.setObjectName("previewInspector");inside=QVBoxLayout(panel)
-            inside.setContentsMargins(16,16,16,16);inside.setSpacing(12)
+                toggle=ToggleSwitch(title);toggle.toggled.connect(lambda v,k=setting:self._setting(k,v));header.addWidget(toggle);self.module_switches[setting]=toggle
+            inside.addLayout(header)
             if key in ('island','desktop','search'):
-                callback=(self.owner._show_panel if key=='island' else self.owner.show_search if key=='search' else lambda:self.navigate('desktop'))
-                preview=ModulePreview(self.owner,key,callback)
-                inside.addWidget(preview)
-                if key=='island': self.hero_preview=preview
+                callback=self.owner._show_panel if key=='island' else self.owner.show_search if key=='search' else lambda:self.navigate('desktop')
+                preview=ModulePreview(self.owner,key,callback);preview.setMinimumWidth(180);preview.setFixedHeight(84);inside.addWidget(preview)
+                if key=='island':self.hero_preview=preview
             elif key=='timer':
-                self.focus_preview=FocusPreview(self.owner.notch_hub)
-                self.overview_timer=self.focus_preview.readout
-                inside.addWidget(self.focus_preview)
-                self.overview_start=self.action('Начать',self.owner.notch_hub.toggle_timer)
-                self.overview_start.setObjectName('primary');inside.addWidget(self.overview_start)
-
+                self.focus_preview=FocusPreview(self.owner.notch_hub,readout_size=18);self.focus_preview.setFixedHeight(84)
+                self.overview_timer=self.focus_preview.readout;inside.addWidget(self.focus_preview)
+            elif key=='library':
+                sample=QLabel();sample.setTextFormat(Qt.TextFormat.PlainText);sample.setObjectName('noteSample');sample.setWordWrap(True);sample.setMinimumHeight(84)
+                def refresh_note(label=sample):label.setText(self.owner.notch_hub.notes.toPlainText()[:140] or 'Записать мысль…')
+                refresh_note();self.owner.notch_hub.notes.textChanged.connect(refresh_note);inside.addWidget(sample)
+            else:
+                from .window_layout_ui import ZonePicker
+                picker=ZonePicker();picker.setFixedHeight(84);picker.selected.connect(lambda _:self.navigate('workspaces'));inside.addWidget(picker)
+            footer=QHBoxLayout()
+            if key=='timer':
+                self.overview_start=self.action('Начать',lambda:self.start_dashboard_focus());self.overview_start.setObjectName('quiet');footer.addWidget(self.overview_start)
             for status_key in ([key] if setting else ['layouts','workspaces'] if key=='workspaces' else []):
-                status=text('',True);inside.addWidget(status);self.module_status[status_key]=status
-            inside.addWidget(self.action('Настройки',lambda _,k=key:self.navigate(k)))
-            inside.addStretch()
-            self.catalog_stack.addWidget(panel)
-        catalog.addStretch()
-        body.addWidget(catalog_frame,1);body.addWidget(self.catalog_stack,1,Qt.AlignmentFlag.AlignTop)
-        layout.addLayout(body)
+                status=text('',True);footer.addWidget(status);self.module_status[status_key]=status
+                if key=='workspaces':status.hide()
+            footer.addStretch();open_button=self.action('Открыть',lambda _,k=key:self.navigate(k));open_button.setObjectName('quiet');footer.addWidget(open_button)
+            inside.addLayout(footer);self.catalog_stack.addWidget(panel)
+        layout.addWidget(self.catalog_stack)
         self.policy_label=text('',True);self.policy_label.hide()
-        profiles=QHBoxLayout();profiles.setSpacing(4)
-        profiles.addWidget(text('Режим',True));profiles.addStretch()
-        self.profile_buttons={}
+        profile_row=QHBoxLayout();profile_row.addWidget(text('Режим',True));profile_row.addStretch();self.profile_buttons={}
         for key,title in PROFILES.items():
-            btn=self.action('Авто' if key=='auto' else title,lambda _,k=key:self._setting('profile',k))
-            btn.setObjectName('segment');btn.setCheckable(True)
-            profiles.addWidget(btn);self.profile_buttons[key]=btn
-        layout.addLayout(profiles)
-        layout.addStretch()
-        self.select_catalog(0)
+            control=self.action('Авто' if key=='auto' else title,lambda _,k=key:self._setting('profile',k));control.setObjectName('segment');control.setCheckable(True);profile_row.addWidget(control);self.profile_buttons[key]=control
+        layout.addLayout(profile_row);layout.addStretch();self.select_catalog(0)
 
     def select_catalog(self,index):
         self.catalog_stack.setCurrentIndex(index)
-        self.catalog_group.button(index).setChecked(True)
-        if hasattr(self,"focus_tick"): self.sync_focus_timer()
-        # QStackedWidget uses the tallest child by default; keep the selection compact.
-        for i in range(self.catalog_stack.count()):
-            self.catalog_stack.widget(i).setSizePolicy(
-                self.catalog_stack.widget(i).sizePolicy().horizontalPolicy(),
-                QSizePolicy.Policy.Preferred
-                if i==index else QSizePolicy.Policy.Ignored)
+        if hasattr(self,'focus_tick'):self.sync_focus_timer()
+
+    def start_dashboard_focus(self):
+        self.select_catalog(3);self.owner.notch_hub.toggle_timer()
 
     def island_page(self):
         from .module_preview import FormPreview
         from PySide6.QtWidgets import QApplication
         layout=self._page()
         self._module(layout,'island_enabled','Остров','Показывать остров на экране')
-        self.style_choices={}
+        self.form_buttons={}
+        hero=SettingsSurface();hero.setObjectName('card');hero_layout=QVBoxLayout(hero)
+        hero_layout.setContentsMargins(16,12,16,0);hero_layout.setSpacing(8);layout.addWidget(hero)
         self.island_preview=FormPreview(self.owner,'notch',self.owner._show_panel)
-        self.island_preview.setFixedHeight(100)
-        layout.addWidget(self.island_preview)
-        frame,base=self.card('Отображение');layout.addWidget(frame)
-        self.style_picker=QComboBox();self.style_picker.addItem('Чёлка','notch');self.style_picker.addItem('Остров','floating')
-        self.style_picker.setToolTip('Плавающий остров доступен подписчикам канала')
-        self.style_picker.activated.connect(lambda _:self._setting('island_style',self.style_picker.currentData()))
-        self.choice(base,'Форма',self.style_picker)
+        self.island_preview.setFixedHeight(100);hero_layout.addWidget(self.island_preview)
+        forms=QHBoxLayout();forms.setSpacing(6)
+        for title,key in (('Чёлка','notch'),('Остров','floating')):
+            control=self.action(title,lambda _,style=key:self._setting('island_style',style))
+            control.setObjectName('segment');control.setCheckable(True);forms.addWidget(control,1);self.form_buttons[key]=control
+            if key=='floating':control.setToolTip('Плавающий остров — для подписчиков канала')
+        hero_layout.addLayout(forms)
+        self.index_setting('Форма острова',hero_layout,self.form_buttons['floating'])
         self.screen_picker=QComboBox();self.screen_picker.addItem('Основной','')
         for screen in QApplication.screens():self.screen_picker.addItem(screen.name(),screen.name())
         self.screen_picker.currentIndexChanged.connect(lambda _:self._setting('monitor',self.screen_picker.currentData()))
-        self.choice(base,'Экран',self.screen_picker)
+        self.choice(hero_layout,'Экран',self.screen_picker)
         frame,links=self.card('Настройки');layout.addWidget(frame)
         section,inside=self.fold('Размер и прозрачность');links.addWidget(section)
         for title,keys in (('Свёрнутый',(('compact_width','Ширина'),('compact_height','Высота'))),('Раскрытый',(('expanded_width','Ширина'),('expanded_height','Высота')))):
@@ -282,7 +252,8 @@ class SettingsPages:
         from .module_preview import ModulePreview
         layout=self._page()
         self._module(layout,'search_enabled','Поиск','Открывать приложения, файлы и команды')
-        preview=ModulePreview(self.owner,'search',self.owner.show_search);preview.setFixedHeight(108);layout.addWidget(preview)
+        from .dashboard import SearchDemo
+        layout.addWidget(SearchDemo(self))
         frame,group=self.card('Искать');layout.addWidget(frame)
         self._module(group,'search_apps','Приложения','Меню «Пуск» и ярлыки')
         self._module(group,'search_files','Файлы','Используется индекс Windows')
@@ -326,31 +297,32 @@ class SettingsPages:
         self.owner.notch_hub.shelf.changed.connect(self.file_shelf.reload);self.file_shelf.changed.connect(self.owner.notch_hub.shelf.reload)
         tabs.addTab(files,'Файлы')
         self.notebook=Notebook(self.owner.notch_hub);self.notebook.setMinimumHeight(320);tabs.addTab(self.notebook,'Заметки')
-        layout.addWidget(tabs,1)
+        shell=SettingsSurface();shell.setObjectName('card');frame=QVBoxLayout(shell);frame.setContentsMargins(14,10,14,14);frame.addWidget(tabs);layout.addWidget(shell,1)
 
 
     def timer_page(self):
         from .module_preview import FocusPreview
         layout=self._page()
-        self.timer_header=FocusPreview(self.owner.notch_hub);self.timer_header.setFixedHeight(160)
-        self.timer_label=self.timer_header.readout;layout.addWidget(self.timer_header)
-        actions=QHBoxLayout();actions.addStretch()
-        self.focus_start=self.action('Начать',self.owner.notch_hub.toggle_timer);self.focus_start.setObjectName('primary');self.focus_start.setMinimumWidth(120)
-        actions.addWidget(self.focus_start);reset=self.action('Сбросить',self.owner.notch_hub.reset_timer);reset.setObjectName('quiet');actions.addWidget(reset);actions.addStretch();layout.addLayout(actions)
-        quick=QHBoxLayout();quick.addStretch()
-        for minutes in (5,15,25,45,60):
-            control=self.action(str(minutes)+' мин',lambda _,n=minutes:self._setting('timer_minutes',n));control.setObjectName('segment');quick.addWidget(control)
-        quick.addStretch();layout.addLayout(quick)
-        frame,group=self.card('Сеанс');layout.addWidget(frame)
-        self.number(group,'timer_minutes','Длительность',' мин')
-        section,inside=self.fold('Завершение');group.addWidget(section)
-        frame,group=self.card('Сигнал');inside.addWidget(frame)
-        self._module(group,'timer_sound','Воспроизводить звук','Громкость зависит от громкости Windows')
-        self.number(group,'timer_alarm_seconds','Длительность',' сек')
-        self.link(inside,'Прослушать сигнал',self.preview_timer_sound);inside.addStretch();layout.addStretch()
+        frame,body=self.card('');layout.addWidget(frame)
+        main=QHBoxLayout();main.setContentsMargins(0,20,0,20);main.setSpacing(24)
+        self.timer_header=FocusPreview(self.owner.notch_hub);self.timer_header.setFixedSize(190,190)
+        self.timer_label=self.timer_header.readout;main.addWidget(self.timer_header)
+        controls=QVBoxLayout();controls.setSpacing(14)
+        quick=QGridLayout();quick.setSpacing(6)
+        for i,minutes in enumerate((5,15,25,45,60)):
+            control=self.action(str(minutes)+' мин',lambda _,n=minutes:self._setting('timer_minutes',n));control.setObjectName('segment');quick.addWidget(control,i//3,i%3)
+        controls.addLayout(quick)
+        row=QHBoxLayout();self.focus_start=self.action('Начать',self.owner.notch_hub.toggle_timer);self.focus_start.setObjectName('primary');row.addWidget(self.focus_start)
+        reset=self.action('Сбросить',self.owner.notch_hub.reset_timer);reset.setObjectName('quiet');row.addWidget(reset);controls.addLayout(row)
+        main.addLayout(controls,1);body.addLayout(main)
+        self.number(body,'timer_minutes','Минуты',' мин')
+        frame,group=self.card('Завершение');layout.addWidget(frame)
+        self._module(group,'timer_sound','Звук','Громкость определяется Windows')
+        self.number(group,'timer_alarm_seconds','Длительность сигнала',' сек')
+        self.link(group,'Прослушать',self.preview_timer_sound)
+        layout.addStretch()
         self.focus_tick=QTimer(self);self.focus_tick.setInterval(1000);self.focus_tick.timeout.connect(self.refresh_timer_display)
         self.pages.currentChanged.connect(lambda _:self.sync_focus_timer())
-
 
     def open_focus(self):
         self.owner._show_panel()
@@ -358,7 +330,7 @@ class SettingsPages:
 
     def sync_focus_timer(self):
         if self.isVisible() and (self.navigation.currentRow()==self.page_indices['timer'] or
-                self.navigation.currentRow()==self.page_indices['hub'] and self.catalog_stack.currentIndex()==3):
+                self.navigation.currentRow()==self.page_indices['hub']):
             self.focus_tick.start()
             self.refresh_timer_display()
         else:

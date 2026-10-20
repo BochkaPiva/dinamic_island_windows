@@ -19,8 +19,8 @@ def draw_keycaps(p,rect,sequence,colors,*,large=False):
     y=rect.center().y()-height/2
     for token,width in zip(tokens,widths):
         box=QRectF(x,y,width,height)
-        p.setPen(QPen(QColor(255,255,255,18) if colors['bg']=='#161616' else QColor(0,0,0,20),1))
-        p.setBrush(QColor(255,255,255,22) if colors['bg']=='#161616' else QColor(0,0,0,12))
+        p.setPen(QPen(QColor(255,255,255,18) if QColor(colors['bg']).lightness()<128 else QColor(0,0,0,20),1))
+        p.setBrush(QColor(255,255,255,22) if QColor(colors['bg']).lightness()<128 else QColor(0,0,0,12))
         p.drawRoundedRect(box,5,5)
         p.setPen(QColor(colors['text']))
         if token=='Win':
@@ -202,5 +202,5 @@ class ShortcutDialog(QDialog):
         fill=QColor(self.colors['surface']);fill.setAlpha(48 if self.material else 255)
         p.setBrush(fill);p.setPen(QPen(QColor(self.colors['muted'] if self.material else self.colors['line']),.7))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),12,12)
-        p.setPen(QPen(QColor(255,255,255,16) if self.colors['bg']=='#161616' else QColor(0,0,0,20),1))
+        p.setPen(QPen(QColor(255,255,255,16) if QColor(self.colors['bg']).lightness()<128 else QColor(0,0,0,20),1))
         p.drawLine(1,self.height()-52,self.width()-1,self.height()-52)

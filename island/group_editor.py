@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,
 from .hub import FileShelf
 from .group_icons import group_icons
 from .hub_ui import ElidedLabel, CollectionDelegate, icon
+from .settings_navigation import SettingsSurface
 
 
 class GroupFiles(FileShelf):
@@ -104,6 +105,7 @@ class GroupEditor(QWidget):
         self.create.setAccessibleName('Создать группу');self.create.setToolTip('Создать группу')
         collection_header.addWidget(self.create);left_layout.addLayout(collection_header)
         self.groups=QListWidget()
+        self.groups.setStyleSheet("QListWidget {background:transparent;border:0;}")
         self.groups.setItemDelegate(CollectionDelegate(self.groups))
         self.groups.setMouseTracking(True)
         self.groups.setAccessibleName("Все созданные группы рабочего стола")
@@ -137,6 +139,7 @@ class GroupEditor(QWidget):
         self.rename=self.button('Сохранить',self.rename_current);self.rename.setParent(self);self.rename.hide()
         self.activate=self.button('На рабочий стол',lambda:self.manager.store.make_active(self.selected_id));self.activate.setParent(self);self.activate.hide()
         self.files=GroupFiles(self)
+        self.files.setStyleSheet("QListWidget {background:transparent;border:0;}")
         right_layout.addWidget(self.files,1)
         actions=QHBoxLayout()
         self.add_files=self.button("Файлы…",self.files.add_files)
@@ -159,10 +162,10 @@ class GroupEditor(QWidget):
         self.name.setFocus();self.name.selectAll()
 
     def pane(self):
-        frame=QFrame()
+        frame=SettingsSurface()
         frame.setObjectName("groupPane")
         layout=QVBoxLayout(frame)
-        layout.setContentsMargins(0,8,0,0)
+        layout.setContentsMargins(12,12,12,12)
         layout.setSpacing(9)
         return frame,layout
 

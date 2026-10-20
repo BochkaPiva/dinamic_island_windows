@@ -151,6 +151,7 @@ class ControlCenter(QWidget, SettingsPages):
             self.navigation.addItem(label)
             self.navigation.item(self.navigation.count()-1).setData(Qt.ItemDataRole.UserRole,key)
             self.navigation.item(self.navigation.count()-1).setToolTip(label)
+            self.navigation.item(self.navigation.count()-1).setHidden(key in {'shortcuts','updates'})
         self.navigation.setObjectName("navigation")
         self.pages = QStackedWidget()
         self.transition=ContentTransition(self.pages)
@@ -168,7 +169,7 @@ class ControlCenter(QWidget, SettingsPages):
         content=QVBoxLayout()
         content.setContentsMargins(30,16,24,0)
         content.setSpacing(12)
-        self.section_title=text('Модули')
+        self.section_title=text('Главная')
         self.section_title.setObjectName('heading')
         page_header=QHBoxLayout()
         self.back_button=button('‹',lambda:self.travel(-1))
@@ -326,7 +327,7 @@ class ControlCenter(QWidget, SettingsPages):
         menu.addAction('Найти настройку',self.focus_settings_search).setShortcut(QKeySequence('Ctrl+F'))
         menu.addAction('Горячие клавиши',lambda:self.navigate('shortcuts'))
         menu.addAction('Приостановить / продолжить',self._pause)
-        menu.exec(self.action_footer.mapToGlobal(self.action_footer.rect().topRight()))
+        menu.exec(self.page_action.mapToGlobal(self.page_action.rect().bottomLeft()))
 
     def travel(self,step):
         index=self._history_index+step
@@ -389,6 +390,7 @@ class ControlCenter(QWidget, SettingsPages):
         count=0
         for i,(key,label,_) in enumerate(PAGES):
             visible=value.casefold().strip() in (label+' '+synonyms.get(key,'')+' '+' '.join(entry[0] for entry in self.setting_search_entries if entry[1]==i)+' '+' '.join(section.title for section in self.subpages if section.parent_index==i)).casefold()
+            if not value.strip() and key in {'shortcuts','updates'}:visible=False
             self.navigation.item(i).setHidden(not visible)
             count+=visible
         self.search_empty.setVisible(not count)
@@ -423,25 +425,27 @@ class ControlCenter(QWidget, SettingsPages):
         radius=0 if self.isMaximized() else 12
         outline=QPainterPath();outline.addRoundedRect(rect,radius,radius)
         p.setClipPath(outline)
-        p.fillPath(outline,QColor(self.colors['bg']))
+        base=QColor(self.colors['bg'])
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        base.setAlpha(94 if getattr(self,'material',False) else 255)
+        p.fillPath(outline,base)
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         if getattr(self,'material',False):
-            # Only chrome is frosted. Reading and settings surfaces stay opaque.
-            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-            tint=QColor(self.colors['side']);tint.setAlpha(180)
-            p.fillRect(0,0,self.width(),44,tint)
-            if hasattr(self,'sidebar'):
-                p.fillRect(self.sidebar.geometry(),tint)
-            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            from .optics import light_field
+            dpr=self.devicePixelRatioF()
+            p.setOpacity(.18)
+            p.drawImage(0,0,light_field(round(self.width()*dpr),round(self.height()*dpr),dpr,QColor(self.colors['bg']).lightness()>128))
+            p.setOpacity(1)
         p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(self.colors['line']),1))
         p.drawRoundedRect(rect,radius,radius)
         p.drawLine(6,44,self.width()-6,44)
         if hasattr(self,'sidebar'):
             x=self.sidebar.geometry().right()
-            p.drawLine(x,44,x,self.height()-self.action_footer.height()-6 if hasattr(self,'action_footer') else self.height()-6)
+            p.drawLine(x,44,x,self.height()-6)
 
     def refresh_material(self):
         from .native_material import apply_acrylic
-        self.material=apply_acrylic(self,light=self.owner.settings.get('hub_theme')=='light' or self.colors['bg'].upper()=='#F5F5F5')
+        self.material=apply_acrylic(self,light=self.owner.settings.get('hub_theme')=='light' or self.colors['bg'].upper()=='#F5F5F5',tint_alpha=140)
         self.setStyleSheet(stylesheet(self.colors,glass=self.material))
         self.clip_material()
         self.update()
@@ -626,19 +630,10 @@ class ControlCenter(QWidget, SettingsPages):
         self.pause_button.setText("Возобновить" if w.settings.get("paused") else "Приостановить")
         self.policy_label.setText('Модули на паузе' if w.settings.get('paused') else 'Сейчас: '+PROFILES[w._policy.profile])
         self.policy_label.setToolTip('Авто: от сети — «Работа», без зарядки — «Батарея». «Игра» и пауза останавливают модули, но не отсчёт таймера.')
-        if hasattr(self,'style_picker'):
-            self.style_picker.blockSignals(True)
-            effective_style='floating' if w.floating_mode() else 'notch'
-            self.style_picker.setCurrentIndex(self.style_picker.findData(effective_style))
-            self.style_picker.blockSignals(False)
-            self.island_preview.display_style=effective_style
-            self.island_preview.update()
-        if hasattr(self,'style_choices'):
-            for style,(tile,status) in self.style_choices.items():
-                chosen=style==('floating' if w.floating_mode() else 'notch')
-                tile.setProperty('selected',chosen)
-                status.setText(('Выбрано · ' if chosen else '')+('У верхней рамки · для всех' if style=='notch' else 'Отдельно от рамки · подписчикам'))
-                tile.update()
+        effective_style='floating' if w.floating_mode() else 'notch'
+        for style,control in self.form_buttons.items():control.setChecked(style==effective_style)
+        self.island_preview.display_style=effective_style
+        self.island_preview.update()
         bridge = w.powertoys
         bridge.root = powertoys_root()
         self.integration_status.setText(bridge.status if w.settings.get("manage_powertoys") or bridge.busy else "Не подключён · изменения PowerToys не применяются")

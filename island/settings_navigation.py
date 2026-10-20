@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Native settings navigation: one task per detail screen, with persistent controls."""
 from PySide6.QtCore import Qt,QRectF,QSize
-from PySide6.QtGui import QPainter,QColor,QPen
+from PySide6.QtGui import QPainter,QColor,QPen,QLinearGradient
 from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QPushButton,QComboBox
 from .style import font
 
@@ -19,7 +19,7 @@ class SettingsLink(QPushButton):
         c=self.window().colors;p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect=QRectF(self.rect())
         if self.underMouse() or self.hasFocus():
-            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['raised']));p.drawRoundedRect(rect.adjusted(0,2,0,-2),8,8)
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(c['raised']));p.fillRect(rect.adjusted(0,3,0,-3),QColor(c['raised']))
         p.setFont(font(15));p.setPen(QColor(c['text']))
         reserve=min(self.width()//2,220) if self.summary else 28
         p.drawText(rect.adjusted(0,0,-reserve,0),Qt.AlignmentFlag.AlignVCenter,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,max(1,self.width()-reserve)))
@@ -43,10 +43,12 @@ class SettingsSubpage(SettingsLink):
 
 class SettingsSurface(QFrame):
     def paintEvent(self,event):
-        super().paintEvent(event)
         from .brand import palette
         c=getattr(self.window(),'colors',palette())
-        p=QPainter(self);color=QColor(c['line']);color.setAlpha(130);p.setPen(QPen(color,1))
+        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        from .optics import paint_surface
+        paint_surface(p,self,c)
+        color=QColor(c['line']);color.setAlpha(100);p.setPen(QPen(color,1))
         layout=self.layout()
         if not layout:return
         for i in range(layout.count()-1):

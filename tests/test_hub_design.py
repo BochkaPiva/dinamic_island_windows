@@ -15,6 +15,7 @@ from island.app import IslandWindow
 from island.storage import Settings
 from island.hub_ui import ToggleSwitch,ModuleCard
 from island import __version__
+from island.settings_pages import PAGES
 
 
 class HubDesignTests(unittest.TestCase):
@@ -123,7 +124,7 @@ class HubDesignTests(unittest.TestCase):
         self.assertEqual(c.pages.currentIndex(),c.page_indices['updates'])
         c.navigate('desktop')
         self.assertEqual(c.settings_search.text(),'')
-        self.assertTrue(all(not c.navigation.item(i).isHidden() for i in range(c.navigation.count())))
+        self.assertEqual({PAGES[i][0] for i in range(c.navigation.count()) if not c.navigation.item(i).isHidden()}, {key for key,_,_ in PAGES}-{'shortcuts','updates'})
         c.settings_search.setText('nonexistent')
         self.assertTrue(c.search_empty.isVisible())
 
@@ -228,28 +229,59 @@ class HubDesignTests(unittest.TestCase):
         self.assertTrue(c.settings_search.hasFocus())
         self.assertTrue(all(c.navigation.item(i).toolTip() for i in range(c.navigation.count())))
 
-    def test_catalog_shows_one_preview_and_stops_hidden_audio_and_focus_ticks(self):
+    def test_dashboard_tiles_share_live_models_and_stop_timers_when_hidden(self):
         from island.module_preview import ModulePreview
         c=self.center
         c.catalog_buttons['timer'].click()
         self.assertTrue(c.overview_timer.isVisible())
         self.assertTrue(c.focus_tick.isActive())
         c.catalog_buttons['search'].click()
+        self.assertTrue(c.focus_tick.isActive())
+        self.assertEqual(c.catalog_stack.count(),6)
+        self.assertEqual(sum(p.isVisible() for p in c.catalog_stack.findChildren(ModulePreview)),3)
+        c.hero_preview.audio_changed([.5]*5)
+        self.assertTrue(c.hero_preview.clock.isActive())
+        c.navigate('integrations')
         self.assertFalse(c.focus_tick.isActive())
         self.assertFalse(c.hero_preview.clock.isActive())
-        self.assertLessEqual(sum(p.isVisible() for p in c.catalog_stack.findChildren(ModulePreview)),1)
+
+    def test_search_demo_filters_and_opens_the_actual_section(self):
+        from island.dashboard import SearchDemo
+        c=self.center;c.navigate('search')
+        demo=c.findChild(SearchDemo)
+        demo.input.setText('таймер')
+        self.assertEqual(sum(not button.isHidden() for _,button in demo.commands),1)
+        QTest.keyClick(demo.input,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['timer'])
+        c.navigate('search');demo.input.setText('нет такой команды')
+        self.assertTrue(demo.empty.isVisible())
+        QTest.keyClick(demo.input,Qt.Key.Key_Return)
+        self.assertEqual(c.pages.currentIndex(),c.page_indices['search'])
+
+    def test_focus_presets_fit_at_minimum_width_and_share_minutes(self):
+        from PySide6.QtWidgets import QPushButton
+        c=self.center;c.resize(900,600);c.navigate('timer');QTest.qWait(20)
+        buttons={button.text():button for button in c.pages.currentWidget().findChildren(QPushButton)}
+        for minutes in (5,15,25,45,60):
+            button=buttons[str(minutes)+' мин']
+            self.assertTrue(button.parentWidget().rect().contains(button.geometry()))
+            button.click();self.assertEqual(self.w.settings.get('timer_minutes'),minutes)
+        readout=c.timer_header.readout
+        self.assertAlmostEqual(readout.geometry().center().y(),c.timer_header.height()/2,delta=1)
 
     def test_form_picker_shows_effective_access_without_erasing_saved_choice(self):
         c=self.center
         self.w.settings.set('island_style','floating')
         with patch.object(self.w,'floating_mode',return_value=False):
             c.refresh()
-            self.assertEqual(c.style_picker.currentData(),'notch')
+            self.assertTrue(c.form_buttons['notch'].isChecked())
+            self.assertFalse(c.form_buttons['floating'].isChecked())
             self.assertEqual(c.island_preview.display_style,'notch')
             self.assertEqual(self.w.settings.get('island_style'),'floating')
         with patch.object(self.w,'floating_mode',return_value=True):
             c.refresh()
-            self.assertEqual(c.style_picker.currentData(),'floating')
+            self.assertTrue(c.form_buttons['floating'].isChecked())
+            self.assertFalse(c.form_buttons['notch'].isChecked())
 
     def test_long_group_name_does_not_expand_editor_or_hide_panel_menu(self):
         from PySide6.QtCore import QPoint

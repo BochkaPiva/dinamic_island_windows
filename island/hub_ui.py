@@ -149,7 +149,9 @@ class NavDelegate(QStyledItemDelegate):
 
     def paint(self,p,option,index):
         colors=self.parent().window().colors
-        selected=bool(option.state & QStyle.StateFlag.State_Selected)
+        selected=index.row()==self.parent().currentRow()
+        current=self.parent().currentItem()
+        if index.data(Qt.ItemDataRole.UserRole)=='integrations' and current and current.data(Qt.ItemDataRole.UserRole) in {'updates','shortcuts'}:selected=True
         hovered=bool(option.state & QStyle.StateFlag.State_MouseOver)
         p.save()
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -432,7 +434,7 @@ def stylesheet(c,*,glass=False):
         QLabel#tableHeading {{color:{c['muted']};font-size:12px;padding:5px 10px;}}
         QLabel#toast {{background:{c['raised']};border:1px solid {c['line']};border-radius:10px;padding:10px 15px;color:{c['text']};}}
         QLabel#resource {{color:{c['muted']};font-size:10px;}}
-        QFrame#card {{background:{c['surface']};border:0;border-radius:13px;}}
+        QFrame#card {{background:transparent;border:0;border-radius:18px;}}
         QFrame#groupPane {{background:transparent;border:0;}}
         QFrame#sidebar {{background:{sidebar};border:0;border-radius:0;}}
         QFrame#hero {{background:{c['surface']};border:0;border-radius:8px;}}
@@ -448,6 +450,10 @@ def stylesheet(c,*,glass=False):
         QPushButton#primary:hover {{background:{c['selection']};border-color:{c['muted']};}}
         QPushButton#disclosure {{background:transparent;border:0;text-align:left;font-size:13px;font-weight:500;padding:8px 0;}}
         QPushButton#disclosure:hover {{color:{c['accent']};}}
+        QPushButton#tileTitle {{background:transparent;border:0;text-align:left;padding:0;font-size:14px;font-weight:500;}}
+        QPushButton#demoResult {{background:transparent;border:0;text-align:left;padding:9px 6px;}}
+        QPushButton#demoResult:hover {{background:{c['selection']};}}
+        QLabel#noteSample {{font-size:17px;color:{c['muted']};padding:8px;}}
         QPushButton#iconButton {{padding:0;}}
         QPushButton#iconButton::menu-indicator {{width:0;}}
         QPushButton#quiet {{background:transparent;border:0;color:{c['muted']};padding:5px 0;}}

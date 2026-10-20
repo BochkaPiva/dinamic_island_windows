@@ -48,3 +48,11 @@ screens, one-line setting rows, on-demand help, and search that opens actual par
 Do not restore broad button bars, duplicated title/name fields, technical paragraphs,
 or piles of expanding settings. Use settings_navigation.py, preserve all control/data
 and access contracts, and render root AND detail screens before declaring a design pass done.
+
+## Latest user correction (0.11.2)
+The user explicitly superseded the earlier one-preview/catalog rule: restore six
+interactive home tiles and a glass material with visible edge refraction. Follow
+current docs/NELVIRO_DESIGN.md. Keep shared live models, direct actions and neutral
+colors. Native DWM acrylic blurs the external desktop; optics.py refracts only the
+app-owned internal light field. Never call that external-desktop refraction, warp
+labels, or capture the screen as a product backdrop. Preserve opaque fallback.

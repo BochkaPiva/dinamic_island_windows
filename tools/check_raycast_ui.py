@@ -18,7 +18,10 @@ app=QApplication([])
 app.setQuitOnLastWindowClosed(False)
 out=Path(sys.argv[1]);out.mkdir(parents=True,exist_ok=True)
 errors=[]
-sys.excepthook=lambda kind,value,tb:errors.append(str(value))
+def report_error(kind,value,tb):
+    errors.append(str(value))
+    sys.__excepthook__(kind,value,tb)
+sys.excepthook=report_error
 report={'scale':os.environ.get('QT_SCALE_FACTOR','1'),'platform':app.platformName(),'pages':[]}
 with tempfile.TemporaryDirectory() as folder:
     w=IslandWindow(Settings(folder),services=False)
@@ -43,7 +46,8 @@ with tempfile.TemporaryDirectory() as folder:
         for key,button in c.catalog_buttons.items():
             button.click();QTest.qWait(15)
             previews=[p for p in c.catalog_stack.findChildren(ModulePreview) if p.isVisible()]
-            assert len(previews)<=1
+            assert len(previews)==3
+            assert c.catalog_stack.count()==6
         c.catalog_buttons['island'].click()
         for theme in ('dark','light'):
             c._setting('hub_theme',theme)

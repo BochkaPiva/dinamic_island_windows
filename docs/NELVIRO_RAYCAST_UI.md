@@ -1,24 +1,37 @@
-# Nelviro 0.11.1 · navigation and visual redesign
+# Nelviro 0.11.2 · interactive home and optical surfaces
 
-## Problem and result
+## Current interface
 
-The 0.11.0 pass retained long explanatory copy, repeated labels and a flattened
-hierarchy. The user rejected it and supplied Raycast Settings again. This pass changes
-composition and the paths through settings, rather than treating a color change or a
-binding dialog as completion. Root screens are short, related settings use common
-rows, and detailed tasks open a separate screen with working history.
+Home uses six interactive tiles over the existing shared models: media, groups,
+search, focus, notes and window zones. Start/pause and timer editing work directly
+in the tile; typing in the search demonstration filters three actual app commands.
+Detailed search remains the separate existing launcher. The visible dashboard clock
+updates independently of tile hover, and audio coalescing stops when the page hides.
 
-Frontend Design was installed from anthropics/claude-code and read alongside the
-existing UI UX Pro Max. The user's references and existing Qt architecture remain
-authoritative. No Raycast code/assets were copied; no web stack or backend was added.
+Island has direct form buttons with one effective-access preview; the saved member
+choice survives free access. Focus combines the centered ring, presets in a three-
+column grid and start/reset, followed by completion settings on the same page.
+Groups and materials use common pane surfaces. Community has persistent connection
+controls, an interactive form comparison and a compact group/media benefits view.
+Shortcuts and Updates remain reachable via Application/search; stable root IDs and
+history are unchanged. Bottom key hints remain visible.
+
+The neutral optical layer samples only the app-owned light field in a 12 px rim.
+It displaces those pixels, then paints controls/labels sharply above them. External
+desktop blur is native Windows acrylic, not desktop refraction. No screen capture,
+wallpaper image, web dependency or continuously running optical animation was added.
+Native failure/disabled transparency/high contrast retain opaque surfaces.
+
+Frontend Design and UI UX Pro Max are advisory; the user's references and PySide6
+architecture remain authoritative. No Raycast assets/code were copied.
 
 ## Preservation and scenario map
 
 | Task | Current entry / flow | Preserved behavior |
 | --- | --- | --- |
-| Enable modules | Catalog and header master switches | Same stored preferences and runtime policy |
-| Select profile / pause | Modules mode controls; sidebar pause | Policy does not overwrite preferences |
-| Notch/floating | Island → Form, one live preview | Floating gated by channel access, saved choice retained |
+| Enable modules | Home tiles and header master switches | Same stored preferences and runtime policy |
+| Select profile / pause | Home mode controls; sidebar pause | Policy does not overwrite preferences |
+| Notch/floating | Island → form buttons, one live preview | Floating gated by channel access, saved choice retained |
 | Monitor | Island → Screen | Existing monitor identity and positioning |
 | Dimensions / opacity / gap | Island → Size and opacity | All six typed values and existing limits |
 | Cursor / fullscreen / delays | Island → Behavior | Same reversible presentation/geometry logic |
@@ -32,13 +45,13 @@ authoritative. No Raycast code/assets were copied; no web stack or backend was a
 | Group appearance / delays | Desktop → Group appearance | Same values, desktop owner/layer recovery unchanged |
 | File shelf / notes | Files and Notes tabs | Shared quick note, atomic/debounced save and update flush |
 | Focus timer | Timer, presets and start/reset | Monotonic countdown, wheel/direct entry, pause/resume |
-| Alarm | Focus → Completion | Same WAV, bounded alarm, mute/dismiss |
+| Alarm | Focus primary completion group | Same WAV, bounded alarm, mute/dismiss |
 | Window sizing | Windows → Layout | Existing verified native HWND placement |
 | Saved workspaces / zones | Windows detail screens | Existing optional PowerToys integration and backups |
 | Global hotkeys | Shortcuts; Search shortcut row | RegisterHotKey conflicts/rollback, canonical key model |
 | Theme / motion / autostart | Application primary screen | Same settings, dark/light/system and reduced motion |
 | PowerToys connect/restore | Application → PowerToys | Existing backup and restore behavior |
-| Updates | Existing root and Application entry | Check/download/verify/install/cancel/recovery unchanged |
+| Updates | Application entry / settings search | Check/download/verify/install/cancel/recovery unchanged |
 | Telegram | Community status/action/comparison | Persistent widget tree, original pairing and signed permits |
 | Find a setting | Settings search → matching control | Exact page names win; detail and focus restored |
 | History | Back/forward, Alt+Left/Right, Escape | Persistent bodies, root IDs/deep links preserved |
@@ -48,38 +61,26 @@ rules were changed. All 15 prior numeric controls and 22 toggles remain represen
 
 ## Verification
 
-- 221 desktop tests pass. New tests cover nested routes, history, actual setting search,
-  page-name precedence, shared header switches and the complete prior control set.
-- Native matrix: 11 roots + 10 details, two themes, widths 900/1120, actual DPR 1/1.5/2:
-  252 rendered cases. No horizontal overflow or captured Qt exception. Isolated group
-  files retain their bytes; hidden preview clocks stop.
-- Native group checks: five identical-name fixture groups, ID-bound rename, create,
-  desktop popup dispatch, cancel/delete confirmation, original retention, reload,
-  small-window action access and separate appearance screen pass. That management
-  fixture explicitly uses preview access; signed-permit/free-limit tests remain separate.
-- Native shortcut checks: cancel preserves, save persists, conflict preserves old value;
-  optional dark acrylic active on the test machine. Search-row recorder anchors to its
-  actual clicked control. Opaque fallback remains covered.
-- Native launcher checks: real popup retention, settings navigation, five empty-query
-  commands and optional acrylic pass. No Windows/browser media behaviour changed here.
-- Packaging result and Windows CI are recorded on PR #6 after the build completes.
+- 226 desktop unit/regression tests pass and cover shared timers, preset bounds, command filtering,
+  retained settings, history, data/access contracts, and exact optical pixel sampling.
+- Native root/detail matrix covers 240 cases: two themes, widths 900/1120, actual DPR 1/1.5/2.
+  Results are generated in build/studio-final-matrix; no horizontal overflow or Qt errors.
+- Native group management checks preserve originals, group IDs and safe dialog actions.
+- Native shortcut checks cover cancel/save/conflicts and composed material.
+- Native launcher checks cover popup retention, settings navigation and five commands.
+- Scroll CPU check at DPR 2: approximately 16 ms median / 18 ms p95 across 32 owned-fixture steps. This does not measure compositor FPS.
+- Packaged candidate build, self-test and dependency/license audit are recorded on PR #6.
 
-## Actual complete windows
+## Actual Windows captures
 
-Composed Windows captures below use owned Qt fixture windows and a neutral backing;
-they are application renders, not image mockups or runtime screenshot backgrounds.
+These are complete windows rendered by the app in an isolated fixture profile,
+not generated mockups or product screenshot backdrops.
 
-![Application](screenshots/raycast/minimal-integrations.png)
-![Island](screenshots/raycast/minimal-island.png)
-![Behavior detail](screenshots/raycast/minimal-behavior.png)
-![Groups](screenshots/raycast/minimal-desktop.png)
-![Group appearance](screenshots/raycast/minimal-group-appearance.png)
-![Search settings](screenshots/raycast/minimal-search.png)
-![Focus](screenshots/raycast/minimal-timer.png)
-![Files](screenshots/raycast/minimal-library.png)
-![Community](screenshots/raycast/minimal-account.png)
-![Modules](screenshots/raycast/minimal-hub.png)
-
-The full dark/light/DPI root/detail matrix stays in build/minimal-final. The screenshots
-show the implemented composition; they are not a claim of pixel-identical reproduction
-or an excuse to consider any layout change sufficient without visual inspection.
+![Home](screenshots/raycast/studio-hub-native.png)
+![Island](screenshots/raycast/studio-island-native.png)
+![Focus](screenshots/raycast/studio-timer-native.png)
+![Search](screenshots/raycast/studio-search-native.png)
+![Groups](screenshots/raycast/studio-desktop-native.png)
+![Materials](screenshots/raycast/studio-library-native.png)
+![Application](screenshots/raycast/studio-integrations-native.png)
+![Community](screenshots/raycast/studio-account-native.png)

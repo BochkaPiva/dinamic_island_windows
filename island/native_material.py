@@ -11,7 +11,7 @@ import winreg
 from PySide6.QtGui import QGuiApplication
 
 
-def apply_acrylic(widget, *, light=False, enabled=True):
+def apply_acrylic(widget, *, light=False, enabled=True, tint_alpha=None):
     if QGuiApplication.platformName() != 'windows' or sys.getwindowsversion().build < 22000:
         return False
     try:
@@ -36,7 +36,9 @@ def apply_acrylic(widget, *, light=False, enabled=True):
                       ('color',ctypes.c_uint),('animation',ctypes.c_int)]
         class Data(ctypes.Structure):
             _fields_=[('attribute',ctypes.c_int),('data',ctypes.c_void_p),('size',ctypes.c_size_t)]
-        accent=Accent(4 if enabled else 0,0,0xCCF4F4F4 if light else 0xBB222222,0)
+        color=0xCCF4F4F4 if light else 0xBB222222
+        if tint_alpha is not None:color=(color & 0xFFFFFF)|(max(0,min(255,int(tint_alpha)))<<24)
+        accent=Accent(4 if enabled else 0,0,color,0)
         data=Data(19,ctypes.cast(ctypes.pointer(accent),ctypes.c_void_p),ctypes.sizeof(accent))
         setter=user.SetWindowCompositionAttribute
         setter.argtypes=(ctypes.c_void_p,ctypes.POINTER(Data));setter.restype=ctypes.c_int

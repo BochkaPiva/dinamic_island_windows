@@ -8,7 +8,9 @@ from . import __version__
 from .style import app_icon
 
 
-class UpdatePanel(QFrame):
+from .settings_navigation import SettingsSurface
+
+class UpdatePanel(SettingsSurface):
     def __init__(self,owner,parent=None):
         super().__init__(parent)
         self.owner=owner
