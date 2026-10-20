@@ -65,7 +65,7 @@ def close_own_hub(pid):
         owner=wintypes.DWORD();user.GetWindowThreadProcessId(hwnd,ctypes.byref(owner))
         if owner.value==pid:
             title=ctypes.create_unicode_buffer(256);user.GetWindowTextW(hwnd,title,256)
-            if title.value=='Nelviro': user.PostMessageW(hwnd,0x0010,0,0)
+            if title.value in ('Cloud Hub','Nelviro'): user.PostMessageW(hwnd,0x0010,0,0)
         return True
     user.EnumWindows(callback_type(visit),0)
     until=time.monotonic()+3
