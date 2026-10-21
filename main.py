@@ -88,15 +88,11 @@ def main():
         app = QCoreApplication([])
         notify_existing("quit")
         return 0
-    from island.app import run
     from island.storage import data_dir
-    import traceback
-    def failure(kind, value, trace):
-        with (data_dir()/"crash.log").open("a", encoding="utf-8") as stream:
-            traceback.print_exception(kind, value, trace, file=stream)
-        sys.__excepthook__(kind, value, trace)
-    sys.excepthook = failure
-    return run(background=args.background, island=args.island, updated=args.updated)
+    from island.failure_log import failure_logging
+    with failure_logging(data_dir()):
+        from island.app import run
+        return run(background=args.background, island=args.island, updated=args.updated)
 
 
 if __name__ == "__main__":

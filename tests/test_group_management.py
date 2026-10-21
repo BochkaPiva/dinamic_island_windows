@@ -74,6 +74,17 @@ class GroupManagementTests(unittest.TestCase):
         self.assertEqual(self.editor.groups.currentRow(),0)
         self.assertIn('Название не может быть пустым',self.messages)
 
+    def test_live_reload_updates_existing_panel_and_editor_by_id(self):
+        import json
+        document=json.loads(self.store.path.read_text(encoding='utf-8'))
+        document['groups'][2]['title']='Restored group'
+        self.store.path.write_text(json.dumps(document),encoding='utf-8')
+        self.store.retry_load()
+        self.assertEqual(self.manager.panels[self.ids[2]].group['title'],'Restored group')
+        self.assertIs(self.manager.panels[self.ids[2]].group,self.store.find(self.ids[2]))
+        self.editor.select_id(self.ids[2])
+        self.assertEqual(self.editor.name.text(),'Restored group')
+
     def test_menu_actions_target_exact_group_and_settings_select_it(self):
         panel=self.manager.panels[self.ids[2]]
         menu=panel.build_menu()

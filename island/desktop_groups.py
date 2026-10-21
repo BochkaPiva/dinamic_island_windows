@@ -8,7 +8,7 @@ from pathlib import Path
 import uuid
 import os
 import tempfile
-from PySide6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, Signal
+from PySide6.QtCore import Qt, QObject, QTimer, QEvent, QSize, QRect, QRectF, Signal, QLockFile
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QTextLayout, QTextOption
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QListWidget, QFileDialog, QMenu, QStyledItemDelegate, QStyle,
@@ -69,42 +69,80 @@ class GroupStore(QObject):
         self.groups = []
         self.access = access
         self._read_failed = False
+        self._loaded_text = None
         loaded = False
         missing = False
         try:
-            for attempt in range(3):
-                try:
-                    raw = self.path.read_text(encoding="utf-8-sig")
-                    break
-                except FileNotFoundError:
-                    raise
-                except OSError:
-                    if attempt == 2:
-                        raise
-                    time.sleep(.025)
-            document = json.loads(raw)
-            if not isinstance(document, dict) or not isinstance(document.get("groups"), list):
-                raise ValueError("Invalid group document")
+            raw = self.read_document()
+            groups = self.parse_document(raw)
+            self.groups, self._loaded_text = groups, raw
             loaded = True
-            for record in document.get("groups", [])[:30]:
-                if not isinstance(record, dict) or not isinstance(record.get("title"), str):
-                    continue
-                self.groups.append({"id": str(uuid.UUID(record["id"])), "title": record["title"][:60],
-                    "items": list(dict.fromkeys(p for p in record.get("items", []) if isinstance(p, str)))[:100],
-                    "x": max(0., min(1., float(record.get("x", .03)))),
-                    "y": max(0., min(1., float(record.get("y", .12)))),
-                    "screen": str(record.get("screen", ""))})
         except FileNotFoundError:
             missing = True
-        except (OSError, ValueError, TypeError, KeyError, AttributeError):
-            # Never turn a read failure into a fresh install or overwrite the evidence.
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
             self._read_failed = True
             self.last_warning = "Не удалось прочитать группы. Данные сохранены; повторим загрузку автоматически."
-        if not self.groups and missing:
-            self.add("Работа", .03)
-            self.add("Личное", .31)
+        if missing:
+            # A missing file is not evidence of a first launch. Recover a complete
+            # generation before considering defaults; never overwrite a returning file.
+            candidates = [self.path.with_suffix('.last-good.json')]
+            candidates += list((self.path.parent/'backups').glob('*/desktop-groups.json'))
+            existing = []
+            for candidate in candidates:
+                try:
+                    if candidate.is_file():
+                        existing.append((candidate.stat().st_mtime_ns,candidate))
+                except OSError:
+                    continue
+            for _,candidate in sorted(existing,key=lambda item:item[0],reverse=True):
+                try:
+                    recovered = self.parse_document(candidate.read_text(encoding='utf-8-sig'))
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+                    continue
+                self.groups = recovered
+                if self.save():
+                    self.last_warning = "Группы восстановлены из резервной копии."
+                break
+            else:
+                if existing or self.library.entries or self.library.root.exists() or (self.path.parent/'backups').exists():
+                    self._read_failed = True
+                    self.last_warning = "Файл групп временно недоступен. Существующие данные не заменяются стандартными группами."
+                else:
+                    self.add("Работа", .03)
+                    self.add("Личное", .31)
         elif loaded and migrate and not self._read_failed:
             self.migrate_shortcuts()
+
+    def read_document(self):
+        for attempt in range(3):
+            try:
+                return self.path.read_text(encoding='utf-8-sig')
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(.025)
+
+    @staticmethod
+    def parse_document(raw):
+        document = json.loads(raw)
+        if not isinstance(document,dict) or document.get('version',1)!=1 or not isinstance(document.get('groups'),list):
+            raise ValueError('Invalid group document')
+        groups=[]
+        if len(document['groups'])>30:
+            raise ValueError('Too many groups')
+        ids=set()
+        for record in document['groups']:
+            if not isinstance(record,dict) or not isinstance(record.get('title'),str) or not isinstance(record.get('items',[]),list):
+                raise ValueError('Invalid group record')
+            identifier=str(uuid.UUID(record['id']))
+            x,y=float(record.get('x',.03)),float(record.get('y',.12))
+            if identifier in ids or not math.isfinite(x) or not math.isfinite(y):
+                raise ValueError('Invalid group identity or position')
+            ids.add(identifier)
+            groups.append({'id':identifier,'title':record['title'][:60],
+                'items':list(dict.fromkeys(p for p in record.get('items',[]) if isinstance(p,str)))[:100],
+                'x':max(0.,min(1.,x)),'y':max(0.,min(1.,y)),'screen':str(record.get('screen',''))})
+        return groups
 
     def warn(self,message):
         self.last_warning=message
@@ -158,13 +196,27 @@ class GroupStore(QObject):
             return False
         temporary = None
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.parent.mkdir(parents=True,exist_ok=True)
+        except OSError:
+            self.warn("Не удалось открыть папку данных групп")
+            return False
+        lock = QLockFile(str(self.path.with_suffix('.lock')))
+        if not lock.tryLock(100):
+            self.warn("Группы сейчас сохраняются другим процессом. Повторите действие.")
+            return False
+        try:
+            try:
+                current = self.path.read_text(encoding='utf-8-sig')
+            except FileNotFoundError:
+                current = None
+            if current != self._loaded_text:
+                self._read_failed = True
+                self.warn("Файл групп изменился. Загрузим сохранённые данные, не заменяя их текущим набором.")
+                return False
             # Validate the previous document before retaining it as a recovery generation.
             if self.path.exists():
                 previous = self.path.read_bytes()
-                parsed = json.loads(previous.decode('utf-8-sig'))
-                if not isinstance(parsed, dict) or not isinstance(parsed.get('groups'), list):
-                    raise ValueError('Invalid previous groups')
+                self.parse_document(previous.decode('utf-8-sig'))
                 backup = self.path.with_suffix('.last-good.json')
                 with tempfile.NamedTemporaryFile(dir=self.path.parent, delete=False) as stream:
                     temporary = Path(stream.name)
@@ -175,17 +227,22 @@ class GroupStore(QObject):
                 temporary = None
             with tempfile.NamedTemporaryFile(dir=self.path.parent, delete=False) as stream:
                 temporary = Path(stream.name)
-                stream.write(json.dumps({"version": 1, "groups": self.groups}, ensure_ascii=False, indent=2).encode('utf-8'))
+                serialized = json.dumps({"version": 1, "groups": self.groups}, ensure_ascii=False, indent=2)
+                self.parse_document(serialized)
+                stream.write(serialized.encode('utf-8'))
                 stream.flush()
                 os.fsync(stream.fileno())
             temporary.replace(self.path)
             temporary = None
+            self._loaded_text = serialized
+            lock.unlock()
             self.changed.emit()
             return True
         except (OSError, ValueError):
             self.error.emit("Не удалось сохранить группы на диск")
             return False
         finally:
+            lock.unlock()
             if temporary is not None:
                 try:
                     temporary.unlink(missing_ok=True)
@@ -193,18 +250,17 @@ class GroupStore(QObject):
                     pass
 
     def retry_load(self):
-        if not self._read_failed:
-            return
+        # Poll the document even after a successful/default load: a valid saved
+        # generation may become available later (restore, transient disappearance).
         try:
-            document = json.loads(self.path.read_text(encoding='utf-8-sig'))
-            if not isinstance(document, dict) or not isinstance(document.get('groups'), list):
+            raw = self.read_document()
+            if raw == self._loaded_text and not self._read_failed:
                 return
-        except (OSError, ValueError):
+            groups = self.parse_document(raw)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+            self._read_failed = True
             return
-        retry = GroupStore(self.path.parent, collect_desktop=False, desktop_roots=[], migrate=False)
-        if retry._read_failed:
-            return
-        self.groups = retry.groups
+        self.groups, self._loaded_text = groups, raw
         self._read_failed = False
         self.last_warning = ""
         self.changed.emit()
@@ -805,6 +861,7 @@ class DesktopGroups(QObject):
                 self.panels[group["id"]] = GroupPanel(self,group)
             else:
                 panel = self.panels[group["id"]]
+                panel.group = group
                 if panel.shelf.paths() != group["items"]:
                     panel.shelf.reload()
                 panel.configure()
