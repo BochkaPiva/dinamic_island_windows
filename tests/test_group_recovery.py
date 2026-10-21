@@ -75,3 +75,96 @@ class GroupRecoveryTests(unittest.TestCase):
     def test_explicit_empty_group_list_does_not_create_defaults(self):
         self.path.write_text(json.dumps({'version': 1, 'groups': []}), encoding='utf-8')
         self.assertEqual(GroupStore(self.root, desktop_roots=[]).groups, [])
+
+    def test_transient_missing_file_retries_before_defaults(self):
+        read=Path.read_text
+        calls=[]
+        def missing_once(path,*args,**kwargs):
+            if path==self.path and not calls:
+                calls.append(True)
+                raise FileNotFoundError('temporary disappearance')
+            return read(path,*args,**kwargs)
+        with patch.object(Path,'read_text',missing_once):
+            store=GroupStore(self.root,desktop_roots=[])
+        self.assertEqual(store.groups[0]['title'],'Programming')
+        self.assertEqual(self.path.read_bytes(),self.content)
+
+    def test_missing_primary_recovers_complete_last_good_not_defaults(self):
+        backup=self.path.with_suffix('.last-good.json')
+        backup.write_bytes(self.content)
+        self.path.unlink()
+        store=GroupStore(self.root,desktop_roots=[])
+        self.assertFalse(store._read_failed)
+        self.assertEqual(store.groups[0]['title'],'Programming')
+        self.assertEqual(json.loads(self.path.read_text(encoding='utf-8'))['groups'],store.groups)
+        self.assertEqual(backup.read_bytes(),self.content)
+
+    def test_missing_primary_recovers_update_backup(self):
+        self.path.with_suffix('.last-good.json').unlink()
+        backup=self.root/'backups'/'before-update'/'desktop-groups.json'
+        backup.parent.mkdir(parents=True)
+        backup.write_bytes(self.content)
+        self.path.unlink()
+        store=GroupStore(self.root,desktop_roots=[])
+        self.assertEqual(store.groups[0]['title'],'Programming')
+        self.assertEqual(backup.read_bytes(),self.content)
+
+    def test_invalid_backup_is_not_treated_as_new_install(self):
+        backup=self.path.with_suffix('.last-good.json')
+        backup.write_bytes(b'{truncated')
+        self.path.unlink()
+        store=GroupStore(self.root,desktop_roots=[])
+        self.assertTrue(store._read_failed)
+        self.assertEqual(store.groups,[])
+        self.assertFalse(self.path.exists())
+        self.assertEqual(backup.read_bytes(),b'{truncated')
+
+    def test_late_restored_document_replaces_stale_defaults_without_restart(self):
+        fresh=self.root/'another-profile'
+        store=GroupStore(fresh,desktop_roots=[])
+        self.assertEqual(store.groups[0]['title'],'Работа')
+        store.path.write_bytes(self.content)
+        store.retry_load()
+        self.assertEqual(store.groups[0]['title'],'Programming')
+        self.assertEqual(store.path.read_bytes(),self.content)
+        self.assertTrue(store.rename(store.groups[0]['id'],'Recovered'))
+
+    def test_stale_writer_cannot_overwrite_restored_groups(self):
+        store=GroupStore(self.root,desktop_roots=[])
+        newest=json.loads(self.content)
+        newest['groups'][0]['title']='Restored externally'
+        saved=json.dumps(newest,ensure_ascii=False).encode()
+        self.path.write_bytes(saved)
+        self.assertFalse(store.rename(store.groups[0]['id'],'Stale name'))
+        self.assertEqual(self.path.read_bytes(),saved)
+        store.retry_load()
+        self.assertEqual(store.groups[0]['title'],'Restored externally')
+        self.assertFalse(store._read_failed)
+
+    def test_second_store_does_not_erase_first_store_commit(self):
+        stale=GroupStore(self.root,desktop_roots=[])
+        self.assertTrue(self.original.rename(self.original.groups[0]['id'],'First writer'))
+        saved=self.path.read_bytes()
+        self.assertFalse(stale.remove(stale.groups[0]['id']))
+        self.assertEqual(self.path.read_bytes(),saved)
+        stale.retry_load()
+        self.assertEqual(stale.groups[0]['title'],'First writer')
+
+    def test_bad_later_record_never_leaves_partial_model(self):
+        document=json.loads(self.content)
+        document['groups'][1]['id']='not-a-uuid'
+        saved=json.dumps(document).encode()
+        self.path.write_bytes(saved)
+        store=GroupStore(self.root,desktop_roots=[])
+        self.assertEqual(store.groups,[])
+        self.assertTrue(store._read_failed)
+        self.assertFalse(store.save())
+        self.assertEqual(self.path.read_bytes(),saved)
+
+    def test_corruption_during_runtime_retains_loaded_groups(self):
+        self.path.write_bytes(b'{broken')
+        self.original.retry_load()
+        self.assertEqual(self.original.groups[0]['title'],'Programming')
+        self.assertTrue(self.original._read_failed)
+        self.assertFalse(self.original.rename(self.original.groups[0]['id'],'Must not save'))
+        self.assertEqual(self.path.read_bytes(),b'{broken')
